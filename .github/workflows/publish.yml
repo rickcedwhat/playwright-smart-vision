@@ -1,0 +1,87 @@
+name: Publish to npm
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check if version changed
+        id: check_version
+        run: |
+          PACKAGE_NAME=@rickcedwhat/playwright-smart-vision
+          LATEST_VERSION=$(npm view $PACKAGE_NAME version 2>/dev/null || echo "0.0.0")
+          LOCAL_VERSION=$(node -p "require('./package.json').version")
+          SHORT_SHA=${GITHUB_SHA::7}
+
+          IS_GREATER=$(node -e "
+            const [a, b] = ['$LOCAL_VERSION', '$LATEST_VERSION'].map(v => v.split('.').map(Number).concat(0, 0, 0).slice(0, 3));
+            const gt = a[0] > b[0] || (a[0] === b[0] && a[1] > b[1]) || (a[0] === b[0] && a[1] === b[1] && a[2] > b[2]);
+            process.stdout.write(gt ? 'true' : 'false');
+          ")
+
+          if [ "$IS_GREATER" = "true" ]; then
+            echo "✨ Version bump detected — publishing $LOCAL_VERSION as latest."
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+            echo "tag=latest" >> $GITHUB_OUTPUT
+          else
+            NEXT_VERSION="${LOCAL_VERSION}-next.${SHORT_SHA}"
+            echo "📦 No version bump — publishing $NEXT_VERSION as next."
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "version=$NEXT_VERSION" >> $GITHUB_OUTPUT
+            echo "tag=next" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build
+        run: npm run build --ignore-scripts
+
+      - name: Stamp prerelease version
+        if: steps.check_version.outputs.changed == 'false'
+        run: npm version ${{ steps.check_version.outputs.version }} --no-git-tag-version
+
+      - name: Publish to npm
+        run: |
+          VERSION=${{ steps.check_version.outputs.version }}
+          TAG=${{ steps.check_version.outputs.tag }}
+          PACKAGE_NAME=@rickcedwhat/playwright-smart-vision
+
+          if npm view "${PACKAGE_NAME}@${VERSION}" version &>/dev/null; then
+            echo "⏩ ${VERSION} already published — ensuring dist-tag ${TAG} is set."
+            npm dist-tag add "${PACKAGE_NAME}@${VERSION}" "$TAG"
+          else
+            npm publish --provenance --access public --tag "$TAG"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: steps.check_version.outputs.changed == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: v${{ steps.check_version.outputs.version }}
+          name: v${{ steps.check_version.outputs.version }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
