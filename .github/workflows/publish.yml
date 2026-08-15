@@ -6,7 +6,8 @@ on:
       - main
 
 jobs:
-  publish:
+  publish-core:
+    name: Publish @rickcedwhat/playwright-smart-vision
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -24,10 +25,11 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci --ignore-scripts
+        run: npm install --ignore-scripts
 
-      - name: Check if version changed
+      - name: Check if core version changed
         id: check_version
+        working-directory: packages/core
         run: |
           PACKAGE_NAME=@rickcedwhat/playwright-smart-vision
           LATEST_VERSION=$(npm view $PACKAGE_NAME version 2>/dev/null || echo "0.0.0")
@@ -53,14 +55,17 @@ jobs:
             echo "tag=next" >> $GITHUB_OUTPUT
           fi
 
-      - name: Build
-        run: npm run build --ignore-scripts
+      - name: Build Core
+        working-directory: packages/core
+        run: npx tsc
 
       - name: Stamp prerelease version
         if: steps.check_version.outputs.changed == 'false'
+        working-directory: packages/core
         run: npm version ${{ steps.check_version.outputs.version }} --no-git-tag-version
 
-      - name: Publish to npm
+      - name: Publish Core to npm
+        working-directory: packages/core
         run: |
           VERSION=${{ steps.check_version.outputs.version }}
           TAG=${{ steps.check_version.outputs.tag }}
@@ -80,8 +85,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: v${{ steps.check_version.outputs.version }}
-          name: v${{ steps.check_version.outputs.version }}
+          tag_name: core-v${{ steps.check_version.outputs.version }}
+          name: core v${{ steps.check_version.outputs.version }}
           generate_release_notes: true
           draft: false
           prerelease: false
