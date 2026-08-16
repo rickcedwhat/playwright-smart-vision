@@ -21,3 +21,19 @@ export async function attachOcrImage(name: string, buffer: Buffer): Promise<void
     // Not running inside a Playwright test.
   }
 }
+
+/**
+ * Resolve the assertion timeout: explicit override → 5 000 ms default → 0 outside a test.
+ * 5 000 ms matches Playwright's built-in expect.timeout default. Pass options.timeout to
+ * override per-call, or pass 0 to assert once without retrying.
+ * Returns 0 when called outside a Playwright test (no retry in unit/script contexts).
+ */
+export function expectTimeout(override?: number): number {
+  if (override !== undefined) return override;
+  try {
+    test.info();
+    return 5_000;
+  } catch {
+    return 0;
+  }
+}
