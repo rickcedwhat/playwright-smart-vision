@@ -1,12 +1,10 @@
 {
   "name": "playwright-smart-vision-monorepo",
   "private": true,
-  "workspaces": [
-    "packages/*"
-  ],
+  "packageManager": "pnpm@10.33.2",
   "scripts": {
-    "build": "npm run build --workspace=packages/core",
-    "build:all": "npm run build --workspaces",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "build": "pnpm --filter @rickcedwhat/playwright-smart-vision build",
+    "build:all": "pnpm -r build",
+    "typecheck": "pnpm -r --if-present typecheck"
   }
 }

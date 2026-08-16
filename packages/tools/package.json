@@ -19,7 +19,7 @@
   "author": "rickcedwhat",
   "license": "MIT",
   "dependencies": {
-    "@rickcedwhat/playwright-smart-vision": "*",
+    "@rickcedwhat/playwright-smart-vision": "workspace:*",
     "pngjs": "^7.0.0"
   }
 }

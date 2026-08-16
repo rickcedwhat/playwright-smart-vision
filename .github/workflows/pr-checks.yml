@@ -39,22 +39,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install Dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: TypeScript Check
         working-directory: packages/core
-        run: npm run typecheck
+        run: pnpm typecheck
 
-      - name: Audit Core Dependencies
-        working-directory: packages/core
-        run: npm audit --omit=dev --audit-level=high
+      - name: Audit Dependencies
+        run: pnpm audit --prod --audit-level=high
 
   build-core:
     name: Build Core
@@ -67,15 +71,20 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.2
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
+          cache: 'pnpm'
 
       - name: Install Dependencies
-        run: npm install
+        run: pnpm install --frozen-lockfile
 
       - name: Build Core
         working-directory: packages/core
-        run: npm run build
+        run: pnpm build
