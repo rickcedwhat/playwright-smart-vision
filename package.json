@@ -5,6 +5,7 @@
   "scripts": {
     "build": "pnpm --filter @rickcedwhat/playwright-smart-vision build",
     "build:all": "pnpm -r build",
-    "typecheck": "pnpm -r --if-present typecheck"
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test:unit": "pnpm -r --if-present test:unit"
   }
 }

@@ -25,6 +25,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -50,6 +51,7 @@
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
     "@types/pngjs": "^6.0.5",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^3.0.0"
   }
 }
