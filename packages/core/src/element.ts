@@ -6,7 +6,7 @@ import {
   type OcrOverflow,
   type OcrSwaps,
 } from './utils/ocr.js';
-import { ocrStep, attachOcrImage } from './ocr-step.js';
+import { ocrStep, attachOcrImage, expectTimeout } from './ocr-step.js';
 
 export const VISIBLE_CONFIDENCE = 0.7;
 
@@ -151,13 +151,15 @@ export class ScreenElement {
    * Assert element is filled/has content
    * @throws if element is empty after timeout
    */
-  async toBeFilled(_options?: { timeout?: number }): Promise<void> {
+  async toBeFilled(options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toBeFilled()`, async () => {
-      await this.live?.ensureFresh();
-      this.syncResult();
-      await this.attachTrace();
-      if (this.result.isEmpty) {
-        throw new Error(`Element "${this.label}" is not filled`);
+      try {
+        await this.retryAssertion(
+          () => this.result.isEmpty ? `Element "${this.label}" is not filled` : undefined,
+          expectTimeout(options?.timeout),
+        );
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -166,13 +168,15 @@ export class ScreenElement {
    * Assert element is empty/has no content
    * @throws if element is filled after timeout
    */
-  async toBeEmpty(_options?: { timeout?: number }): Promise<void> {
+  async toBeEmpty(options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toBeEmpty()`, async () => {
-      await this.live?.ensureFresh();
-      this.syncResult();
-      await this.attachTrace();
-      if (!this.result.isEmpty) {
-        throw new Error(`Element "${this.label}" is not empty`);
+      try {
+        await this.retryAssertion(
+          () => !this.result.isEmpty ? `Element "${this.label}" is not empty` : undefined,
+          expectTimeout(options?.timeout),
+        );
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -205,16 +209,33 @@ export class ScreenElement {
   async toHaveText(expected: string | RegExp, options?: HaveTextOptions): Promise<void> {
     return ocrStep(`element('${this.label}').toHaveText(${formatExpected(expected)})`, async () => {
       const match = this.resolvedMatch(options);
-      const actual = await this.actualText(match, options?.timeout);
-      await this.attachTrace();
-      if (ocrTextMatches(actual, expected, {
+      const matchOpts = {
         ...(match.swaps !== undefined && { swaps: match.swaps }),
         ...(match.overflow !== undefined && { overflow: match.overflow }),
         ...(options?.overflowSlop !== undefined && { overflowSlop: options.overflowSlop }),
-      })) return;
-      throw new Error(
-        `Element "${this.label}" does not have text ${formatExpected(expected)}${formatMatchNote(match)}. Actual: "${actual}"`,
-      );
+      };
+      if (match.read === 'clipboard') {
+        await this.ensureLocated(options?.timeout);
+        const actual = await this.copyFromField();
+        try {
+          if (!ocrTextMatches(actual, expected, matchOpts)) {
+            throw new Error(`Element "${this.label}" does not have text ${formatExpected(expected)}${formatMatchNote(match)}. Actual: "${actual}"`);
+          }
+        } finally {
+          await this.attachTrace();
+        }
+        return;
+      }
+      try {
+        await this.retryAssertion(() => {
+          const actual = this.result.value;
+          return ocrTextMatches(actual, expected, matchOpts)
+            ? undefined
+            : `Element "${this.label}" does not have text ${formatExpected(expected)}${formatMatchNote(match)}. Actual: "${actual}"`;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await this.attachTrace();
+      }
     });
   }
 
@@ -225,17 +246,34 @@ export class ScreenElement {
   async toHaveValue(expected: string, options?: HaveTextOptions): Promise<void> {
     return ocrStep(`element('${this.label}').toHaveValue(${formatExpected(expected)})`, async () => {
       const match = this.resolvedMatch(options);
-      const actual = await this.actualText(match, options?.timeout);
-      await this.attachTrace();
-      if (ocrTextMatches(actual, expected, {
+      const matchOpts = {
         ...(match.swaps !== undefined && { swaps: match.swaps }),
         ...(match.overflow !== undefined && { overflow: match.overflow }),
         ...(options?.overflowSlop !== undefined && { overflowSlop: options.overflowSlop }),
         exact: !match.overflow,
-      })) return;
-      throw new Error(
-        `Element "${this.label}" does not have value "${expected}"${formatMatchNote(match)}. Actual: "${actual}"`,
-      );
+      };
+      if (match.read === 'clipboard') {
+        await this.ensureLocated(options?.timeout);
+        const actual = await this.copyFromField();
+        try {
+          if (!ocrTextMatches(actual, expected, matchOpts)) {
+            throw new Error(`Element "${this.label}" does not have value "${expected}"${formatMatchNote(match)}. Actual: "${actual}"`);
+          }
+        } finally {
+          await this.attachTrace();
+        }
+        return;
+      }
+      try {
+        await this.retryAssertion(() => {
+          const actual = this.result.value;
+          return ocrTextMatches(actual, expected, matchOpts)
+            ? undefined
+            : `Element "${this.label}" does not have value "${expected}"${formatMatchNote(match)}. Actual: "${actual}"`;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await this.attachTrace();
+      }
     });
   }
 
@@ -243,13 +281,15 @@ export class ScreenElement {
    * Assert checkbox/toggle is checked
    * @throws if not checked after timeout
    */
-  async toBeChecked(_options?: { timeout?: number }): Promise<void> {
+  async toBeChecked(options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toBeChecked()`, async () => {
-      await this.live?.ensureFresh();
-      this.syncResult();
-      await this.attachTrace();
-      if (this.result.value !== 'checked') {
-        throw new Error(`Element "${this.label}" is not checked`);
+      try {
+        await this.retryAssertion(
+          () => this.result.value !== 'checked' ? `Element "${this.label}" is not checked` : undefined,
+          expectTimeout(options?.timeout),
+        );
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -258,13 +298,15 @@ export class ScreenElement {
    * Assert checkbox/toggle is unchecked
    * @throws if checked after timeout
    */
-  async toBeUnchecked(_options?: { timeout?: number }): Promise<void> {
+  async toBeUnchecked(options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toBeUnchecked()`, async () => {
-      await this.live?.ensureFresh();
-      this.syncResult();
-      await this.attachTrace();
-      if (this.result.value !== 'unchecked') {
-        throw new Error(`Element "${this.label}" is not unchecked`);
+      try {
+        await this.retryAssertion(
+          () => this.result.value !== 'unchecked' ? `Element "${this.label}" is not unchecked` : undefined,
+          expectTimeout(options?.timeout),
+        );
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -273,16 +315,17 @@ export class ScreenElement {
    * Assert element is in specific variant state
    * @throws if variant doesn't match after timeout
    */
-  async toHaveVariant(expected: string, _options?: { timeout?: number }): Promise<void> {
+  async toHaveVariant(expected: string, options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toHaveVariant(${JSON.stringify(expected)})`, async () => {
-      await this.live?.ensureFresh();
-      this.syncResult();
-      await this.attachTrace();
-      const actual = this.result.variant;
-      if (actual !== expected) {
-        throw new Error(
-          `Element "${this.label}" does not have variant "${expected}". Actual: "${actual || 'none'}"`,
-        );
+      try {
+        await this.retryAssertion(() => {
+          const actual = this.result.variant;
+          return actual !== expected
+            ? `Element "${this.label}" does not have variant "${expected}". Actual: "${actual || 'none'}"`
+            : undefined;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -291,14 +334,17 @@ export class ScreenElement {
    * Assert element matches with high confidence
    * @throws if confidence below threshold after timeout
    */
-  async toHaveConfidence(threshold: number, _options?: { timeout?: number }): Promise<void> {
+  async toHaveConfidence(threshold: number, options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').toHaveConfidence(${threshold})`, async () => {
-      this.syncResult();
-      await this.attachTrace();
-      if (!this.result.confidence || this.result.confidence < threshold) {
-        throw new Error(
-          `Element "${this.label}" confidence ${this.result.confidence} is below ${threshold}`,
-        );
+      try {
+        await this.retryAssertion(() => {
+          const conf = this.result.confidence;
+          return !conf || conf < threshold
+            ? `Element "${this.label}" confidence ${conf} is below ${threshold}`
+            : undefined;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await this.attachTrace();
       }
     });
   }
@@ -428,14 +474,34 @@ export class ScreenElement {
     return match;
   }
 
-  private async actualText(match: MatchOptions, timeout?: number): Promise<string> {
-    if (match.read === 'clipboard') {
-      await this.ensureLocated(timeout);
-      return this.copyFromField();
-    }
+  /**
+   * Retry a synchronous assertion check until it passes or the deadline is reached.
+   * `check` returns an error message string on failure, or undefined on success.
+   * When timeout is 0 or there is no live screen, the check runs exactly once.
+   */
+  private async retryAssertion(
+    check: () => string | undefined,
+    timeout: number,
+  ): Promise<void> {
     await this.live?.ensureFresh();
     this.syncResult();
-    return this.result.value;
+    const first = check();
+    if (first === undefined) return;
+    const live = this.live;
+    if (!live || timeout === 0) throw new Error(first);
+
+    const deadline = Date.now() + timeout;
+    let lastErr = first;
+    while (Date.now() < deadline) {
+      live.markDirty();
+      await new Promise<void>((r) => setTimeout(r, 150));
+      await live.ensureFresh();
+      this.syncResult();
+      const next = check();
+      if (next === undefined) return;
+      lastErr = next;
+    }
+    throw new Error(lastErr);
   }
 
   private async copyFromField(): Promise<string> {
