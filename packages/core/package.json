@@ -24,7 +24,8 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepare": "npm run build"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "playwright",

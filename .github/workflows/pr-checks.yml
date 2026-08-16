@@ -46,11 +46,11 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install --ignore-scripts
+        run: npm install
 
       - name: TypeScript Check
         working-directory: packages/core
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Audit Core Dependencies
         working-directory: packages/core
@@ -74,8 +74,8 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install --ignore-scripts
+        run: npm install
 
       - name: Build Core
         working-directory: packages/core
-        run: npx tsc
+        run: npm run build
