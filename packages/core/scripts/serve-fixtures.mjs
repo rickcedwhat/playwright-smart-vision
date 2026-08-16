@@ -29,6 +29,14 @@ const server = http.createServer((req, res) => {
   });
 });
 
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.log('Fixture server: port 4321 already in use — reusing existing server.');
+    process.exit(0);
+  }
+  throw err;
+});
+
 server.listen(4321, '127.0.0.1', () => {
   console.log('Fixture server ready on http://localhost:4321');
 });

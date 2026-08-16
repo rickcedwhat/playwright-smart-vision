@@ -9,7 +9,6 @@
     "test:unit": "pnpm -r --if-present test:unit",
     "test:e2e": "pnpm -r --if-present test:e2e",
     "dev": "node packages/tools/template-manager-server.mjs",
-    "dev:fixtures": "node packages/core/scripts/serve-fixtures.mjs",
-    "dev:all": "trap 'kill 0' INT TERM; node packages/tools/template-manager-server.mjs & node packages/core/scripts/serve-fixtures.mjs & wait"
+    "dev:fixtures": "node packages/core/scripts/serve-fixtures.mjs"
   }
 }
