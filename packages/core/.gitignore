@@ -1,0 +1,4 @@
+*.traineddata
+dist/
+test-results/
+playwright-report/

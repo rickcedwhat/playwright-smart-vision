@@ -4,12 +4,13 @@ import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import type { ScreenConfig } from './screen-config.js';
 import { getOCRUtil, cleanupOCR } from './utils/ocr.js';
+import { ensureCvReady } from './utils/vision.js';
 
 export type OcrScreen = (screen: ScreenConfig) => ScreenResult;
 
 export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, { ocrReady: void }>({
   ocrReady: [async ({}, use) => {
-    await getOCRUtil();
+    await Promise.all([getOCRUtil(), ensureCvReady()]);
     await use();
     await cleanupOCR();
   }, { scope: 'worker' }],
@@ -24,7 +25,7 @@ export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, {
       // Clipboard read is optional until a field sets read: 'clipboard'.
     }
     const ocr = await getOCRUtil();
-    const extractor = new FieldExtractor(ocr);
+    const extractor = new FieldExtractor(ocr, !!process.env.OCR_DEBUG);
     const shotDir = testInfo.outputPath('ocr-shots');
     fs.mkdirSync(shotDir, { recursive: true });
     await use((screen) => ScreenResult.bind(page, extractor, screen, shotDir, { overlay: ocrOverlay }));

@@ -336,7 +336,7 @@ export class FieldExtractor {
     }
 
     const needle = this.labelNeedle(template, config);
-    const blankMatch = this.visionUtil.matchTemplate(sourceBlank, template);
+    const blankMatch = this.visionUtil.matchTemplate(sourceBlank, needle);
     const filledMatch = this.visionUtil.matchTemplate(sourceFilled, needle);
     if (needle !== template) toDelete.push(needle);
 
