@@ -1,4 +1,4 @@
-declare module 'opencv.js' {
+declare module '@techstark/opencv-js' {
   export interface Mat {
     rows: number;
     cols: number;

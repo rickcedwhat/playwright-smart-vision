@@ -1,0 +1,25 @@
+{
+  "name": "@rickcedwhat/playwright-smart-vision-tools",
+  "version": "0.1.0",
+  "description": "Template management and AI-assisted setup tools for @rickcedwhat/playwright-smart-vision",
+  "type": "module",
+  "bin": {
+    "smart-vision": "./template-manager-server.mjs"
+  },
+  "scripts": {
+    "start": "node template-manager-server.mjs"
+  },
+  "keywords": [
+    "playwright",
+    "ocr",
+    "computer-vision",
+    "template-manager",
+    "visual-testing"
+  ],
+  "author": "rickcedwhat",
+  "license": "MIT",
+  "dependencies": {
+    "@rickcedwhat/playwright-smart-vision": "*",
+    "pngjs": "^7.0.0"
+  }
+}

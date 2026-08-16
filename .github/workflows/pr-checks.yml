@@ -13,7 +13,8 @@ jobs:
       contents: read
       pull-requests: read
     outputs:
-      code: ${{ steps.filter.outputs.code }}
+      core: ${{ steps.filter.outputs.core }}
+      tools: ${{ steps.filter.outputs.tools }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -23,11 +24,11 @@ jobs:
         id: filter
         with:
           filters: |
-            code:
-              - 'src/**'
+            core:
+              - 'packages/core/**'
               - 'package.json'
-              - 'package-lock.json'
-              - 'tsconfig.json'
+            tools:
+              - 'packages/tools/**'
 
   lint:
     name: Static Analysis
@@ -45,18 +46,20 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci --ignore-scripts
+        run: npm install
 
       - name: TypeScript Check
-        run: npx tsc --noEmit
+        working-directory: packages/core
+        run: npm run typecheck
 
-      - name: Audit Dependencies
+      - name: Audit Core Dependencies
+        working-directory: packages/core
         run: npm audit --omit=dev --audit-level=high
 
-  build:
-    name: Build
+  build-core:
+    name: Build Core
     needs: changes
-    if: needs.changes.outputs.code == 'true'
+    if: needs.changes.outputs.core == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -71,7 +74,8 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci --ignore-scripts
+        run: npm install
 
-      - name: Build
-        run: npm run build --ignore-scripts
+      - name: Build Core
+        working-directory: packages/core
+        run: npm run build
