@@ -52,11 +52,9 @@ jobs:
         working-directory: packages/core
         run: npm run typecheck
 
-      # Audit temporarily disabled: opencv.js (GHSA-5hxw-r847-qfwp) needs
-      # to be replaced with a legitimate OpenCV package. Tracked separately.
-      # - name: Audit Core Dependencies
-      #   working-directory: packages/core
-      #   run: npm audit --omit=dev --audit-level=high
+      - name: Audit Core Dependencies
+        working-directory: packages/core
+        run: npm audit --omit=dev --audit-level=high
 
   build-core:
     name: Build Core

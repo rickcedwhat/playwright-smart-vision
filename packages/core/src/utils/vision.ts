@@ -1,5 +1,5 @@
-// @ts-ignore - opencv.js doesn't have complete type definitions
-import cv from 'opencv.js';
+// @ts-ignore - @techstark/opencv-js doesn't have complete type definitions
+import cv from '@techstark/opencv-js';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 

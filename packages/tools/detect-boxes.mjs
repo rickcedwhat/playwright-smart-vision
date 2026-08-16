@@ -8,7 +8,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import cv from 'opencv.js';
+import cv from '@techstark/opencv-js';
 import { PNG } from 'pngjs';
 import { VisionUtil } from '@rickcedwhat/playwright-smart-vision/utils/vision';
 
