@@ -1,6 +1,16 @@
 // @ts-ignore - @techstark/opencv-js doesn't have complete type definitions
-import cv from '@techstark/opencv-js';
+import cvModule from '@techstark/opencv-js';
 import { PNG } from 'pngjs';
+
+// The opencv-js package exports a Promise (WASM init), not the API directly.
+// cv is set once ensureCvReady() resolves.
+let cv: any = null;
+const _cvInit = Promise.resolve(cvModule).then((resolved: any) => { cv = resolved; });
+
+/** Await this before constructing a VisionUtil or calling any cv API. */
+export async function ensureCvReady(): Promise<void> {
+  await _cvInit;
+}
 import pixelmatch from 'pixelmatch';
 
 export interface Point {
@@ -135,25 +145,19 @@ export class VisionUtil {
    * Labels and box borders drop out so OCR reads only typed values.
    */
   isolateChangedForOcr(filled: any, blank: any, threshold = 50): any {
-    const filledCopy = filled.clone();
-    const blankCopy = blank.clone();
-    if (filledCopy.rows !== blankCopy.rows || filledCopy.cols !== blankCopy.cols) {
-      blankCopy.delete();
-      return filledCopy;
+    if (filled.rows !== blank.rows || filled.cols !== blank.cols) {
+      return filled.clone();
     }
-
-    const result = filledCopy.clone();
-    const filledData = filledCopy.data;
-    const blankData = blankCopy.data;
-    const out = result.data;
-    for (let i = 0; i < filledData.length; i++) {
-      const filledPx = filledData[i] ?? 0;
-      const blankPx = blankData[i] ?? 0;
-      out[i] = Math.abs(filledPx - blankPx) <= threshold ? 255 : filledPx;
-    }
-    filledCopy.delete();
-    blankCopy.delete();
-    return result;
+    const diff = new cv.Mat();
+    cv.absdiff(filled, blank, diff);
+    const mask = new cv.Mat();
+    cv.threshold(diff, mask, threshold, 255, cv.THRESH_BINARY);
+    diff.delete();
+    // White background; copy filled pixels only where they differ from blank.
+    const white = new cv.Mat(filled.rows, filled.cols, filled.type(), new cv.Scalar(255, 255, 255, 255));
+    filled.copyTo(white, mask);
+    mask.delete();
+    return white;
   }
 
   /**

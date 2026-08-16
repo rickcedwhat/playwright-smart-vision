@@ -1,0 +1,52 @@
+{
+  "name": "html-login",
+  "sections": [],
+  "elements": [
+    {
+      "name": "username",
+      "filename": "username.png",
+      "type": "field",
+      "x": 466,
+      "y": 146,
+      "width": 340,
+      "height": 24,
+      "boxIds": [
+        1
+      ],
+      "ocrRect": {
+        "x": 138,
+        "y": 4,
+        "width": 198,
+        "height": 16
+      }
+    },
+    {
+      "name": "password",
+      "filename": "password.png",
+      "type": "field",
+      "x": 466,
+      "y": 173,
+      "width": 340,
+      "height": 24,
+      "boxIds": [
+        2
+      ],
+      "ocrRect": {
+        "x": 138,
+        "y": 4,
+        "width": 198,
+        "height": 16
+      }
+    },
+    {
+      "name": "signIn",
+      "filename": "sign-in.png",
+      "type": "button",
+      "x": 716,
+      "y": 210,
+      "width": 88,
+      "height": 24,
+      "boxIds": []
+    }
+  ]
+}

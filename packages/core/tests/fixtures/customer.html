@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Customer Information</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="hub-nav.css">
+</head>
+<body>
+  <div class="app">
+    <button type="button" id="moveWindow" class="desktop-tool" data-pos="top-center">Window: top center</button>
+    <div class="window" data-pos="top-center">
+      <div class="titlebar">Customer Information</div>
+      <div class="body">
+        <div class="section-title">Customer</div>
+        <div class="grid">
+          <div>
+            <div class="row">
+              <label class="label" for="customerNumber">Customer Number:</label>
+              <input id="customerNumber" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="firstName">Name:</label>
+              <input id="firstName" type="text" class="mid" placeholder="">
+              <input id="middleInitial" type="text" class="short">
+              <input id="lastName" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="address">Address:</label>
+              <input id="address" type="text" class="long">
+            </div>
+            <div class="row">
+              <label class="label" for="city">City/State:</label>
+              <input id="city" type="text" class="city">
+              <input id="state" type="text" class="state">
+              <input id="zip" type="text" class="zip">
+            </div>
+            <div class="row">
+              <label class="label" for="email">Email:</label>
+              <input id="email" type="text" class="long">
+            </div>
+          </div>
+          <div>
+            <div class="row">
+              <label class="label" for="vin">VIN:</label>
+              <input id="vin" type="text" class="vin">
+            </div>
+            <div class="row">
+              <label class="label" for="homeArea">Home Phone:</label>
+              <input id="homeArea" type="text" class="phone">
+              <input id="homePrefix" type="text" class="phone">
+              <input id="homeLine" type="text" class="phone-line">
+            </div>
+            <div class="row">
+              <label class="label" for="birthMonth">Birthdate:</label>
+              <input id="birthMonth" type="text" class="short">
+              <span class="slash">/</span>
+              <input id="birthDay" type="text" class="short">
+              <span class="slash">/</span>
+              <input id="birthYear" type="text" class="short">
+            </div>
+            <div class="row">
+              <label class="label" for="contactMethod">Primary Contact:</label>
+              <select id="contactMethod" class="dropdown">
+                <option value=""></option>
+                <option>H - Home Phone</option>
+                <option>W - Work Phone</option>
+                <option>C - Cell</option>
+                <option>E - Email</option>
+              </select>
+            </div>
+            <div class="row">
+              <label class="label" for="active">Active:</label>
+              <input id="active" type="checkbox">
+            </div>
+          </div>
+        </div>
+        <hr class="sep">
+        <div class="section-title">Vehicle</div>
+        <div class="grid">
+          <div>
+            <div class="row">
+              <label class="label" for="stockNo">Stock No:</label>
+              <input id="stockNo" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="year">Year:</label>
+              <input id="year" type="text" class="year">
+            </div>
+            <div class="row">
+              <label class="label" for="make">Make:</label>
+              <input id="make" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="model">Model:</label>
+              <input id="model" type="text" class="long">
+            </div>
+          </div>
+          <div>
+            <div class="row">
+              <label class="label" for="deliveredMonth">Delivered:</label>
+              <input id="deliveredMonth" type="text" class="short">
+              <span class="slash">/</span>
+              <input id="deliveredDay" type="text" class="short">
+              <span class="slash">/</span>
+              <input id="deliveredYear" type="text" class="short">
+            </div>
+            <div class="row">
+              <label class="label" for="odometer">Odometer:</label>
+              <input id="odometer" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="color">Color:</label>
+              <input id="color" type="text" class="mid">
+            </div>
+            <div class="row">
+              <label class="label" for="doNotCall">Do Not Call:</label>
+              <input id="doNotCall" type="checkbox">
+            </div>
+          </div>
+        </div>
+        <div class="btns">
+          <button type="button" id="close">Close</button>
+          <button type="button" id="save" disabled>Save</button>
+        </div>
+        <div id="saveToast" class="toast" hidden>Saved successfully.</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const record = {
+      customerNumber: 'SEA314535',
+      firstName: 'QAWCUSTOMR',
+      middleInitial: '',
+      lastName: 'SEARCH',
+      address: '123 MAIN ST',
+      city: 'LOS ANGELES',
+      state: 'CA',
+      zip: '90201',
+      email: 'QAWCUSTOMER@QAWOLF.EMAIL',
+      vin: '5NPDH4AE1DH314535',
+      homeArea: '760',
+      homePrefix: '543',
+      homeLine: '2987',
+      birthMonth: '',
+      birthDay: '',
+      birthYear: '',
+      contactMethod: 'H - Home Phone',
+      active: false,
+      stockNo: 'HG9876',
+      year: '2013',
+      make: 'HYUNDAI',
+      model: 'ELANTRA GL',
+      deliveredMonth: '10',
+      deliveredDay: '25',
+      deliveredYear: '23',
+      odometer: '20398',
+      color: 'WHITE',
+      doNotCall: false,
+    };
+
+    const isBlankMode = new URLSearchParams(location.search).has('blank');
+    if (!isBlankMode && sessionStorage.getItem('ocrLoggedIn') === '1') {
+      for (const [id, value] of Object.entries(record)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.type === 'checkbox') el.checked = Boolean(value);
+        else el.value = value;
+      }
+    }
+
+    const saveBtn = document.getElementById('save');
+    const toast = document.getElementById('saveToast');
+    let toastTimer = 0;
+    let savedValues = {};
+
+    function snapshotValues() {
+      const snap = {};
+      document.querySelectorAll('input, select').forEach((el) => {
+        snap[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+      });
+      return snap;
+    }
+
+    function isFormDirty() {
+      for (const [id, original] of Object.entries(savedValues)) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        const current = el.type === 'checkbox' ? el.checked : el.value;
+        if (current !== original) return true;
+      }
+      return false;
+    }
+
+    function checkDirty() {
+      saveBtn.disabled = !isFormDirty();
+    }
+
+    savedValues = snapshotValues();
+
+    document.querySelectorAll('input, select').forEach((el) => {
+      el.addEventListener('change', checkDirty);
+      el.addEventListener('input', checkDirty);
+    });
+
+    saveBtn.addEventListener('click', () => {
+      savedValues = snapshotValues();
+      saveBtn.disabled = true;
+      clearTimeout(toastTimer);
+      toast.hidden = false;
+      toastTimer = setTimeout(() => { toast.hidden = true; }, 4000);
+    });
+
+    const positions = [
+      { id: 'top-center', label: 'top center' },
+      { id: 'middle-left', label: 'middle left' },
+      { id: 'bottom-right', label: 'bottom right' },
+    ];
+    const windowEl = document.querySelector('.window');
+    const moveBtn = document.getElementById('moveWindow');
+    function placeWindow(id) {
+      const pos = positions.find((item) => item.id === id) || positions[0];
+      windowEl.dataset.pos = pos.id;
+      moveBtn.dataset.pos = pos.id;
+      moveBtn.textContent = `Window: ${pos.label}`;
+    }
+    moveBtn.addEventListener('click', () => {
+      const index = positions.findIndex((item) => item.id === windowEl.dataset.pos);
+      placeWindow(positions[(index + 1) % positions.length].id);
+    });
+  </script>
+  <script src="hub-nav.js"></script>
+</body>
+</html>

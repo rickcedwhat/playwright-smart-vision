@@ -26,6 +26,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "serve": "node scripts/serve-fixtures.mjs",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
