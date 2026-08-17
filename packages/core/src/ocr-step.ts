@@ -1,39 +1,39 @@
-import { test } from '@playwright/test';
+type PlaywrightTest = typeof import('@playwright/test').test;
 
-/**
- * Wrap OCR actions so they appear as named steps in the Playwright report and trace.
- * Falls back to running the body when called outside a test.
- */
-export async function ocrStep<T>(title: string, body: () => Promise<T>): Promise<T> {
+let _test: PlaywrightTest | null | undefined; // undefined=not yet loaded, null=unavailable
+
+async function getTest(): Promise<PlaywrightTest | null> {
+  if (_test !== undefined) return _test;
   try {
-    test.info();
+    _test = (await import('@playwright/test')).test;
   } catch {
-    return body();
+    _test = null;
   }
+  return _test;
+}
+
+export async function ocrStep<T>(title: string, body: () => Promise<T>): Promise<T> {
+  const test = await getTest();
+  if (!test) return body();
+  try { test.info(); } catch { return body(); }
   return test.step(title, body, { box: true });
 }
 
-/** Attach a PNG to the current Playwright test so it shows in the report and trace. */
 export async function attachOcrImage(name: string, buffer: Buffer): Promise<void> {
+  const test = await getTest();
+  if (!test) return;
   try {
     await test.info().attach(name, { body: buffer, contentType: 'image/png' });
-  } catch {
-    // Not running inside a Playwright test.
-  }
+  } catch {}
 }
 
 /**
  * Resolve the assertion timeout: explicit override → 5 000 ms default → 0 outside a test.
- * 5 000 ms matches Playwright's built-in expect.timeout default. Pass options.timeout to
- * override per-call, or pass 0 to assert once without retrying.
- * Returns 0 when called outside a Playwright test (no retry in unit/script contexts).
+ * Uses the cached test reference — will be populated after the first ocrStep call in a
+ * Playwright context. Returns 0 (no retry) when called outside a Playwright test.
  */
 export function expectTimeout(override?: number): number {
   if (override !== undefined) return override;
-  try {
-    test.info();
-    return 5_000;
-  } catch {
-    return 0;
-  }
+  if (!_test) return 0;
+  try { _test.info(); return 5_000; } catch { return 0; }
 }
