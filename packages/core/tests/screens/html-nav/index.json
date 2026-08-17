@@ -1,0 +1,10 @@
+{
+  "name": "html-nav",
+  "sections": [
+    {
+      "name": "Navigation",
+      "elements": ["customerSearch", "vehicleInventory", "service", "fni", "parts", "reports"]
+    }
+  ],
+  "elements": []
+}

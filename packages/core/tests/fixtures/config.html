@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>config.ts</title>
+  <link rel="stylesheet" href="browse.css">
+  <link rel="stylesheet" href="hub-nav.css">
+</head>
+<body>
+  <div class="ide">
+    <header class="titlebar">
+      <div class="brand">
+        <div class="dots"><span class="r"></span><span class="y"></span><span class="g"></span></div>
+        playwright-smart-vision
+      </div>
+      <nav class="nav">
+        <a href="/">Home</a>
+        <a href="login.html">Login</a>
+        <a href="customer.html">Customer</a>
+        <a href="screens.html">Screens</a>
+        <a href="config.html" id="nav-config">Config</a>
+        <a href="config.html?file=test" id="nav-test">Test</a>
+      </nav>
+    </header>
+    <div class="tabbar" id="tabs"></div>
+    <div class="editor" id="editor"></div>
+    <footer class="statusbar">
+      <span id="status-file">TypeScript</span>
+      <span id="status-lines"></span>
+    </footer>
+  </div>
+  <div class="popover" id="popover" hidden>
+    <canvas></canvas>
+    <div class="caption"></div>
+  </div>
+  <script src="hub-nav.js"></script>
+  <script src="browse.js"></script>
+  <script>openIde();</script>
+</body>
+</html>

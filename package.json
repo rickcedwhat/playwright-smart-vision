@@ -7,6 +7,9 @@
     "build:all": "pnpm -r build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test:unit": "pnpm -r --if-present test:unit",
-    "test:e2e": "pnpm -r --if-present test:e2e"
+    "test:e2e": "pnpm -r --if-present test:e2e",
+    "dev": "node packages/tools/template-manager-server.mjs",
+    "dev:fixtures": "node packages/core/scripts/serve-fixtures.mjs",
+    "capture": "pnpm --filter @rickcedwhat/playwright-smart-vision test:e2e --grep=CAPTURE_ONLY_NO_TESTS --pass-with-no-tests"
   }
 }

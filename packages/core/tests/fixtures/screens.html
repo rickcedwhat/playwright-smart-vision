@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Screens</title>
+  <link rel="stylesheet" href="screens.css">
+  <link rel="stylesheet" href="hub-nav.css">
+</head>
+<body>
+  <div class="explorer">
+    <aside class="tree-pane">
+      <div class="pane-title">screens</div>
+      <div class="tree" id="tree"></div>
+    </aside>
+    <section class="preview-pane">
+      <header class="preview-bar">
+        <div class="preview-name" id="preview-name">Select a screen</div>
+        <div class="preview-actions">
+          <div class="toggle" id="shot-toggle" hidden>
+            <button type="button" data-shot="blank" class="active">Blank</button>
+            <button type="button" data-shot="filled">Filled</button>
+          </div>
+          <a class="open-live" id="open-live" hidden href="#">Open live</a>
+        </div>
+      </header>
+      <div class="stage" id="stage">
+        <p class="empty">Click a screen in the directory to open it.</p>
+      </div>
+      <footer class="preview-status" id="status">html-login · html-customer-information</footer>
+    </section>
+  </div>
+  <script src="hub-nav.js"></script>
+  <script src="screens.js"></script>
+</body>
+</html>

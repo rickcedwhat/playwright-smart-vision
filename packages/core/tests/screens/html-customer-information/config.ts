@@ -17,34 +17,34 @@ export const htmlCustomerInformationScreen = defineScreen({
     {
       name: 'name', template: 'name.png', type: ElementType.FIELD,
       parts: [
-        { name: 'firstName',    x: 138, y: 4, width: 74, height: 16, overflow: 'end' },
-        { name: 'middleInitial',x: 224, y: 4, width: 22, height: 16 },
-        { name: 'lastName',     x: 258, y: 4, width: 74, height: 16 },
+        { name: 'firstName',    x: 124, y: 4, width: 88, height: 16, overflow: 'end' },
+        { name: 'middleInitial',x: 210, y: 4, width: 36, height: 16 },
+        { name: 'lastName',     x: 244, y: 4, width: 88, height: 16 },
       ],
     },
     {
       name: 'homePhone', template: 'home-phone.png', type: ElementType.FIELD, charset: 'digits',
       parts: [
-        { name: 'area',   x: 138, y: 4, width: 36, height: 16 },
-        { name: 'prefix', x: 186, y: 4, width: 36, height: 16 },
-        { name: 'line',   x: 234, y: 4, width: 46, height: 16 },
+        { name: 'area',   x: 124, y: 4, width: 50, height: 16 },
+        { name: 'prefix', x: 172, y: 4, width: 50, height: 16 },
+        { name: 'line',   x: 220, y: 4, width: 60, height: 16 },
       ],
     },
     { name: 'address',              template: 'address.png',               type: ElementType.FIELD },
     {
       name: 'birthdate', template: 'birthdate.png', type: ElementType.FIELD, charset: 'digits',
       parts: [
-        { name: 'month', x: 138, y: 4, width: 22, height: 16 },
-        { name: 'day',   x: 188, y: 4, width: 22, height: 16 },
-        { name: 'year',  x: 238, y: 4, width: 22, height: 16 },
+        { name: 'month', x: 124, y: 4, width: 36, height: 16 },
+        { name: 'day',   x: 174, y: 4, width: 36, height: 16 },
+        { name: 'year',  x: 224, y: 4, width: 36, height: 16 },
       ],
     },
     {
       name: 'cityState', template: 'city-state.png', type: ElementType.FIELD,
       parts: [
-        { name: 'city',  x: 138, y: 4, width: 134, height: 16 },
-        { name: 'state', x: 284, y: 4, width: 30,  height: 16 },
-        { name: 'zip',   x: 326, y: 4, width: 74,  height: 16 },
+        { name: 'city',  x: 124, y: 4, width: 148, height: 16 },
+        { name: 'state', x: 270, y: 4, width: 44,  height: 16 },
+        { name: 'zip',   x: 312, y: 4, width: 88,  height: 16 },
       ],
     },
     {
@@ -53,15 +53,17 @@ export const htmlCustomerInformationScreen = defineScreen({
       options: ['H - Home Phone', 'W - Work Phone', 'C - Cell', 'E - Email'],
     },
     { name: 'email',  template: 'email.png',  type: ElementType.FIELD, charset: 'email', swaps: { '@': ['C', 'Q'] } },
-    { name: 'active', template: 'active.png', type: ElementType.CHECKBOX },
+    // section: 'customer-section.png' scopes match to the Customer section,
+    // disambiguating from vehicleActive which uses the same template
+    { name: 'customerActive', template: 'active.png', type: ElementType.CHECKBOX, section: 'customer-section.png' },
 
     { name: 'stockNo',  template: 'stock-no.png',  type: ElementType.FIELD },
     {
       name: 'delivered', template: 'delivered.png', type: ElementType.FIELD, charset: 'digits',
       parts: [
-        { name: 'month', x: 138, y: 4, width: 22, height: 16 },
-        { name: 'day',   x: 188, y: 4, width: 22, height: 16 },
-        { name: 'year',  x: 238, y: 4, width: 22, height: 16 },
+        { name: 'month', x: 124, y: 4, width: 36, height: 16 },
+        { name: 'day',   x: 174, y: 4, width: 36, height: 16 },
+        { name: 'year',  x: 224, y: 4, width: 36, height: 16 },
       ],
     },
     { name: 'year',      template: 'year.png',      type: ElementType.FIELD, charset: 'digits' },
@@ -69,7 +71,8 @@ export const htmlCustomerInformationScreen = defineScreen({
     { name: 'make',      template: 'make.png',       type: ElementType.FIELD },
     { name: 'color',     template: 'color.png',      type: ElementType.FIELD },
     { name: 'model',     template: 'model.png',      type: ElementType.FIELD },
-    { name: 'doNotCall', template: 'do-not-call.png', type: ElementType.CHECKBOX },
+    { name: 'doNotCall',    template: 'do-not-call.png', type: ElementType.CHECKBOX },
+    { name: 'vehicleActive', template: 'active.png',    type: ElementType.CHECKBOX, section: 'vehicle-section.png' },
     {
       name: 'save',
       variants: {
