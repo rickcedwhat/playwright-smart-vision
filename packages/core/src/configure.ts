@@ -11,6 +11,7 @@ interface StorageConfig {
 interface GlobalConfig {
   storage?: StorageConfig;
   devtools?: boolean;
+  page?: Page;
 }
 
 let globalConfig: GlobalConfig = {};
@@ -26,9 +27,10 @@ export function getGlobalConfig(): GlobalConfig {
  *
  * await configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' }, devtools: true }, page);
  */
-export async function configure(config: GlobalConfig, page?: Page): Promise<void> {
-  globalConfig = { ...globalConfig, ...config };
-  if (config.devtools && page) {
+export async function configure(config: GlobalConfig): Promise<void> {
+  const { page, ...rest } = config;
+  globalConfig = { ...globalConfig, ...rest };
+  if (rest.devtools && page) {
     const { injectDevtools } = await import('./devtools.js');
     await injectDevtools(page);
   }

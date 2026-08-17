@@ -26,7 +26,7 @@ export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, {
       // Clipboard read is optional until a field sets read: 'clipboard'.
     }
     if (getGlobalConfig().devtools) {
-      await configure({ devtools: true }, page);
+      await configure({ devtools: true, page });
     }
     const ocr = await getOCRUtil();
     const extractor = new FieldExtractor(ocr, !!process.env.OCR_DEBUG);
