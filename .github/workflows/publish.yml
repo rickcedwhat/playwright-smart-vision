@@ -86,8 +86,6 @@ jobs:
           else
             npm publish --provenance --access public --tag "$TAG"
           fi
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Create GitHub Release
         if: steps.check_version.outputs.changed == 'true'
