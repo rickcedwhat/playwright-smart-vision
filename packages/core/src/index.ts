@@ -1,4 +1,5 @@
 export { configure, saveScreen } from './configure.js';
+export { injectDevtools } from './devtools.js';
 
 export { defineScreen, screenAssetsDir } from './screen-config.js';
 export type { ScreenConfig } from './screen-config.js';
