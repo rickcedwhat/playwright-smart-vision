@@ -5,8 +5,12 @@ const FAB_SCRIPT = `(function () {
   if (window.__ocrDevtools) return;
   window.__ocrDevtools = true;
 
+  console.log('[OCR devtools] script loaded, readyState:', document.readyState);
+
   function init() {
     if (document.getElementById('__ocr-fab')) return;
+
+    console.log('[OCR devtools] mounting FAB');
 
     const style = document.createElement('style');
     style.textContent = \`
@@ -130,6 +134,7 @@ const FAB_SCRIPT = `(function () {
     fab.addEventListener('click', (e) => e.stopPropagation());
 
     (document.body || document.documentElement).appendChild(fab);
+    console.log('[OCR devtools] FAB mounted, element:', document.getElementById('__ocr-fab'));
 
     const fabBtn = fab.querySelector('#__ocr-fab-btn');
     const menu = fab.querySelector('#__ocr-fab-menu');
@@ -225,5 +230,7 @@ export async function injectDevtools(page: Page): Promise<void> {
     writeScreenBuffer(name, Buffer.from(b64, 'base64'));
   });
 
+  // addInitScript covers future navigations; evaluate covers the already-loaded page.
   await page.addInitScript(FAB_SCRIPT);
+  await page.evaluate(FAB_SCRIPT);
 }
