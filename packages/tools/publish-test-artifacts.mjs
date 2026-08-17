@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const RESULTS_DIR = path.join(PROJECT_ROOT, 'test-results');
+const RESULTS_DIR = path.join(PROJECT_ROOT, 'core', 'test-results');
 const DEST_DIR = path.join(PROJECT_ROOT, 'artifacts', 'html-fixture');
 
 function walk(dir, found = []) {
@@ -24,8 +24,8 @@ function latest(filename, needle) {
 }
 
 export function publishHtmlFixtureArtifacts({ sinceMs } = {}) {
-  const video = latest('video.webm', 'html-login-ocr');
-  const trace = latest('trace.zip', 'html-login-ocr');
+  const video = latest('video.webm', 'customer');
+  const trace = latest('trace.zip', 'customer');
   const fresh = (file) => file && (sinceMs == null || fs.statSync(file).mtimeMs >= sinceMs);
   const nextVideo = fresh(video) ? video : null;
   const nextTrace = fresh(trace) ? trace : null;
@@ -46,7 +46,7 @@ const invokedDirectly = process.argv[1]
 if (invokedDirectly) {
   const result = publishHtmlFixtureArtifacts();
   if (!result.video || !result.trace) {
-    console.error('Could not find video.webm / trace.zip under test-results for html-login-ocr.');
+    console.error('Could not find video.webm / trace.zip under test-results for customer.');
     process.exit(1);
   }
   console.log(`Wrote ${path.relative(PROJECT_ROOT, DEST_DIR)}/video.webm`);

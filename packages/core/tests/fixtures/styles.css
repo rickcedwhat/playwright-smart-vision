@@ -133,3 +133,17 @@ button:disabled {
   grid-template-columns: 1fr 1fr;
   gap: 0 16px;
 }
+.nav-window { width: 480px; }
+.nav-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 8px 4px;
+}
+.nav-btn {
+  height: 60px;
+  min-width: unset;
+  width: 100%;
+  font-size: 13px;
+  font-weight: 700;
+}
