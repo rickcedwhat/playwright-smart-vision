@@ -38,6 +38,10 @@
     "tesseract",
     "opencv"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rickcedwhat/playwright-smart-vision"
+  },
   "author": "rickcedwhat",
   "license": "MIT",
   "peerDependencies": {
