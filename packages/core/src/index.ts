@@ -1,6 +1,8 @@
 export { test, expect } from './ocr-test.js';
 export type { OcrScreen } from './ocr-test.js';
 
+export { configure } from './configure.js';
+
 export { defineScreen, screenAssetsDir } from './screen-config.js';
 export type { ScreenConfig } from './screen-config.js';
 

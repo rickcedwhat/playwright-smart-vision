@@ -87,8 +87,14 @@ export interface ScreenConfig {
   /** Optional: Enable debug output */
   debug?: boolean | undefined;
 
-  /** Element to wait for in screen.waitFor(). Defaults to the first element. */
-  ready?: string | undefined;
+  /**
+   * Which element(s) signal the screen is ready in screen.waitFor().
+   * - string: one element must be visible
+   * - string[]: all elements must be visible (checked sequentially)
+   * - { any: string[] }: any one element must be visible
+   * Defaults to the first element when omitted.
+   */
+  ready?: string | string[] | { any: string[] } | undefined;
 }
 
 /**
@@ -115,7 +121,7 @@ export function defineScreen(config: {
     parts?: FieldPart[];
   }>;
   debug?: boolean;
-  ready?: string;
+  ready?: string | string[] | { any: string[] };
 }): ScreenConfig {
   const blankScreenPath = path.join(
     config.baseDir, 

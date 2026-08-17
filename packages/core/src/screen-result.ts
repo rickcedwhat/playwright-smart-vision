@@ -136,26 +136,87 @@ export class ScreenResult {
 
   /**
    * Wait until this screen is showing, then OCR-extract every field.
+   *
+   * Behaviour is controlled by screen.ready:
+   *   string        — one element must reach the visible threshold
+   *   string[]      — all elements must reach the threshold (sequential)
+   *   { any: [...] }— any one element must reach the threshold (single poll loop)
    */
   async waitFor(options: WaitForOptions = {}): Promise<void> {
     if (!this.host) {
       throw new Error('waitFor requires ScreenResult.bind(page, extractor, screen, shotDir)');
     }
-    const name = this.host.screen.ready ?? this.host.screen.elementConfigs[0]?.name;
-    if (!name) {
+    const ready = this.host.screen.ready ?? this.host.screen.elementConfigs[0]?.name;
+    if (!ready) {
       throw new Error(`Screen "${this.host.screen.name}" has no elements to wait for`);
     }
     const visible = options.visible !== false;
     return ocrStep(`screen('${this.host.screen.name}').waitFor({ visible: ${visible} })`, async () => {
-      await this.waitForElement(name, options);
-      const result = this.elementResult(name);
+      let overlayName: string;
+      if (typeof ready === 'string') {
+        await this.waitForElement(ready, options);
+        overlayName = ready;
+      } else if (Array.isArray(ready)) {
+        for (const name of ready) await this.waitForElement(name, options);
+        overlayName = ready[0]!;
+      } else {
+        overlayName = await this.waitForAny(ready.any, options);
+      }
+      const result = this.elementResult(overlayName);
       if (!result) return;
       try {
-        await this.paintOverlay(result, name);
+        await this.paintOverlay(result, overlayName);
       } finally {
         await this.hideOverlay();
       }
     });
+  }
+
+  private async waitForAny(names: string[], options: WaitForOptions): Promise<string> {
+    if (!this.host || !this.page) {
+      throw new Error('waitForAny requires ScreenResult.bind(...)');
+    }
+    const visible = options.visible !== false;
+    const timeout = options.timeout ?? 15_000;
+    const entries = names
+      .map((name) => ({ name, config: this.host!.screen.elementConfigs.find((c) => c.name === name) }))
+      .filter((e): e is { name: string; config: ElementConfig } => !!e.config);
+
+    if (!entries.length) {
+      throw new Error(
+        `ready.any: none of [${names.join(', ')}] found in screen "${this.host.screen.name}"`,
+      );
+    }
+
+    fs.mkdirSync(this.host.shotDir, { recursive: true });
+    const shot = path.join(this.host.shotDir, `${this.host.screen.name}-live.png`);
+    const deadline = Date.now() + timeout;
+    let bestName = names[0];
+    let bestConf = 0;
+
+    while (Date.now() < deadline) {
+      try {
+        await this.captureLive(shot);
+        for (const { name, config } of entries) {
+          const located = await this.host.extractor.locateOnScreenshot(shot, config);
+          const conf = located.confidence ?? 0;
+          if (conf > bestConf) { bestConf = conf; bestName = name; }
+          if ((conf >= VISIBLE_CONFIDENCE) === visible) {
+            await this.loadExtracted(shot);
+            this.dirty = false;
+            return name;
+          }
+        }
+      } catch {
+        // navigation / partial screenshot
+      }
+      await new Promise((r) => setTimeout(r, 150));
+    }
+
+    throw new Error(
+      `None of [${names.join(', ')}] ${visible ? 'visible' : 'hidden'} within ${timeout}ms` +
+      ` (best: "${bestName}" at ${bestConf.toFixed(3)})`,
+    );
   }
 
   /**
