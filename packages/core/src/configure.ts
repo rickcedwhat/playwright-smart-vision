@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import type { Page } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
 import type { ElementConfig, FieldPart } from './types.js';
 
@@ -7,17 +8,48 @@ interface StorageConfig {
   root: string;
 }
 
-let globalStorage: StorageConfig | undefined;
+interface GlobalConfig {
+  storage?: StorageConfig;
+  devtools?: boolean;
+}
+
+let globalConfig: GlobalConfig = {};
+
+export function getGlobalConfig(): GlobalConfig {
+  return globalConfig;
+}
 
 /**
- * Set the storage root where screen assets (index.json, blank.png, templates/) live.
- * Required before calling ocrScreen('screen-name').
+ * Configure storage root and optional devtools FAB.
  *
- * In QA Wolf: configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/ocr-screens/acme' } })
+ * In QA Wolf: configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/ocr-screens/acme' }, devtools: true })
  * In regular dev: configure({ storage: { root: './tests/screens' } })
  */
-export function configure(config: { storage?: StorageConfig }): void {
-  if (config.storage) globalStorage = config.storage;
+export function configure(config: GlobalConfig): void {
+  globalConfig = { ...globalConfig, ...config };
+}
+
+/**
+ * Take a screenshot of the current page and save it as blank.png
+ * under {storage.root}/{name}/. Creates the directory if needed.
+ */
+export async function saveScreen(page: Page, name: string): Promise<string> {
+  if (!globalConfig.storage) {
+    throw new Error(`saveScreen('${name}'): call configure({ storage: { root } }) first`);
+  }
+  const buffer = await page.screenshot({ timeout: 5_000 });
+  return writeScreenBuffer(name, buffer);
+}
+
+export function writeScreenBuffer(name: string, buffer: Buffer): string {
+  if (!globalConfig.storage) {
+    throw new Error(`saveScreen('${name}'): call configure({ storage: { root } }) first`);
+  }
+  const dir = path.join(globalConfig.storage.root, name);
+  fs.mkdirSync(dir, { recursive: true });
+  const blankPath = path.join(dir, 'blank.png');
+  fs.writeFileSync(blankPath, buffer);
+  return blankPath;
 }
 
 interface StorageElement {
@@ -46,12 +78,12 @@ interface StorageIndex {
  * Reads {root}/{name}/index.json, blank.png, and templates/.
  */
 export function loadScreen(name: string): ScreenConfig {
-  if (!globalStorage) {
+  if (!globalConfig.storage) {
     throw new Error(
       `ocrScreen('${name}'): call configure({ storage: { root } }) before using string screen names`,
     );
   }
-  const dir = path.join(globalStorage.root, name);
+  const dir = path.join(globalConfig.storage.root, name);
   const indexPath = path.join(dir, 'index.json');
 
   let raw: StorageIndex;
