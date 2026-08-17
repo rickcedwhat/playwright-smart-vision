@@ -62,7 +62,11 @@ jobs:
 
       - name: Build Core
         working-directory: packages/core
-        run: npx tsc
+        run: pnpm run build
+
+      - name: Run Unit Tests
+        working-directory: packages/core
+        run: pnpm exec vitest run
 
       - name: Stamp prerelease version
         if: steps.check_version.outputs.changed == 'false'
