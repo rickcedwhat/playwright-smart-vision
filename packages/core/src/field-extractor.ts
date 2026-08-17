@@ -4,7 +4,6 @@ import { OCRUtil, charsetForField, pickFromOptions } from './utils/ocr.js';
 import * as fs from 'fs/promises';
 import { ElementType } from './types.js';
 import type { ElementConfig, ElementResult, ScreenComparison } from './types.js';
-import { attachOcrImage } from './ocr-step.js';
 export { ElementType };
 export type { ElementConfig, ElementResult, ScreenComparison };
 
@@ -42,9 +41,6 @@ function templateRectAt(match: MatchResult, template: { cols: number; rows: numb
   };
 }
 
-const LIVE_BOX: [number, number, number, number] = [75, 200, 120, 255];
-const OCR_BOX: [number, number, number, number] = [79, 193, 255, 255];
-const BLANK_BOX: [number, number, number, number] = [110, 168, 254, 255];
 
 
 /**
@@ -108,8 +104,6 @@ export class FieldExtractor {
       const result = await this.extractElement(config, options);
       results.push(result);
     }
-
-    await this.attachMatchOverviews(results);
 
     const filledElements = results.filter((r) => !r.isEmpty).length;
     const emptyElements = results.filter((r) => r.isEmpty).length;
@@ -320,15 +314,28 @@ export class FieldExtractor {
       );
       const blankSection = this.visionUtil.matchTemplate(this.blankForm!, sectionTemplate);
       const filledSection = this.visionUtil.matchTemplate(this.filledForm!, sectionTemplate);
-      const sectionBlank = this.visionUtil.extractROI(this.blankForm!, blankSection.rect);
-      const sectionFilled = this.visionUtil.extractROI(this.filledForm!, filledSection.rect);
       sectionTemplate.delete();
+      // Extract from section title's Y downward (full width) so fields below the title are included
+      const blankSectionRect = {
+        x: 0,
+        y: blankSection.rect.y,
+        width: this.blankForm!.cols,
+        height: this.blankForm!.rows - blankSection.rect.y,
+      };
+      const filledSectionRect = {
+        x: 0,
+        y: filledSection.rect.y,
+        width: this.filledForm!.cols,
+        height: this.filledForm!.rows - filledSection.rect.y,
+      };
+      const sectionBlank = this.visionUtil.extractROI(this.blankForm!, blankSectionRect);
+      const sectionFilled = this.visionUtil.extractROI(this.filledForm!, filledSectionRect);
       if (sectionBlank.rows >= template.rows && sectionBlank.cols >= template.cols
         && sectionFilled.rows >= template.rows && sectionFilled.cols >= template.cols) {
         sourceBlank = sectionBlank;
         sourceFilled = sectionFilled;
-        blankOrigin = blankSection.rect;
-        filledOrigin = filledSection.rect;
+        blankOrigin = { x: 0, y: blankSection.rect.y, width: blankSectionRect.width, height: blankSectionRect.height };
+        filledOrigin = { x: 0, y: filledSection.rect.y, width: filledSectionRect.width, height: filledSectionRect.height };
       } else {
         sectionBlank.delete();
         sectionFilled.delete();
@@ -364,37 +371,6 @@ export class FieldExtractor {
       width: labelWidth,
       height: template.rows,
     });
-  }
-
-  private async attachMatchOverviews(results: ElementResult[]): Promise<void> {
-    if (!this.filledColor || !this.blankColor) return;
-    try {
-      const liveBoxes = results.flatMap((result) => {
-        const boxes = [{ rect: result.location, label: result.name, color: LIVE_BOX }];
-        if (result.ocrLocation
-          && (result.ocrLocation.x !== result.location.x
-            || result.ocrLocation.width !== result.location.width)) {
-          boxes.push({ rect: result.ocrLocation, label: '', color: OCR_BOX });
-        }
-        for (const part of result.parts ?? []) {
-          boxes.push({ rect: part.location, label: part.name, color: OCR_BOX });
-        }
-        return boxes;
-      });
-      const blankBoxes = results.map((result) => ({
-        rect: result.blankLocation ?? result.location,
-        label: result.name,
-        color: BLANK_BOX,
-      }));
-      const live = this.visionUtil.annotateRects(this.filledColor, liveBoxes);
-      const blank = this.visionUtil.annotateRects(this.blankColor, blankBoxes);
-      await attachOcrImage('locate:live', this.visionUtil.matToBuffer(live));
-      await attachOcrImage('locate:blank', this.visionUtil.matToBuffer(blank));
-      live.delete();
-      blank.delete();
-    } catch {
-      // Overlay is diagnostic; never fail the extract.
-    }
   }
 
   private async readChangedText(
