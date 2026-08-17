@@ -3,8 +3,7 @@ import fs from 'node:fs';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen, getGlobalConfig } from './configure.js';
-import { injectDevtools } from './devtools.js';
+import { loadScreen, getGlobalConfig, configure } from './configure.js';
 import { getOCRUtil, cleanupOCR } from './utils/ocr.js';
 import { ensureCvReady } from './utils/vision.js';
 
@@ -27,7 +26,7 @@ export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, {
       // Clipboard read is optional until a field sets read: 'clipboard'.
     }
     if (getGlobalConfig().devtools) {
-      await injectDevtools(page);
+      await configure({ devtools: true }, page);
     }
     const ocr = await getOCRUtil();
     const extractor = new FieldExtractor(ocr, !!process.env.OCR_DEBUG);

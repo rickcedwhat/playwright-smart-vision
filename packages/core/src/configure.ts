@@ -21,12 +21,17 @@ export function getGlobalConfig(): GlobalConfig {
 
 /**
  * Configure storage root and optional devtools FAB.
+ * Pass `page` as the second argument to inject the FAB immediately (QA Wolf / non-fixture usage).
+ * In fixture-based Playwright tests the FAB is injected automatically by the ocrScreen fixture.
  *
- * In QA Wolf: configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/ocr-screens/acme' }, devtools: true })
- * In regular dev: configure({ storage: { root: './tests/screens' } })
+ * await configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' }, devtools: true }, page);
  */
-export function configure(config: GlobalConfig): void {
+export async function configure(config: GlobalConfig, page?: Page): Promise<void> {
   globalConfig = { ...globalConfig, ...config };
+  if (config.devtools && page) {
+    const { injectDevtools } = await import('./devtools.js');
+    await injectDevtools(page);
+  }
 }
 
 /**
