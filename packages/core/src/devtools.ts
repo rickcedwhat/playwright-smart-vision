@@ -146,13 +146,28 @@ const FAB_SCRIPT = `(function () {
     </div>
     <button id="__ocr-fab-btn" title="OCR Devtools">👁</button>
   \`;
-  document.body.appendChild(fab);
 
-  const fabBtn = document.getElementById('__ocr-fab-btn');
-  const menu = document.getElementById('__ocr-fab-menu');
-  const captureBtn = document.getElementById('__ocr-capture-btn');
+  // Stop all pointer events from bubbling to Guacamole/canvas event capturers
+  fab.addEventListener('mousedown', (e) => e.stopPropagation());
+  fab.addEventListener('mouseup', (e) => e.stopPropagation());
+  fab.addEventListener('click', (e) => e.stopPropagation());
 
-  fabBtn.addEventListener('click', () => menu.classList.toggle('open'));
+  function mount() {
+    if (document.getElementById('__ocr-fab')) return;
+    (document.body || document.documentElement).appendChild(fab);
+  }
+
+  if (document.body) {
+    mount();
+  } else {
+    document.addEventListener('DOMContentLoaded', mount);
+  }
+
+  const fabBtn = document.getElementById('__ocr-fab-btn') || fab.querySelector('#__ocr-fab-btn');
+  const menu = document.getElementById('__ocr-fab-menu') || fab.querySelector('#__ocr-fab-menu');
+  const captureBtn = document.getElementById('__ocr-capture-btn') || fab.querySelector('#__ocr-capture-btn');
+
+  fabBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
   document.addEventListener('click', (e) => {
     if (!fab.contains(e.target)) menu.classList.remove('open');
   });
