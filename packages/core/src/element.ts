@@ -6,7 +6,7 @@ import {
   type OcrOverflow,
   type OcrSwaps,
 } from './utils/ocr.js';
-import { ocrStep, attachOcrImage, expectTimeout } from './ocr-step.js';
+import { ocrStep, expectTimeout } from './ocr-step.js';
 
 export const VISIBLE_CONFIDENCE = 0.7;
 
@@ -159,7 +159,7 @@ export class ScreenElement {
           expectTimeout(options?.timeout),
         );
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -176,7 +176,7 @@ export class ScreenElement {
           expectTimeout(options?.timeout),
         );
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -193,7 +193,7 @@ export class ScreenElement {
           : { visible: true });
       }
       this.syncResult();
-      await this.attachTrace();
+      await this.withOverlay();
       if (!this.result.confidence || this.result.confidence < VISIBLE_CONFIDENCE) {
         throw new Error(
           `Element "${this.label}" is not visible (confidence: ${this.result.confidence})`,
@@ -222,7 +222,7 @@ export class ScreenElement {
             throw new Error(`Element "${this.label}" does not have text ${formatExpected(expected)}${formatMatchNote(match)}. Actual: "${actual}"`);
           }
         } finally {
-          await this.attachTrace();
+          await this.withOverlay();
         }
         return;
       }
@@ -234,7 +234,7 @@ export class ScreenElement {
             : `Element "${this.label}" does not have text ${formatExpected(expected)}${formatMatchNote(match)}. Actual: "${actual}"`;
         }, expectTimeout(options?.timeout));
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -260,7 +260,7 @@ export class ScreenElement {
             throw new Error(`Element "${this.label}" does not have value "${expected}"${formatMatchNote(match)}. Actual: "${actual}"`);
           }
         } finally {
-          await this.attachTrace();
+          await this.withOverlay();
         }
         return;
       }
@@ -272,7 +272,7 @@ export class ScreenElement {
             : `Element "${this.label}" does not have value "${expected}"${formatMatchNote(match)}. Actual: "${actual}"`;
         }, expectTimeout(options?.timeout));
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -289,7 +289,7 @@ export class ScreenElement {
           expectTimeout(options?.timeout),
         );
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -306,7 +306,7 @@ export class ScreenElement {
           expectTimeout(options?.timeout),
         );
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -325,7 +325,7 @@ export class ScreenElement {
             : undefined;
         }, expectTimeout(options?.timeout));
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -344,7 +344,7 @@ export class ScreenElement {
             : undefined;
         }, expectTimeout(options?.timeout));
       } finally {
-        await this.attachTrace();
+        await this.withOverlay();
       }
     });
   }
@@ -430,16 +430,6 @@ export class ScreenElement {
     } finally {
       await this.live?.hideOverlay();
     }
-  }
-
-  private async attachTrace(): Promise<void> {
-    await this.withOverlay(async () => {
-      if (!this.result.traceImage) return;
-      await attachOcrImage(
-        this.result.traceName ?? `ocr:${this.label} → ${this.result.value || '(empty)'}`,
-        this.result.traceImage,
-      );
-    });
   }
 
   private isLocated(): boolean {

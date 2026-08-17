@@ -178,7 +178,6 @@ export class ScreenResult {
     const deadline = Date.now() + timeout;
     let last = 0;
 
-    await hideOcrOverlay(this.page);
     while (Date.now() < deadline) {
       try {
         await this.captureLive(shot);
@@ -217,7 +216,6 @@ export class ScreenResult {
   }
 
   private async captureLive(shot: string): Promise<void> {
-    await hideOcrOverlay(this.page!);
     await this.page!.screenshot({ path: shot, timeout: 2_000 });
   }
 
@@ -231,15 +229,7 @@ export class ScreenResult {
 
   async paintOverlay(result: ElementResult, label?: string): Promise<void> {
     if (!this.page || !this.host?.overlay) return;
-    const dpr = await this.page.evaluate(() => window.devicePixelRatio || 1).catch(() => 1);
-    const boxes = overlayBoxesFromResult(result, label).map((box) => ({
-      ...box,
-      x: box.x / dpr,
-      y: box.y / dpr,
-      width: box.width / dpr,
-      height: box.height / dpr,
-    }));
-    await showOcrOverlay(this.page, boxes);
+    await showOcrOverlay(this.page, overlayBoxesFromResult(result, label));
   }
 
   async hideOverlay(): Promise<void> {
