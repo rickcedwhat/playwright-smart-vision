@@ -5,11 +5,8 @@ const FAB_SCRIPT = `(function () {
   if (window.__ocrDevtools) return;
   window.__ocrDevtools = true;
 
-  console.log('[OCR devtools] script loaded, readyState:', document.readyState);
-
   function init() {
     if (document.getElementById('__ocr-fab')) return;
-    console.log('[OCR devtools] mounting FAB');
 
     const style = document.createElement('style');
     style.textContent = \`
@@ -228,7 +225,5 @@ export async function injectDevtools(page: Page): Promise<void> {
     writeScreenBuffer(name, Buffer.from(b64, 'base64'));
   });
 
-  // addInitScript covers future navigations; evaluate covers the already-loaded page.
   await page.addInitScript(FAB_SCRIPT);
-  await page.evaluate(FAB_SCRIPT);
 }

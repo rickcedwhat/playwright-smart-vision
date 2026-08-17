@@ -1,7 +1,7 @@
 {
   "name": "@rickcedwhat/playwright-smart-vision",
   "version": "0.1.0",
-  "description": "Computer-vision and OCR-based element assertions for Playwright \u2014 local, fast, no GPT Vision required",
+  "description": "Computer-vision and OCR-based element assertions for Playwright — local, fast, no GPT Vision required",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -52,6 +52,14 @@
   },
   "author": "rickcedwhat",
   "license": "MIT",
+  "peerDependencies": {
+    "@playwright/test": ">=1.50.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@techstark/opencv-js": "^5.0.0-release.1",
     "pixelmatch": "^7.2.0",
