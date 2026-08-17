@@ -1,5 +1,5 @@
 (() => {
-  if (navigator.webdriver) return;
+  if (navigator.webdriver || window !== window.top) return;
 
   const path = location.pathname.replace(/\/+$/, '') || '/';
   const file = new URLSearchParams(location.search).get('file');

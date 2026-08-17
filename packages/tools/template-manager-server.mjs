@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { exec, spawn } from 'node:child_process';
 import { publishHtmlFixtureArtifacts } from './publish-test-artifacts.mjs';
 import { PNG } from 'pngjs';
@@ -18,14 +19,14 @@ import { OCRUtil, charsetForField, pickFromOptions } from '@rickcedwhat/playwrig
 
 const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TOOLS_DIR, '..');
-const REPO_SCREENS_DIR = path.join(PROJECT_ROOT, 'tests', 'screens');
+const REPO_SCREENS_DIR = path.join(PROJECT_ROOT, 'core', 'tests', 'screens');
 const HTML_FILE = path.join(TOOLS_DIR, 'template-manager.html');
 const INDEX_FILE = path.join(TOOLS_DIR, 'index.html');
-const APP_DIR = path.join(PROJECT_ROOT, 'fixtures', 'customer-information');
+const APP_DIR = path.join(PROJECT_ROOT, 'core', 'tests', 'fixtures');
 const SETTINGS_FILE = path.join(os.homedir(), '.playwright-ocr-screens.json');
 const DEFAULT_EXTERNAL_DIR = path.join(os.homedir(), 'ocr-screens');
 const MAX_BODY_BYTES = 50 * 1024 * 1024;
-const DEFAULT_PORT = Number(process.env.PORT) || 8000;
+const DEFAULT_PORT = Number(process.env.PORT) || 2020;
 const LOCATE_MIN_CONFIDENCE = 0.7;
 
 function expandHomeDir(raw) {
@@ -506,7 +507,7 @@ function loadScreen(rawName) {
   const { screenDir, templatesDir } = found;
   const blankPath = path.join(screenDir, 'blank.png');
   const configPath = path.join(screenDir, 'config.ts');
-  const managerPath = path.join(screenDir, 'manager.json');
+  const indexPath = path.join(screenDir, 'index.json');
   if (!fs.existsSync(blankPath)) {
     return { status: 404, body: { error: `Screen "${screenName}" has no blank.png.` } };
   }
@@ -517,9 +518,9 @@ function loadScreen(rawName) {
   let sections = [];
   let elements = [];
 
-  if (fs.existsSync(managerPath)) {
-    const manager = JSON.parse(fs.readFileSync(managerPath, 'utf8'));
-    sections = (manager.sections || []).map((section, i) => ({
+  if (fs.existsSync(indexPath)) {
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    sections = (index.sections || []).map((section, i) => ({
       ...section,
       id: Date.now() + i,
       imageData: fs.existsSync(path.join(templatesDir, section.filename))
@@ -527,7 +528,7 @@ function loadScreen(rawName) {
         : undefined,
     }));
     const sectionIdByFile = new Map(sections.map((s) => [s.filename, s.id]));
-    elements = (manager.elements || []).map((el, i) => ({
+    elements = (index.elements || []).map((el, i) => ({
       ...el,
       id: Date.now() + 1000 + i,
       sectionId: el.section ? sectionIdByFile.get(el.section) ?? null : null,
@@ -591,7 +592,7 @@ function loadScreen(rawName) {
 
   const recovered = locateMissingBoxes(blankPath, templatesDir, sections, elements);
   if (recovered > 0) {
-    const manager = {
+    const index = {
       name: screenName,
       sections: sections.map(({ name, filename, x, y, width, height }) => ({
         name, filename, x, y, width, height,
@@ -613,7 +614,7 @@ function loadScreen(rawName) {
         charset: el.charset,
       })),
     };
-    fs.writeFileSync(managerPath, JSON.stringify(manager, null, 2) + '\n', 'utf8');
+    fs.writeFileSync(indexPath, JSON.stringify(index, null, 2) + '\n', 'utf8');
   }
 
   return {
@@ -625,7 +626,7 @@ function loadScreen(rawName) {
       filledPng,
       sections: sections.filter((s) => s.imageData),
       elements: elements.filter((el) => el.imageData),
-      hasManager: fs.existsSync(managerPath),
+      hasManager: fs.existsSync(indexPath),
       recovered,
     },
   };
@@ -643,14 +644,14 @@ function writeExpected(payload) {
   const values = payload.values && typeof payload.values === 'object' ? payload.values : {};
   const expectedPath = path.join(found.screenDir, 'expected.json');
   fs.writeFileSync(expectedPath, `${JSON.stringify({ filled: 'filled.png', values }, null, 2)}\n`);
-  const managerPath = path.join(found.screenDir, 'manager.json');
-  if (fs.existsSync(managerPath)) {
-    const manager = JSON.parse(fs.readFileSync(managerPath, 'utf8'));
-    manager.elements = (manager.elements || []).map((el) => ({
+  const indexPath = path.join(found.screenDir, 'index.json');
+  if (fs.existsSync(indexPath)) {
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    index.elements = (index.elements || []).map((el) => ({
       ...el,
       expected: values[el.name] ?? el.expected ?? '',
     }));
-    fs.writeFileSync(managerPath, `${JSON.stringify(manager, null, 2)}\n`);
+    fs.writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
   }
   return {
     status: 200,
@@ -846,7 +847,7 @@ function writeScreen(payload) {
     written.push(displayPath(destFile));
   }
 
-  const manager = {
+  const index = {
     name: screenName,
     sections: decodedSections.map(({ name, filename, x, y, width, height }) => ({
       name, filename, x, y, width, height,
@@ -855,8 +856,8 @@ function writeScreen(payload) {
       name, filename, type, section, x, y, width, height, expected, options, ocrRect, charset, ocrScale, parts,
     })),
   };
-  fs.writeFileSync(path.join(imagesDir, 'manager.json'), JSON.stringify(manager, null, 2) + '\n', 'utf8');
-  written.push(displayPath(path.join(imagesDir, 'manager.json')));
+  fs.writeFileSync(path.join(imagesDir, 'index.json'), JSON.stringify(index, null, 2) + '\n', 'utf8');
+  written.push(displayPath(path.join(imagesDir, 'index.json')));
   const expectedValues = Object.fromEntries(
     decodedTemplates.map((t) => [t.name, t.expected ?? '']),
   );
@@ -905,51 +906,136 @@ const APP_TYPES = {
 };
 
 const ARTIFACTS_DIR = path.join(PROJECT_ROOT, 'artifacts');
-const TRACE_VIEWER_DIR = path.join(PROJECT_ROOT, 'node_modules', 'playwright-core', 'lib', 'vite', 'traceViewer');
+// playwright-core is not a direct dep of core — resolve via @playwright/test.
+// Must use realpathSync so createRequire sees the pnpm store's own node_modules.
+const _atTestReal = fs.realpathSync(
+  path.join(PROJECT_ROOT, 'core', 'node_modules', '@playwright', 'test', 'index.js')
+);
+const _playwrightCorePkg = createRequire(_atTestReal).resolve('playwright-core/package.json');
+const TRACE_VIEWER_DIR = path.join(path.dirname(_playwrightCorePkg), 'lib', 'vite', 'traceViewer');
 
-const SOURCE_FILES = {
-  test: path.join(PROJECT_ROOT, 'tests', 'html-login-ocr.spec.ts'),
-  'html-login': path.join(PROJECT_ROOT, 'tests', 'screens', 'html-login', 'config.ts'),
-  'html-customer-information': path.join(PROJECT_ROOT, 'tests', 'screens', 'html-customer-information', 'config.ts'),
-};
+function labelFromScreenName(name) {
+  return name
+    .replace(/^html-/, '')
+    .replace(/-(.)/g, (_, c) => ' ' + c.toUpperCase())
+    .replace(/^(.)/, (_, c) => c.toUpperCase());
+}
 
-const HTML_FIXTURE_SCREENS = [
-  { name: 'html-login', label: 'Sign In', href: '/app/login.html' },
-  { name: 'html-customer-information', label: 'Customer Information', href: '/app/customer.html' },
-];
+/** Parse element names from a screen config.ts — top-level entries in elements:[...] only. */
+function parseConfigElementNames(configPath) {
+  if (!fs.existsSync(configPath)) return [];
+  const text = fs.readFileSync(configPath, 'utf8');
+  const startIdx = text.indexOf('elements: [');
+  if (startIdx === -1) return [];
+
+  const names = [];
+  let i = startIdx + 'elements: ['.length;
+  let depth = 1;
+
+  while (i < text.length && depth > 0) {
+    const ch = text[i];
+    // Skip string literals so brackets inside strings don't count
+    if (ch === "'" || ch === '"' || ch === '`') {
+      const q = ch;
+      i++;
+      while (i < text.length && text[i] !== q) {
+        if (text[i] === '\\') i++;
+        i++;
+      }
+      i++;
+      continue;
+    }
+    if (ch === '{') {
+      if (depth === 1) {
+        // Opening brace of a top-level element — grab its name
+        const slice = text.slice(i + 1);
+        const m = slice.match(/name:\s*['"]([^'"]+)['"]/);
+        if (m) names.push(m[1]);
+      }
+      depth++;
+    } else if (ch === '[') {
+      depth++;
+    } else if (ch === '}' || ch === ']') {
+      depth--;
+    }
+    i++;
+  }
+
+  return names;
+}
+
+function getSourceFiles() {
+  const files = {
+    test: path.join(PROJECT_ROOT, 'core', 'tests', 'customer.spec.ts'),
+  };
+  if (fs.existsSync(REPO_SCREENS_DIR)) {
+    for (const entry of fs.readdirSync(REPO_SCREENS_DIR, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue;
+      const configPath = path.join(REPO_SCREENS_DIR, entry.name, 'config.ts');
+      if (fs.existsSync(configPath)) files[entry.name] = configPath;
+    }
+  }
+  return files;
+}
 
 function htmlScreenCatalog() {
-  return HTML_FIXTURE_SCREENS.map((screen) => {
-    const managerPath = path.join(REPO_SCREENS_DIR, screen.name, 'manager.json');
-    const manager = fs.existsSync(managerPath)
-      ? JSON.parse(fs.readFileSync(managerPath, 'utf8'))
-      : { elements: [] };
-    const filledPath = path.join(REPO_SCREENS_DIR, screen.name, 'filled.png');
-    return {
-      ...screen,
-      blank: `/screens/${screen.name}/blank.png`,
-      filled: fs.existsSync(filledPath) ? `/screens/${screen.name}/filled.png` : null,
-      elements: (manager.elements || []).map((el) => ({
-        name: el.name,
-        type: el.type,
-        x: el.x,
-        y: el.y,
-        width: el.width,
-        height: el.height,
-        parts: (el.parts || []).map((part) => ({
-          name: part.name,
-          x: part.x,
-          y: part.y,
-          width: part.width,
-          height: part.height,
-        })),
-      })),
-    };
-  });
+  if (!fs.existsSync(REPO_SCREENS_DIR)) return [];
+  return fs.readdirSync(REPO_SCREENS_DIR, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .map((screenName) => {
+      const screenDir = path.join(REPO_SCREENS_DIR, screenName);
+      const blankPath = path.join(screenDir, 'blank.png');
+      if (!fs.existsSync(blankPath)) return null;
+
+      const indexPath = path.join(screenDir, 'index.json');
+      const configPath = path.join(screenDir, 'config.ts');
+      const filledPath = path.join(screenDir, 'filled.png');
+
+      const index = fs.existsSync(indexPath)
+        ? JSON.parse(fs.readFileSync(indexPath, 'utf8'))
+        : { elements: [] };
+
+      const configNames = parseConfigElementNames(configPath);
+      const indexByName = Object.fromEntries(
+        (index.elements || []).map((el) => [el.name, el]),
+      );
+
+      // Config.ts is authoritative for which elements exist; index.json provides positions.
+      const elementNames = configNames.length > 0 ? configNames : (index.elements || []).map((el) => el.name);
+      const elements = elementNames.map((name) => {
+        const m = indexByName[name] || {};
+        return {
+          name,
+          type: m.type,
+          x: m.x,
+          y: m.y,
+          width: m.width,
+          height: m.height,
+          parts: (m.parts || []).map((p) => ({ name: p.name, x: p.x, y: p.y, width: p.width, height: p.height })),
+        };
+      });
+
+      // href: use stored value from index.json if present, otherwise derive from first name segment
+      const firstSegment = screenName.replace(/^html-/, '').replace(/-.*$/, '');
+      const href = index.href || `/app/${firstSegment}.html`;
+      const sections = (index.sections && index.sections.length) ? index.sections : null;
+
+      return {
+        name: screenName,
+        label: labelFromScreenName(screenName),
+        href,
+        blank: `/screens/${screenName}/blank.png`,
+        filled: fs.existsSync(filledPath) ? `/screens/${screenName}/filled.png` : null,
+        sections,
+        elements,
+      };
+    })
+    .filter(Boolean);
 }
 
 function loadSource(rawKey) {
-  const filePath = SOURCE_FILES[String(rawKey ?? '')];
+  const filePath = getSourceFiles()[String(rawKey ?? '')];
   if (!filePath) {
     return { status: 404, body: { error: 'Unknown source file.' } };
   }
@@ -1052,15 +1138,16 @@ function startHtmlTest({ headed = false } = {}) {
   htmlTestRun.finishedAt = null;
   htmlTestRun.error = null;
 
-  const playwrightBin = path.join(PROJECT_ROOT, 'node_modules', '.bin', 'playwright');
-  const args = ['test', 'tests/html-login-ocr.spec.ts'];
+  const CORE_ROOT = path.join(PROJECT_ROOT, 'core');
+  const playwrightBin = path.join(CORE_ROOT, 'node_modules', '.bin', 'playwright');
+  const args = ['test', 'tests/customer.spec.ts'];
   if (htmlTestRun.headed) args.push('--headed');
 
   const env = { ...process.env, OCR_OPEN: '0' };
   delete env.PLAYWRIGHT_BROWSERS_PATH;
 
   const child = spawn(playwrightBin, args, {
-    cwd: PROJECT_ROOT,
+    cwd: CORE_ROOT,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -1205,6 +1292,24 @@ async function handle(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/api/sources') {
+    const sourceFiles = getSourceFiles();
+    const coreRoot = path.join(PROJECT_ROOT, 'core');
+    const screenEntries = Object.entries(sourceFiles)
+      .filter(([k]) => k !== 'test')
+      .sort(([a], [b]) => a.localeCompare(b));
+    const testEntry = Object.entries(sourceFiles).find(([k]) => k === 'test');
+    const ordered = testEntry ? [...screenEntries, testEntry] : screenEntries;
+    const files = ordered.map(([key, filePath]) => ({
+      file: key,
+      tab: key !== 'test' ? `${key}/config.ts` : path.basename(filePath),
+      path: path.relative(coreRoot, filePath).replace(/\\/g, '/'),
+      screen: key !== 'test' ? key : null,
+    }));
+    sendJson(res, 200, { files });
+    return;
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/html-screens') {
     sendJson(res, 200, { screens: htmlScreenCatalog() });
     return;
@@ -1340,9 +1445,9 @@ function listen(port) {
   });
 
   server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE' && port < DEFAULT_PORT + 10) {
-      listen(port + 1);
-      return;
+    if (err.code === 'EADDRINUSE') {
+      console.error(`Port ${port} is already in use. Kill the existing process and retry.`);
+      process.exit(1);
     }
     console.error(err);
     process.exit(1);

@@ -187,8 +187,11 @@ export function defineScreen(config: {
     screenConfig.ready = config.ready;
   }
   
-  const managerPath = path.join(config.baseDir, 'manager.json');
-  if (fs.existsSync(managerPath)) {
+  const managerPath = [
+    path.join(config.baseDir, 'index.json'),
+    path.join(config.baseDir, 'manager.json'),
+  ].find((p) => fs.existsSync(p));
+  if (managerPath) {
     try {
       const manager = JSON.parse(fs.readFileSync(managerPath, 'utf8')) as {
         elements?: Array<{
@@ -200,7 +203,7 @@ export function defineScreen(config: {
           ocrRect?: ElementConfig['ocrRect'];
           options?: string[];
           charset?: string;
-          parts?: FieldPart[];
+          parts?: Array<{ name?: string; x: number; y: number; width: number; height: number; charset?: string }>;
         }>;
       };
       const extra = new Map((manager.elements || []).map((row) => [row.name, row]));
@@ -210,18 +213,26 @@ export function defineScreen(config: {
         if (!el.ocrRect && row.ocrRect) el.ocrRect = row.ocrRect;
         if (!el.options?.length && row.options?.length) el.options = row.options;
         if (!el.charset && row.charset) el.charset = row.charset;
-        if (!el.parts?.length && row.parts?.length) {
+        if (row.parts?.length) {
           const crop = {
             x: row.x ?? 0,
             y: row.y ?? 0,
             width: row.width ?? 0,
             height: row.height ?? 0,
           };
-          el.parts = row.parts.map((part) => ({
-            name: part.name,
-            charset: part.charset,
-            ...relativePartRect(part, crop),
-          }));
+          if (!el.parts?.length) {
+            el.parts = row.parts.map((part) => ({
+              name: part.name ?? '',
+              charset: part.charset,
+              ...relativePartRect(part, crop),
+            }));
+          } else if (el.parts.length === row.parts.length) {
+            // index.json positions override config.ts positions; names/extras from config.ts
+            el.parts = el.parts.map((configPart, i) => ({
+              ...configPart,
+              ...relativePartRect(row.parts![i]!, crop),
+            }));
+          }
         }
       }
     } catch {
