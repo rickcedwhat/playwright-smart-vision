@@ -10,6 +10,10 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
+    "./test": {
+      "import": "./dist/ocr-test.js",
+      "types": "./dist/ocr-test.d.ts"
+    },
     "./configure": {
       "import": "./dist/configure.js",
       "types": "./dist/configure.d.ts"
