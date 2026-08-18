@@ -62,9 +62,12 @@ const FAB_SCRIPT = `(function () {
         height: 48px;
         min-width: 48px;
         min-height: 48px;
+        max-width: 48px;
+        max-height: 48px;
         padding: 0;
         margin: 0;
         box-sizing: border-box;
+        overflow: hidden;
         border-radius: 50%;
         background: #1a1a2e;
         border: 2px solid #4f46e5;
@@ -83,32 +86,6 @@ const FAB_SCRIPT = `(function () {
         transition: transform 0.15s;
       }
       #__ocr-fab-btn:hover { transform: scale(1.1); }
-      #__ocr-fab-menu {
-        position: absolute;
-        bottom: 56px;
-        right: 0;
-        background: #1a1a2e;
-        border: 1px solid #4f46e5;
-        border-radius: 8px;
-        overflow: hidden;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.5);
-        display: none;
-      }
-      #__ocr-fab-menu.open { display: block; }
-      #__ocr-fab-menu button {
-        display: block;
-        width: 100%;
-        padding: 10px 16px;
-        background: none;
-        border: none;
-        color: #e2e8f0;
-        font-size: 13px;
-        line-height: 1.4;
-        cursor: pointer;
-        white-space: nowrap;
-        text-align: left;
-      }
-      #__ocr-fab-menu button:hover { background: #2d2d4e; }
       #__ocr-modal-backdrop {
         position: fixed;
         inset: 0;
@@ -175,10 +152,7 @@ const FAB_SCRIPT = `(function () {
     const fab = document.createElement('div');
     fab.id = '__ocr-fab';
     fab.innerHTML = \`
-      <div id="__ocr-fab-menu">
-        <button id="__ocr-capture-btn">\u{1F4F7} Capture Screen</button>
-      </div>
-      <button id="__ocr-fab-btn" title="OCR Devtools">\u{1F441}</button>
+      <button id="__ocr-fab-btn" title="Capture screen">\u{1F441}</button>
     \`;
 
     function isolateFromPage(el) {
@@ -195,16 +169,8 @@ const FAB_SCRIPT = `(function () {
     (document.body || document.documentElement).appendChild(fab);
 
     const fabBtn = fab.querySelector('#__ocr-fab-btn');
-    const menu = fab.querySelector('#__ocr-fab-menu');
-    const captureBtn = fab.querySelector('#__ocr-capture-btn');
 
-    fabBtn.addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
-    document.addEventListener('click', (e) => {
-      if (!fab.contains(e.target)) menu.classList.remove('open');
-    });
-
-    captureBtn.addEventListener('click', async () => {
-      menu.classList.remove('open');
+    fabBtn.addEventListener('click', async () => {
       fab.style.display = 'none';
       let b64;
       try {

@@ -30,14 +30,6 @@ test.describe('devtools FAB', () => {
     await expect(page.locator('#__ocr-fab')).toBeVisible();
   });
 
-  test('FAB button opens capture menu on click', async ({ page }) => {
-    await page.goto('/');
-    await injectDevtools(page);
-
-    await page.locator('#__ocr-fab-btn').click();
-    await expect(page.locator('#__ocr-fab-menu')).toHaveClass(/open/);
-  });
-
   test('FAB button stays circular', async ({ page }) => {
     await page.goto('/');
     await injectDevtools(page);
@@ -47,12 +39,11 @@ test.describe('devtools FAB', () => {
     expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
   });
 
-  test('capture screen opens modal', async ({ page }) => {
+  test('FAB click captures and opens the modal', async ({ page }) => {
     await page.goto('/');
     await injectDevtools(page);
 
     await page.locator('#__ocr-fab-btn').click();
-    await page.locator('#__ocr-capture-btn').click();
 
     await expect(page.locator('#__ocr-modal-backdrop')).toBeVisible();
     await expect(page.locator('#__ocr-name-input')).toBeVisible();
@@ -63,7 +54,6 @@ test.describe('devtools FAB', () => {
     await injectDevtools(page);
 
     await page.locator('#__ocr-fab-btn').click();
-    await page.locator('#__ocr-capture-btn').click();
 
     const input = page.locator('#__ocr-name-input');
     await expect(input).toBeVisible();
