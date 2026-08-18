@@ -60,10 +60,13 @@ describe('author apply + catalog', () => {
       ],
     });
     const dest = path.join(root, 'screens.generated.ts');
-    writeScreenCatalog(dest);
-    const src = fs.readFileSync(dest, 'utf8');
+    const src = writeScreenCatalog(dest);
     expect(src).toContain('"html-login"');
     expect(src).toContain('"username"');
+    expect(src).not.toMatch(/\bas const\b/);
+    expect(src).toContain('export type ScreenName');
+    expect(src).toContain('export type ElementName');
+    expect(fs.readFileSync(dest, 'utf8')).toBe(src);
     expect(readScreenCatalog()['html-login']).toEqual(['username', 'password']);
   });
 

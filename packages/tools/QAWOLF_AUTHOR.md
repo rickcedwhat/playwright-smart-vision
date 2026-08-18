@@ -2,13 +2,28 @@
 
 Use this when a human asks you to create OCR templates from a captured blank.
 
-You run in a **flow**, not the wolf shell. `npx` cannot import this package here.
+You own **first-pass naming**. Detect and apply run in a flow. The typed catalog is a file you write in the repo after the flow. Product tests must not call an LLM; they consume the authored templates and that catalog.
+
+You run in a **flow**, not the wolf shell.
+
+## Package (flow vs shell)
+
+Import from `@rickcedwhat/playwright-smart-vision` **in a flow**. Session-workspace `node_modules` and `npx` will not resolve it — that is expected. Do not `npm install`.
+
+`flow` is **not** a smart-vision export. Import it from `@qawolf/flows/web`.
+
+```ts
+import * as author from '@rickcedwhat/playwright-smart-vision/author';
+```
+
+That namespace must include `detectScreen`, `applyScreen`, and `showAnnotated`.
 
 ## Setup
 
 ```ts
+import { flow } from '@qawolf/flows/web';
 import { configure, saveScreen } from '@rickcedwhat/playwright-smart-vision';
-import { detectScreen, applyScreen, writeScreenCatalog } from '@rickcedwhat/playwright-smart-vision/author';
+import * as author from '@rickcedwhat/playwright-smart-vision/author';
 
 await configure({
   storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
@@ -17,34 +32,127 @@ await configure({
 });
 ```
 
+## Find screens
+
+Root is always `process.env.TEAM_STORAGE_DIR + '/screens'` (same as `configure`). Each screen is a folder:
+
+```text
+{TEAM_STORAGE_DIR}/screens/{name}/blank.png
+{TEAM_STORAGE_DIR}/screens/{name}/boxes.json              ← after detect
+{TEAM_STORAGE_DIR}/screens/{name}/boxes-annotated.png     ← after detect
+{TEAM_STORAGE_DIR}/screens/{name}/first-pass.json         ← after you name boxes
+{TEAM_STORAGE_DIR}/screens/{name}/index.json              ← after apply
+{TEAM_STORAGE_DIR}/screens/{name}/templates/*.png
+```
+
+`{name}` is the FAB save name / `saveScreen` argument (`customer-info`).
+
+To see what is already captured, **in a flow**:
+
+```ts
+import fs from 'node:fs';
+const root = process.env.TEAM_STORAGE_DIR + '/screens';
+const names = fs.readdirSync(root).filter((n) =>
+  fs.existsSync(root + '/' + n + '/blank.png')
+);
+console.log(names);
+```
+
+After `detectScreen(name)`, do not guess paths. Use the return value:
+
+```ts
+const detected = await author.detectScreen('customer-info');
+// detected.dir            — folder on FUSE
+// detected.annotatedPath  — PNG with box IDs drawn on the blank
+// detected.boxesPath      — boxes.json
+// detected.boxes          — [{ id, x, y, width, height }, ...]
+```
+
+## Inspect the annotated PNG (required before naming)
+
+Raw FUSE bytes are not a visual. `showAnnotated` opens the PNG in a **new tab** so the Guacamole / app page stays alive. Do not `page.setContent` on the app page.
+
+```ts
+const viewer = await author.showAnnotated(page, detected.annotatedPath);
+await viewer.bringToFront();
+// inspect the viewer tab's flow screenshot — red boxes + numeric IDs
+await viewer.close();
+```
+
+Also read `detected.boxes` / `detected.boxesPath` for the id list. Do not invent ids or coordinates.
+
 ## Loop
 
 1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`.
-2. **Detect** — `const detected = await detectScreen('customer-info')`. Writes `boxes.json` and `boxes-annotated.png`. Do not invent coordinates.
-3. **Name** — look at `boxes-annotated.png` (and `boxes.json`). Write `first-pass.json` **or** pass the object to apply:
+2. **Detect** — `const detected = await author.detectScreen('customer-info')`.
+3. **Inspect** — `showAnnotated` as above.
+4. **Name** — you emit first-pass JSON and pass it to `author.applyScreen` (it writes `first-pass.json` for you):
 
 ```ts
-await applyScreen('customer-info', {
+await author.applyScreen('customer-info', {
   screen: { name: 'customer-info', width: detected.width, height: detected.height },
-  notes: [],
-  unknowns: [], // controls with no box
+  notes: ['short observations'],
+  unknowns: [
+    'DOB field: no detected box',
+  ],
   sections: [],
   elements: [
-    { name: 'lastName', type: 'field', boxIds: [12] },
-    { name: 'ok', type: 'button', boxIds: [20] },
+    {
+      name: 'lastName',
+      type: 'field',
+      section: null,
+      boxIds: [12],
+    },
+    {
+      name: 'fullName',
+      type: 'field',
+      section: null,
+      boxIds: [14, 15, 16],
+      parts: [
+        { name: 'firstName', boxId: 14 },
+        { name: 'middleInitial', boxId: 15 },
+        { name: 'lastName', boxId: 16 },
+      ],
+    },
+    { name: 'ok', type: 'button', section: null, boxIds: [20] },
   ],
 });
 ```
 
-Rules: camelCase names; only existing `boxIds`; skip chrome (taskbar, icons); shared-label rows use one element + `parts: [{ name, boxId }]`.
+### First-pass shape
 
-4. **Catalog** — typed helper for test authors:
+| Field | Type | Rules |
+|---|---|---|
+| `screen.name` | string | kebab-case, same as the folder / FAB name |
+| `screen.width` / `height` | number | copy from `detected.width` / `detected.height` |
+| `notes` | `string[]` | optional observations |
+| `unknowns` | `string[]` | **human-readable reasons only.** A control with no box, a missing layout variant, or a box you cannot read. Never put coordinates here. Example: `"phone extension: no box"`. Use `[]` if everything was assigned. |
+| `sections` | `[]` | **Always `[]` for now.** `applyScreen` ignores this. Do not invent section crops. Only revisit if two fields are still interchangeable after including their labels. |
+| `elements` | array | one entry per named control |
+| `elements[].name` | string | camelCase |
+| `elements[].type` | string | `field` \| `button` \| `checkbox` \| `radio` \| `dropdown` \| `tab` \| `label` \| `icon` \| `message` \| `other` |
+| `elements[].section` | `null` | always `null` until sections are supported |
+| `elements[].boxIds` | `number[]` | **only ids from `detected.boxes`**. One or more boxes. |
+| `elements[].parts` | optional | shared-label rows: `{ name: camelCase, boxId: number }[]` matching ids in `boxIds` |
+
+Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not use `as` or `as const` in authored files.
+
+5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored: add it to `ScreenName`, add a key on the `ElementName` map, add a key on `screens`. Element names must match `elements[].name` from the first-pass you applied. No `as` / `as const`.
 
 ```ts
-writeScreenCatalog('src/helpers/screens.generated.ts');
+/** Generated catalog of FUSE screens. Update when authoring a screen. */
+export type ScreenName = "customer-info";
+
+export type ElementName<S extends ScreenName> = {
+  "customer-info": "lastName" | "fullName" | "ok";
+}[S];
+
+export const screens: { [K in ScreenName]: readonly ElementName<K>[] } = {
+  "customer-info": ["lastName", "fullName", "ok"],
+};
 ```
 
-5. Product tests only **read** FUSE:
+6. Product tests only **read** FUSE:
 
 ```ts
 const screen = ocrScreen('customer-info');
