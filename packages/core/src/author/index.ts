@@ -7,5 +7,7 @@ export type { FirstPass, FirstPassElement, FirstPassPart, ApplyScreenResult, App
 export { writeScreenCatalog, readScreenCatalog } from './catalog.js';
 export type { ScreenCatalog } from './catalog.js';
 
+export { showAnnotated } from './show.js';
+
 export { kebab, unionRects, insetRect } from './geometry.js';
 export type { DetectedBox } from './geometry.js';
