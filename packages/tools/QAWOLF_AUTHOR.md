@@ -8,13 +8,7 @@ You run in a **flow**, not the wolf shell.
 
 ## Package (flow vs shell)
 
-Depend on the **`next` dist-tag**, with no SHA pin:
-
-```json
-"@rickcedwhat/playwright-smart-vision": "next"
-```
-
-The **flow runner** installs whatever `next` is at flow start. Session-workspace `node_modules` and `npx` will not have this package — that is expected. Do not `npm install`. Do not pin `0.3.0-next.<sha>`.
+Import from `@rickcedwhat/playwright-smart-vision` **in a flow**. Session-workspace `node_modules` and `npx` will not resolve it — that is expected. Do not `npm install`.
 
 `flow` is **not** a smart-vision export. Import it from `@qawolf/flows/web`.
 
@@ -22,7 +16,7 @@ The **flow runner** installs whatever `next` is at flow start. Session-workspace
 import * as author from '@rickcedwhat/playwright-smart-vision/author';
 ```
 
-That namespace must include `detectScreen`, `applyScreen`, and `showAnnotated`. If the import fails, the runner did not install `next`.
+That namespace must include `detectScreen`, `applyScreen`, and `showAnnotated`.
 
 ## Setup
 
