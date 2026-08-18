@@ -1,6 +1,6 @@
 {
   "name": "@rickcedwhat/playwright-smart-vision",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Computer-vision and OCR-based element assertions for Playwright — local, fast, no GPT Vision required",
   "type": "module",
   "main": "./dist/index.js",
