@@ -47,6 +47,17 @@ test.describe('devtools FAB', () => {
     expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
   });
 
+  test('capture screen opens modal', async ({ page }) => {
+    await page.goto('/');
+    await injectDevtools(page);
+
+    await page.locator('#__ocr-fab-btn').click();
+    await page.locator('#__ocr-capture-btn').click();
+
+    await expect(page.locator('#__ocr-modal-backdrop')).toBeVisible();
+    await expect(page.locator('#__ocr-name-input')).toBeVisible();
+  });
+
   test('capture modal name input accepts typing', async ({ page }) => {
     await page.goto('/');
     await injectDevtools(page);

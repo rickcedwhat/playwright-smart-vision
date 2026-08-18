@@ -32,8 +32,6 @@ const FAB_SCRIPT = `(function () {
         right: 20px;
         z-index: 2147483647;
         font-family: system-ui, sans-serif;
-        display: block;
-        line-height: 0;
       }
       #__ocr-fab-btn {
         width: 48px;
@@ -81,6 +79,7 @@ const FAB_SCRIPT = `(function () {
         border: none;
         color: #e2e8f0;
         font-size: 13px;
+        line-height: 1.4;
         cursor: pointer;
         white-space: nowrap;
         text-align: left;
@@ -165,7 +164,9 @@ const FAB_SCRIPT = `(function () {
       }
     }
 
-    isolateFromPage(fab);
+    fab.addEventListener('mousedown', (e) => e.stopPropagation());
+    fab.addEventListener('mouseup', (e) => e.stopPropagation());
+    fab.addEventListener('click', (e) => e.stopPropagation());
 
     (document.body || document.documentElement).appendChild(fab);
 
@@ -178,16 +179,21 @@ const FAB_SCRIPT = `(function () {
       if (!fab.contains(e.target)) menu.classList.remove('open');
     });
 
+    captureBtn.addEventListener('mousedown', (e) => e.stopPropagation());
+    captureBtn.addEventListener('mouseup', (e) => e.stopPropagation());
+    captureBtn.addEventListener('click', (e) => e.stopPropagation());
     captureBtn.addEventListener('click', async () => {
       menu.classList.remove('open');
       fab.style.display = 'none';
       let b64;
       try {
         b64 = await window.__ocrCapture();
+        showModal(b64);
+      } catch (err) {
+        alert('Capture failed: ' + err.message);
       } finally {
         fab.style.display = '';
       }
-      showModal(b64);
     });
 
     function showModal(b64) {
