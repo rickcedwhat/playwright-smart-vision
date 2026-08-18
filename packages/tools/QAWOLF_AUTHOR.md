@@ -181,6 +181,14 @@ export default flow(
 );
 ```
 
+## Inspect / tweak (optional)
+
+After apply, a human can open a minimal manager in a **new tab** (Guacamole stays up). It reads/writes FUSE `index.json` + template crops. Click **Save**, then **Done**.
+
+```ts
+await author.runManager(page, 'customer-info');
+```
+
 ## Catalog (not a flow)
 
 After apply, merge `src/helpers/screens.generated.ts`. Keep other screens; add/replace only the one you just authored. No `as` / `as const`.

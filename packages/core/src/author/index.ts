@@ -8,6 +8,8 @@ export { writeScreenCatalog, readScreenCatalog, screenCatalogSource } from './ca
 export type { ScreenCatalog } from './catalog.js';
 
 export { showAnnotated } from './show.js';
+export { runManager } from './manager.js';
+export type { RunManagerOptions, RunManagerHandle } from './manager.js';
 
 export { kebab, unionRects, insetRect } from './geometry.js';
 export type { DetectedBox } from './geometry.js';
