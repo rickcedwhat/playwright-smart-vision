@@ -58,13 +58,18 @@ const FAB_SCRIPT = `(function () {
         font-family: system-ui, sans-serif;
       }
       #__ocr-fab-btn {
+        position: relative;
+        z-index: 1;
         width: 48px;
         height: 48px;
         min-width: 48px;
         min-height: 48px;
+        max-width: 48px;
+        max-height: 48px;
         padding: 0;
         margin: 0;
         box-sizing: border-box;
+        overflow: hidden;
         border-radius: 50%;
         background: #1a1a2e;
         border: 2px solid #4f46e5;
@@ -87,6 +92,7 @@ const FAB_SCRIPT = `(function () {
         position: absolute;
         bottom: 56px;
         right: 0;
+        z-index: 2;
         background: #1a1a2e;
         border: 1px solid #4f46e5;
         border-radius: 8px;
@@ -175,10 +181,10 @@ const FAB_SCRIPT = `(function () {
     const fab = document.createElement('div');
     fab.id = '__ocr-fab';
     fab.innerHTML = \`
+      <button id="__ocr-fab-btn" title="OCR Devtools">\u{1F441}</button>
       <div id="__ocr-fab-menu">
         <button id="__ocr-capture-btn">\u{1F4F7} Capture Screen</button>
       </div>
-      <button id="__ocr-fab-btn" title="OCR Devtools">\u{1F441}</button>
     \`;
 
     function isolateFromPage(el) {

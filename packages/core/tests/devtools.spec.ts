@@ -38,6 +38,23 @@ test.describe('devtools FAB', () => {
     await expect(page.locator('#__ocr-fab-menu')).toHaveClass(/open/);
   });
 
+  test('Capture Screen menu item is hit-testable above the FAB button', async ({ page }) => {
+    await page.goto('/');
+    await injectDevtools(page);
+
+    await page.locator('#__ocr-fab-btn').click();
+    const menu = page.locator('#__ocr-fab-menu');
+    await expect(menu).toHaveClass(/open/);
+
+    const box = await menu.boundingBox();
+    expect(box).not.toBeNull();
+    const hit = await page.evaluate(({ x, y }) => {
+      const el = document.elementFromPoint(x, y);
+      return el?.closest('#__ocr-fab-menu')?.id ?? el?.id ?? null;
+    }, { x: box!.x + box!.width / 2, y: box!.y + box!.height / 2 });
+    expect(hit).toBe('__ocr-fab-menu');
+  });
+
   test('FAB button stays circular', async ({ page }) => {
     await page.goto('/');
     await injectDevtools(page);
