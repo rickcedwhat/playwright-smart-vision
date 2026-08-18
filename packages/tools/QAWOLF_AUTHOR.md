@@ -2,7 +2,7 @@
 
 Use this when a human asks you to create OCR templates from a captured blank.
 
-You own **first-pass naming**. Detect, apply, and catalog are library calls. Product tests must not call an LLM; they consume the authored templates and generated catalog.
+You own **first-pass naming**. Detect and apply run in a flow. The typed catalog is a file you write in the repo after the flow. Product tests must not call an LLM; they consume the authored templates and that catalog.
 
 You run in a **flow**, not the wolf shell.
 
@@ -17,7 +17,7 @@ Validate `/author` **in a flow**:
 ```ts
 import * as author from '@rickcedwhat/playwright-smart-vision/author';
 console.log(Object.keys(author).sort());
-// expect: applyScreen, detectScreen, showAnnotated, writeScreenCatalog, screenCatalogSource
+// expect: applyScreen, detectScreen, showAnnotated
 ```
 
 If that import fails in a flow, the pin is wrong or the runner did not install. If `showAnnotated` is missing, render `detected.annotatedPath` on the current page as a fallback.
@@ -30,7 +30,6 @@ import { configure, saveScreen } from '@rickcedwhat/playwright-smart-vision';
 import {
   detectScreen,
   applyScreen,
-  writeScreenCatalog,
   showAnnotated,
 } from '@rickcedwhat/playwright-smart-vision/author';
 
@@ -145,15 +144,17 @@ await applyScreen('customer-info', {
 
 Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates.
 
-5. **Catalog** — the flow runtime can write FUSE, not the git workspace (`/app/generatedProgram`). **Do not** call `writeScreenCatalog('src/helpers/screens.generated.ts')` from a flow (ENOENT). In the flow:
+5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored. Element names must match `elements[].name` from the first-pass you applied.
 
 ```ts
-const source = writeScreenCatalog();
-console.log(source);
-// also on FUSE: {TEAM_STORAGE_DIR}/screens/screens.generated.ts
-```
+/** Generated catalog of FUSE screens. Update when authoring a screen. */
+export const screens = {
+  "customer-info": ["lastName", "fullName", "ok"] as const,
+} as const;
 
-After the flow, as a workspace file write (not a flow), copy that source to `src/helpers/screens.generated.ts`. Prefer the FUSE file if the log is truncated.
+export type ScreenName = keyof typeof screens;
+export type ElementName<S extends ScreenName> = (typeof screens)[S][number];
+```
 
 6. Product tests only **read** FUSE:
 
