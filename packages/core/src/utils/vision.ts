@@ -5,10 +5,39 @@ import { PNG } from 'pngjs';
 // The opencv-js package exports a Promise (WASM init), not the API directly.
 // cv is set once ensureCvReady() resolves.
 let cv: any = null;
-const _cvInit = Promise.resolve(cvModule).then((resolved: any) => { cv = resolved; });
+let _cvInit: Promise<void> | null = null;
+
+async function loadCv(): Promise<any> {
+  let loaded: any = cvModule;
+  // Avoid Promise.resolve(module) — a module namespace with a `then` is not a Promise
+  // and throws "incompatible receiver" under Vitest.
+  if (loaded instanceof Promise) {
+    loaded = await loaded;
+  }
+  if (loaded?.Mat) return loaded;
+  if (loaded?.default instanceof Promise) {
+    loaded = await loaded.default;
+  } else if (loaded?.default) {
+    loaded = loaded.default;
+  }
+  return loaded;
+}
+
+export function getCv(): any {
+  if (!cv) {
+    throw new Error('OpenCV is not ready — await ensureCvReady() first');
+  }
+  return cv;
+}
 
 /** Await this before constructing a VisionUtil or calling any cv API. */
 export async function ensureCvReady(): Promise<void> {
+  if (cv) return;
+  if (!_cvInit) {
+    _cvInit = loadCv().then((resolved) => {
+      cv = resolved;
+    });
+  }
   await _cvInit;
 }
 import pixelmatch from 'pixelmatch';
