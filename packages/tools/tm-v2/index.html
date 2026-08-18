@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>smart-vision TM v2</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 13px/1.4 system-ui, sans-serif; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #1b1b1b; border-bottom: 1px solid #333; }
+  header h1 { font-size: 14px; margin: 0 8px 0 0; white-space: nowrap; }
+  input[type=text], input[type=number], select, button { font: inherit; }
+  input[type=text], select { background: #222; color: #eee; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; }
+  #gcs { width: min(520px, 40vw); }
+  button { background: #333; color: #eee; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
+  button.primary { background: #3d6d3d; border-color: #5a9; }
+  button:hover { filter: brightness(1.12); }
+  #status { color: #8c8; flex: 1; min-width: 120px; }
+  #status.err { color: #f88; }
+  .layout { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+  aside { overflow: auto; padding: 12px; border-right: 1px solid #333; background: #181818; }
+  main { overflow: auto; background: #000; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .stage { position: relative; display: inline-block; }
+  .stage img { display: block; max-width: 100%; height: auto; }
+  .box, .el-box { position: absolute; pointer-events: none; }
+  .box { border: 2px solid #f44; }
+  .el-box { border: 2px solid #6af; background: rgba(80,160,255,.12); }
+  .el { border: 1px solid #333; padding: 8px; margin-bottom: 8px; border-radius: 4px; }
+  label { display: flex; justify-content: space-between; gap: 8px; margin: 4px 0; }
+  label input { width: 96px; background: #222; color: #eee; border: 1px solid #444; padding: 2px 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid #2a2a2a; }
+  .muted { color: #888; }
+  .id { color: #f88; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>TM v2</h1>
+  <input id="gcs" type="text" spellcheck="false">
+  <button id="saveSettings" type="button">Save URI</button>
+  <button id="pullAll" type="button">Pull GCS</button>
+  <button id="pushAll" type="button">Push GCS</button>
+  <span id="status"></span>
+</header>
+<div class="layout">
+<aside>
+  <div class="row">
+    <select id="screen"></select>
+    <button id="pullOne" type="button">Pull</button>
+    <button id="pushOne" type="button">Push</button>
+  </div>
+  <div class="row">
+    <button id="detect" class="primary" type="button">Detect</button>
+    <button id="apply" class="primary" type="button">Apply</button>
+    <button id="saveEls" type="button">Save crops</button>
+  </div>
+  <label class="muted"><input type="checkbox" id="showDetected" checked> detected boxes</label>
+  <label class="muted"><input type="checkbox" id="showAnnotated"> annotated PNG</label>
+  <p class="muted" id="meta"></p>
+  <h3>Detected IDs</h3>
+  <table>
+    <thead><tr><th>id</th><th>name</th></tr></thead>
+    <tbody id="boxes"></tbody>
+  </table>
+  <h3>Applied crops</h3>
+  <div id="list"></div>
+</aside>
+<main>
+  <div class="stage" id="stage">
+    <img id="blank" alt="screen">
+    <div id="overlays"></div>
+  </div>
+</main>
+</div>
+<script>
+const statusEl = document.getElementById('status');
+const gcs = document.getElementById('gcs');
+const screenSel = document.getElementById('screen');
+const boxesBody = document.getElementById('boxes');
+const list = document.getElementById('list');
+const blank = document.getElementById('blank');
+const overlays = document.getElementById('overlays');
+const showDetected = document.getElementById('showDetected');
+const showAnnotated = document.getElementById('showAnnotated');
+const meta = document.getElementById('meta');
+let state = { name: '', elements: [], boxes: [], width: 0, height: 0, names: {} };
+
+function setStatus(msg, err) {
+  statusEl.textContent = msg;
+  statusEl.className = err ? 'err' : '';
+}
+
+async function api(path, opts) {
+  const res = await fetch(path, opts);
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+function fillScreens(names, selected) {
+  const current = selected || screenSel.value;
+  screenSel.innerHTML = names.map((n) => '<option' + (n === current ? ' selected' : '') + '>' + n + '</option>').join('');
+}
+
+async function loadSettings() {
+  const s = await api('/api/settings');
+  gcs.value = s.gcsUri;
+  fillScreens(s.localScreens || [], screenSel.value);
+}
+
+async function refreshRemote() {
+  const remote = await api('/api/remote');
+  const local = (await api('/api/settings')).localScreens || [];
+  fillScreens([...new Set([...remote.screens, ...local])].sort(), screenSel.value);
+}
+
+async function loadScreen(name) {
+  if (!name) return;
+  const data = await api('/api/screen?name=' + encodeURIComponent(name));
+  state = {
+    name,
+    elements: data.elements || [],
+    boxes: data.boxes || [],
+    width: data.width || 0,
+    height: data.height || 0,
+    names: {},
+  };
+  for (const el of state.elements) {
+    for (const id of el.boxIds || []) state.names[id] = el.name;
+  }
+  if (data.firstPass && data.firstPass.elements) {
+    for (const el of data.firstPass.elements) {
+      for (const id of el.boxIds || []) state.names[id] = el.name;
+    }
+  }
+  meta.textContent = (data.width ? data.width + '×' + data.height : 'no detect yet') +
+    ' · ' + state.boxes.length + ' boxes · ' + state.elements.length + ' crops';
+  renderImage();
+  renderBoxes();
+  renderElements();
+}
+
+function renderImage() {
+  const src = showAnnotated.checked ? '/file/annotated' : '/file/blank';
+  blank.src = src + '?name=' + encodeURIComponent(state.name) + '&t=' + Date.now();
+}
+
+function renderBoxes() {
+  boxesBody.innerHTML = state.boxes.map((box) => {
+    const val = state.names[box.id] || '';
+    return '<tr><td class="id">' + box.id + '</td><td><input data-id="' + box.id + '" value="' + val + '" placeholder="name"></td></tr>';
+  }).join('');
+  paint();
+}
+
+function renderElements() {
+  list.innerHTML = state.elements.map((el) => {
+    return '<div class="el"><strong>' + el.name + '</strong>' +
+      '<label>x <input data-name="' + el.name + '" data-k="x" type="number" value="' + el.x + '"></label>' +
+      '<label>y <input data-name="' + el.name + '" data-k="y" type="number" value="' + el.y + '"></label>' +
+      '<label>w <input data-name="' + el.name + '" data-k="width" type="number" value="' + el.width + '"></label>' +
+      '<label>h <input data-name="' + el.name + '" data-k="height" type="number" value="' + el.height + '"></label></div>';
+  }).join('') || '<p class="muted">No index.json yet. Detect → name IDs → Apply.</p>';
+  paint();
+}
+
+function paint() {
+  const scaleX = blank.clientWidth / (blank.naturalWidth || state.width || 1);
+  const scaleY = blank.clientHeight / (blank.naturalHeight || state.height || 1);
+  let html = '';
+  if (showDetected.checked) {
+    for (const box of state.boxes) {
+      html += '<div class="box" style="left:' + (box.x * scaleX) + 'px;top:' + (box.y * scaleY) + 'px;width:' + (box.width * scaleX) + 'px;height:' + (box.height * scaleY) + 'px"></div>';
+    }
+  }
+  for (const el of state.elements) {
+    html += '<div class="el-box" style="left:' + (el.x * scaleX) + 'px;top:' + (el.y * scaleY) + 'px;width:' + (el.width * scaleX) + 'px;height:' + (el.height * scaleY) + 'px"></div>';
+  }
+  overlays.innerHTML = html;
+}
+
+function firstPassFromNames() {
+  const grouped = {};
+  for (const box of state.boxes) {
+    const n = (state.names[box.id] || '').trim();
+    if (!n) continue;
+    if (!grouped[n]) grouped[n] = [];
+    grouped[n].push(box.id);
+  }
+  const assigned = new Set();
+  const elements = Object.entries(grouped).map(([name, boxIds]) => {
+    boxIds.forEach((id) => assigned.add(id));
+    return { name, type: 'field', section: null, boxIds };
+  });
+  const unknowns = state.boxes
+    .filter((box) => !assigned.has(box.id))
+    .map((box) => 'box ' + box.id + ': unassigned');
+  return {
+    screen: { name: state.name, width: state.width, height: state.height },
+    notes: [],
+    unknowns,
+    sections: [],
+    elements,
+  };
+}
+
+blank.addEventListener('load', paint);
+window.addEventListener('resize', paint);
+showDetected.addEventListener('change', paint);
+showAnnotated.addEventListener('change', renderImage);
+screenSel.addEventListener('change', () => loadScreen(screenSel.value));
+
+boxesBody.addEventListener('input', (e) => {
+  const id = Number(e.target.dataset.id);
+  if (!id) return;
+  state.names[id] = e.target.value;
+});
+
+list.addEventListener('input', (e) => {
+  const el = state.elements.find((x) => x.name === e.target.dataset.name);
+  if (!el) return;
+  el[e.target.dataset.k] = Number(e.target.value);
+  paint();
+});
+
+document.getElementById('saveSettings').onclick = async () => {
+  try {
+    await api('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gcsUri: gcs.value }) });
+    setStatus('saved URI');
+    await refreshRemote();
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('pullAll').onclick = async () => {
+  try {
+    setStatus('pulling…');
+    const out = await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    fillScreens(out.localScreens);
+    setStatus('pulled ' + out.localScreens.length + ' local screens');
+    if (screenSel.value) await loadScreen(screenSel.value);
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('pushAll').onclick = async () => {
+  try {
+    setStatus('pushing…');
+    await api('/api/push', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
+    setStatus('pushed cache → GCS');
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('pullOne').onclick = async () => {
+  try {
+    setStatus('pulling ' + screenSel.value + '…');
+    await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: screenSel.value }) });
+    setStatus('pulled ' + screenSel.value);
+    await loadScreen(screenSel.value);
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('pushOne').onclick = async () => {
+  try {
+    setStatus('pushing ' + screenSel.value + '…');
+    await api('/api/push', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: screenSel.value }) });
+    setStatus('pushed ' + screenSel.value);
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('detect').onclick = async () => {
+  try {
+    setStatus('detecting…');
+    await api('/api/detect?name=' + encodeURIComponent(screenSel.value), { method: 'POST' });
+    setStatus('detected ' + screenSel.value);
+    await loadScreen(screenSel.value);
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('apply').onclick = async () => {
+  try {
+    const pass = firstPassFromNames();
+    if (!pass.elements.length) throw new Error('name at least one box ID before apply');
+    await api('/api/first-pass?name=' + encodeURIComponent(state.name), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(pass),
+    });
+    const out = await api('/api/apply?name=' + encodeURIComponent(state.name), { method: 'POST' });
+    setStatus('applied ' + out.elements.join(', '));
+    await loadScreen(state.name);
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('saveEls').onclick = async () => {
+  try {
+    await api('/api/elements?name=' + encodeURIComponent(state.name), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ elements: state.elements }),
+    });
+    setStatus('saved crops');
+  } catch (err) { setStatus(err.message, true); }
+};
+
+loadSettings()
+  .then(refreshRemote)
+  .then(() => { if (screenSel.value) return loadScreen(screenSel.value); })
+  .catch((err) => setStatus(err.message, true));
+</script>
+</body>
+</html>

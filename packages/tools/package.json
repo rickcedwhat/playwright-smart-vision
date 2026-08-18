@@ -7,7 +7,8 @@
     "smart-vision": "./template-manager-server.mjs"
   },
   "scripts": {
-    "start": "node template-manager-server.mjs"
+    "start": "node template-manager-server.mjs",
+    "start:v2": "node tm-v2/server.mjs"
   },
   "keywords": [
     "playwright",
