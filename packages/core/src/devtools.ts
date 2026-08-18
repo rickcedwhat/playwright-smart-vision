@@ -203,31 +203,16 @@ const FAB_SCRIPT = `(function () {
       if (!fab.contains(e.target)) menu.classList.remove('open');
     });
 
-    let capturing = false;
-    async function startCapture() {
-      if (capturing) return;
-      capturing = true;
+    captureBtn.addEventListener('click', async () => {
       menu.classList.remove('open');
       fab.style.display = 'none';
+      let b64;
       try {
-        const b64 = await window.__ocrCapture();
-        showModal(b64);
-      } catch (err) {
-        alert('Capture failed: ' + (err && err.message ? err.message : err));
+        b64 = await window.__ocrCapture();
       } finally {
         fab.style.display = '';
-        capturing = false;
       }
-    }
-
-    captureBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      startCapture();
-    });
-    captureBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
+      showModal(b64);
     });
 
     function showModal(b64) {
