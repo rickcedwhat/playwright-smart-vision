@@ -2,6 +2,19 @@ import type { Page } from '@playwright/test';
 import { writeScreenBuffer } from './configure.js';
 
 const FAB_SCRIPT = `(function () {
+  if (!window.__ocrKeyboardShield) {
+    window.__ocrKeyboardShield = true;
+    const shield = (e) => {
+      const backdrop = document.getElementById('__ocr-modal-backdrop');
+      if (backdrop && backdrop.contains(e.target)) {
+        e.stopImmediatePropagation();
+      }
+    };
+    for (const type of ['keydown', 'keyup', 'keypress']) {
+      document.addEventListener(type, shield, true);
+    }
+  }
+
   if (window.__ocrDevtools) return;
   window.__ocrDevtools = true;
 
@@ -19,19 +32,31 @@ const FAB_SCRIPT = `(function () {
         right: 20px;
         z-index: 2147483647;
         font-family: system-ui, sans-serif;
+        display: block;
+        line-height: 0;
       }
       #__ocr-fab-btn {
         width: 48px;
         height: 48px;
+        min-width: 48px;
+        min-height: 48px;
+        padding: 0;
+        margin: 0;
+        box-sizing: border-box;
         border-radius: 50%;
         background: #1a1a2e;
         border: 2px solid #4f46e5;
         color: #fff;
         font-size: 20px;
+        line-height: 1;
         cursor: pointer;
         display: flex;
         align-items: center;
         justify-content: center;
+        flex-shrink: 0;
+        aspect-ratio: 1;
+        appearance: none;
+        -webkit-appearance: none;
         box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         transition: transform 0.15s;
       }
@@ -69,6 +94,7 @@ const FAB_SCRIPT = `(function () {
         display: flex;
         align-items: center;
         justify-content: center;
+        font-family: system-ui, sans-serif;
       }
       #__ocr-modal {
         background: #1a1a2e;
@@ -79,6 +105,7 @@ const FAB_SCRIPT = `(function () {
         max-width: 90vw;
         box-shadow: 0 8px 32px rgba(0,0,0,0.6);
         font-family: system-ui, sans-serif;
+        line-height: normal;
       }
       #__ocr-modal h3 { margin: 0 0 12px; color: #e2e8f0; font-size: 15px; }
       #__ocr-modal img { width: 100%; border-radius: 6px; border: 1px solid #4f46e5; margin-bottom: 12px; }
@@ -93,6 +120,9 @@ const FAB_SCRIPT = `(function () {
         font-size: 13px;
         margin-bottom: 12px;
         outline: none;
+        pointer-events: auto;
+        user-select: text;
+        -webkit-user-select: text;
       }
       #__ocr-modal input:focus { border-color: #818cf8; }
       #__ocr-modal-actions { display: flex; gap: 8px; justify-content: flex-end; }
@@ -128,9 +158,14 @@ const FAB_SCRIPT = `(function () {
       <button id="__ocr-fab-btn" title="OCR Devtools">\u{1F441}</button>
     \`;
 
-    fab.addEventListener('mousedown', (e) => e.stopPropagation());
-    fab.addEventListener('mouseup', (e) => e.stopPropagation());
-    fab.addEventListener('click', (e) => e.stopPropagation());
+    function isolateFromPage(el) {
+      const types = ['mousedown', 'mouseup', 'click', 'dblclick', 'keydown', 'keyup', 'keypress', 'input', 'compositionstart', 'compositionupdate', 'compositionend'];
+      for (const type of types) {
+        el.addEventListener(type, (e) => e.stopPropagation());
+      }
+    }
+
+    isolateFromPage(fab);
 
     (document.body || document.documentElement).appendChild(fab);
 
@@ -171,9 +206,14 @@ const FAB_SCRIPT = `(function () {
       \`;
       document.body.appendChild(backdrop);
 
+      const modal = backdrop.querySelector('#__ocr-modal');
       const input = backdrop.querySelector('#__ocr-name-input');
       const saveBtn = backdrop.querySelector('#__ocr-modal-save');
       const cancelBtn = backdrop.querySelector('#__ocr-modal-cancel');
+
+      isolateFromPage(backdrop);
+      isolateFromPage(modal);
+      isolateFromPage(input);
 
       input.focus();
 

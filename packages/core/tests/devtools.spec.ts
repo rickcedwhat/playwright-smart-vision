@@ -37,4 +37,26 @@ test.describe('devtools FAB', () => {
     await page.locator('#__ocr-fab-btn').click();
     await expect(page.locator('#__ocr-fab-menu')).toHaveClass(/open/);
   });
+
+  test('FAB button stays circular', async ({ page }) => {
+    await page.goto('/');
+    await injectDevtools(page);
+
+    const box = await page.locator('#__ocr-fab-btn').boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs(box!.width - box!.height)).toBeLessThan(1);
+  });
+
+  test('capture modal name input accepts typing', async ({ page }) => {
+    await page.goto('/');
+    await injectDevtools(page);
+
+    await page.locator('#__ocr-fab-btn').click();
+    await page.locator('#__ocr-capture-btn').click();
+
+    const input = page.locator('#__ocr-name-input');
+    await expect(input).toBeVisible();
+    await input.fill('customer-info');
+    await expect(input).toHaveValue('customer-info');
+  });
 });
