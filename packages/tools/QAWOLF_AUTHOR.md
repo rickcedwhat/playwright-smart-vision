@@ -10,14 +10,16 @@ You run in a **flow**, not the wolf shell. `npx` cannot import this package here
 import { configure, saveScreen } from '@rickcedwhat/playwright-smart-vision';
 import { detectScreen, applyScreen, writeScreenCatalog } from '@rickcedwhat/playwright-smart-vision/author';
 
-await configure({ storage: { root: process.env.TEAM_STORAGE_DIR! }, devtools: true, page });
+await configure({
+  storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+  devtools: true,
+  page,
+});
 ```
-
-`TEAM_STORAGE_DIR` is `/home/wolf/team-storage`.
 
 ## Loop
 
-1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/{name}/blank.png`.
+1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`.
 2. **Detect** — `const detected = await detectScreen('customer-info')`. Writes `boxes.json` and `boxes-annotated.png`. Do not invent coordinates.
 3. **Name** — look at `boxes-annotated.png` (and `boxes.json`). Write `first-pass.json` **or** pass the object to apply:
 

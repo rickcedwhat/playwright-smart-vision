@@ -66,4 +66,9 @@ describe('author apply + catalog', () => {
     expect(src).toContain('"username"');
     expect(readScreenCatalog()['html-login']).toEqual(['username', 'password']);
   });
+
+  it('rejects path traversal in screen names', () => {
+    expect(() => applyScreen('..')).toThrow(/invalid screen name/);
+    expect(() => applyScreen('../elsewhere')).toThrow(/invalid screen name/);
+  });
 });
