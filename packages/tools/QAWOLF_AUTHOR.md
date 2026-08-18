@@ -17,6 +17,44 @@ await configure({
 });
 ```
 
+## Find screens
+
+Root is always `process.env.TEAM_STORAGE_DIR + '/screens'` (same as `configure`). Each screen is a folder:
+
+```text
+{TEAM_STORAGE_DIR}/screens/{name}/blank.png
+{TEAM_STORAGE_DIR}/screens/{name}/boxes.json              ← after detect
+{TEAM_STORAGE_DIR}/screens/{name}/boxes-annotated.png     ← after detect (look at this)
+{TEAM_STORAGE_DIR}/screens/{name}/first-pass.json         ← after you name boxes
+{TEAM_STORAGE_DIR}/screens/{name}/index.json              ← after apply
+{TEAM_STORAGE_DIR}/screens/{name}/templates/*.png
+```
+
+`{name}` is the FAB save name / `saveScreen` argument (`customer-info`).
+
+To see what is already captured, **in a flow** (FUSE is not in the wolf shell unless you pass the absolute path):
+
+```ts
+import fs from 'node:fs';
+const root = process.env.TEAM_STORAGE_DIR + '/screens';
+const names = fs.readdirSync(root).filter((n) =>
+  fs.existsSync(root + '/' + n + '/blank.png')
+);
+console.log(names);
+```
+
+After `detectScreen(name)`, do not guess paths. Use the return value:
+
+```ts
+const detected = await detectScreen('customer-info');
+// detected.dir            — folder on FUSE
+// detected.annotatedPath  — PNG with box IDs; read/view this
+// detected.boxesPath      — boxes.json
+// detected.boxes          — [{ id, x, y, width, height }, ...]
+```
+
+Read `detected.annotatedPath` (and `detected.boxesPath` if needed) before naming.
+
 ## Loop
 
 1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`.
