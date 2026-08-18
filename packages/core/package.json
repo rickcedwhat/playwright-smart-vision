@@ -18,6 +18,10 @@
       "import": "./dist/configure.js",
       "types": "./dist/configure.d.ts"
     },
+    "./author": {
+      "import": "./dist/author/index.js",
+      "types": "./dist/author/index.d.ts"
+    },
     "./utils/ocr": {
       "import": "./dist/utils/ocr.js",
       "types": "./dist/utils/ocr.d.ts"
