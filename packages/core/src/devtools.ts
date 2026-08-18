@@ -1,20 +1,44 @@
 import type { Page } from '@playwright/test';
 import { writeScreenBuffer } from './configure.js';
 
-const FAB_SCRIPT = `(function () {
-  if (!window.__ocrKeyboardShield) {
-    window.__ocrKeyboardShield = true;
-    const shield = (e) => {
-      const backdrop = document.getElementById('__ocr-modal-backdrop');
-      if (backdrop && backdrop.contains(e.target)) {
-        e.stopImmediatePropagation();
-      }
-    };
-    for (const type of ['keydown', 'keyup', 'keypress']) {
-      document.addEventListener(type, shield, true);
-    }
-  }
+/** First document-capture listener: type into the name field before Guacamole can steal keys. */
+const NAME_INPUT_SHIELD = `(function () {
+  if (window.__ocrNameInputShield) return;
+  window.__ocrNameInputShield = true;
 
+  document.addEventListener('keydown', (e) => {
+    const input = document.getElementById('__ocr-name-input');
+    if (!input || e.target !== input) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+    const start = input.selectionStart ?? input.value.length;
+    const end = input.selectionEnd ?? input.value.length;
+
+    if (e.key.length === 1) {
+      input.value = input.value.slice(0, start) + e.key + input.value.slice(end);
+      input.setSelectionRange(start + 1, start + 1);
+    } else if (e.key === 'Backspace') {
+      if (start !== end) {
+        input.value = input.value.slice(0, start) + input.value.slice(end);
+        input.setSelectionRange(start, start);
+      } else if (start > 0) {
+        input.value = input.value.slice(0, start - 1) + input.value.slice(end);
+        input.setSelectionRange(start - 1, start - 1);
+      }
+    } else if (e.key === 'Enter') {
+      document.getElementById('__ocr-modal-save')?.click();
+    } else if (e.key === 'Escape') {
+      document.getElementById('__ocr-modal-backdrop')?.remove();
+    } else {
+      return;
+    }
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+  }, true);
+})();`;
+
+const FAB_SCRIPT = `(function () {
   if (window.__ocrDevtools) return;
   window.__ocrDevtools = true;
 
@@ -32,8 +56,6 @@ const FAB_SCRIPT = `(function () {
         right: 20px;
         z-index: 2147483647;
         font-family: system-ui, sans-serif;
-        display: block;
-        line-height: 0;
       }
       #__ocr-fab-btn {
         width: 48px;
@@ -81,6 +103,7 @@ const FAB_SCRIPT = `(function () {
         border: none;
         color: #e2e8f0;
         font-size: 13px;
+        line-height: 1.4;
         cursor: pointer;
         white-space: nowrap;
         text-align: left;
@@ -165,7 +188,9 @@ const FAB_SCRIPT = `(function () {
       }
     }
 
-    isolateFromPage(fab);
+    fab.addEventListener('mousedown', (e) => e.stopPropagation());
+    fab.addEventListener('mouseup', (e) => e.stopPropagation());
+    fab.addEventListener('click', (e) => e.stopPropagation());
 
     (document.body || document.documentElement).appendChild(fab);
 
@@ -178,16 +203,31 @@ const FAB_SCRIPT = `(function () {
       if (!fab.contains(e.target)) menu.classList.remove('open');
     });
 
-    captureBtn.addEventListener('click', async () => {
+    let capturing = false;
+    async function startCapture() {
+      if (capturing) return;
+      capturing = true;
       menu.classList.remove('open');
       fab.style.display = 'none';
-      let b64;
       try {
-        b64 = await window.__ocrCapture();
+        const b64 = await window.__ocrCapture();
+        showModal(b64);
+      } catch (err) {
+        alert('Capture failed: ' + (err && err.message ? err.message : err));
       } finally {
         fab.style.display = '';
+        capturing = false;
       }
-      showModal(b64);
+    }
+
+    captureBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startCapture();
+    });
+    captureBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
     });
 
     function showModal(b64) {
@@ -269,6 +309,8 @@ export async function injectDevtools(page: Page): Promise<void> {
   });
 
   // addInitScript covers future navigations; evaluate covers the already-loaded page.
+  await page.addInitScript(NAME_INPUT_SHIELD);
   await page.addInitScript(FAB_SCRIPT);
+  await page.evaluate(NAME_INPUT_SHIELD);
   await page.evaluate(FAB_SCRIPT);
 }
