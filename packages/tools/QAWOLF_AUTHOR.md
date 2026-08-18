@@ -8,30 +8,28 @@ You run in a **flow**, not the wolf shell.
 
 ## Package (flow vs shell)
 
-The **flow runner** installs whatever `package.json` pins (`@rickcedwhat/playwright-smart-vision`). Session-workspace `node_modules` and `npx` will not have this package — that is expected. Do not `npm install`. A shell `ERR_MODULE_NOT_FOUND` is not a package bug.
+Depend on the **`next` dist-tag**, with no SHA pin:
+
+```json
+"@rickcedwhat/playwright-smart-vision": "next"
+```
+
+The **flow runner** installs whatever `next` is at flow start. Session-workspace `node_modules` and `npx` will not have this package — that is expected. Do not `npm install`. Do not pin `0.3.0-next.<sha>`.
 
 `flow` is **not** a smart-vision export. Import it from `@qawolf/flows/web`.
 
-Validate `/author` **in a flow**:
-
 ```ts
 import * as author from '@rickcedwhat/playwright-smart-vision/author';
-console.log(Object.keys(author).sort());
-// expect: applyScreen, detectScreen, showAnnotated
 ```
 
-If that import fails in a flow, the pin is wrong or the runner did not install. If `showAnnotated` is missing, render `detected.annotatedPath` on the current page as a fallback.
+That namespace must include `detectScreen`, `applyScreen`, and `showAnnotated`. If the import fails, the runner did not install `next`.
 
 ## Setup
 
 ```ts
 import { flow } from '@qawolf/flows/web';
 import { configure, saveScreen } from '@rickcedwhat/playwright-smart-vision';
-import {
-  detectScreen,
-  applyScreen,
-  showAnnotated,
-} from '@rickcedwhat/playwright-smart-vision/author';
+import * as author from '@rickcedwhat/playwright-smart-vision/author';
 
 await configure({
   storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
@@ -69,7 +67,7 @@ console.log(names);
 After `detectScreen(name)`, do not guess paths. Use the return value:
 
 ```ts
-const detected = await detectScreen('customer-info');
+const detected = await author.detectScreen('customer-info');
 // detected.dir            — folder on FUSE
 // detected.annotatedPath  — PNG with box IDs drawn on the blank
 // detected.boxesPath      — boxes.json
@@ -78,11 +76,12 @@ const detected = await detectScreen('customer-info');
 
 ## Inspect the annotated PNG (required before naming)
 
-Raw FUSE bytes are not a visual. `showAnnotated` opens the PNG in a **new tab** (the Guacamole / app page stays alive). Look at that tab’s flow screenshot, then close it:
+Raw FUSE bytes are not a visual. `showAnnotated` opens the PNG in a **new tab** so the Guacamole / app page stays alive. Do not `page.setContent` on the app page.
 
 ```ts
-const viewer = await showAnnotated(page, detected.annotatedPath);
-// look at the current page screenshot — red boxes + numeric IDs
+const viewer = await author.showAnnotated(page, detected.annotatedPath);
+await viewer.bringToFront();
+// inspect the viewer tab's flow screenshot — red boxes + numeric IDs
 await viewer.close();
 ```
 
@@ -91,12 +90,12 @@ Also read `detected.boxes` / `detected.boxesPath` for the id list. Do not invent
 ## Loop
 
 1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`.
-2. **Detect** — `const detected = await detectScreen('customer-info')`.
+2. **Detect** — `const detected = await author.detectScreen('customer-info')`.
 3. **Inspect** — `showAnnotated` as above.
-4. **Name** — you emit first-pass JSON and pass it to `applyScreen` (it writes `first-pass.json` for you):
+4. **Name** — you emit first-pass JSON and pass it to `author.applyScreen` (it writes `first-pass.json` for you):
 
 ```ts
-await applyScreen('customer-info', {
+await author.applyScreen('customer-info', {
   screen: { name: 'customer-info', width: detected.width, height: detected.height },
   notes: ['short observations'],
   unknowns: [
@@ -142,18 +141,21 @@ await applyScreen('customer-info', {
 | `elements[].boxIds` | `number[]` | **only ids from `detected.boxes`**. One or more boxes. |
 | `elements[].parts` | optional | shared-label rows: `{ name: camelCase, boxId: number }[]` matching ids in `boxIds` |
 
-Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates.
+Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not use `as` or `as const` in authored files.
 
-5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored. Element names must match `elements[].name` from the first-pass you applied.
+5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored: add it to `ScreenName`, add a key on the `ElementName` map, add a key on `screens`. Element names must match `elements[].name` from the first-pass you applied. No `as` / `as const`.
 
 ```ts
 /** Generated catalog of FUSE screens. Update when authoring a screen. */
-export const screens = {
-  "customer-info": ["lastName", "fullName", "ok"] as const,
-} as const;
+export type ScreenName = "customer-info";
 
-export type ScreenName = keyof typeof screens;
-export type ElementName<S extends ScreenName> = (typeof screens)[S][number];
+export type ElementName<S extends ScreenName> = {
+  "customer-info": "lastName" | "fullName" | "ok";
+}[S];
+
+export const screens: { [K in ScreenName]: readonly ElementName<K>[] } = {
+  "customer-info": ["lastName", "fullName", "ok"],
+};
 ```
 
 6. Product tests only **read** FUSE:

@@ -34,23 +34,33 @@ export function readScreenCatalog(): ScreenCatalog {
   return catalog;
 }
 
-/** Typed catalog helper source. Does not touch the filesystem. */
+/** Typed catalog helper source. Does not touch the filesystem. No `as` / `as const`. */
 export function screenCatalogSource(): string {
   const screens = listScreens(storageRoot());
-  const body = screens
+  const screenNames = screens.map((s) => JSON.stringify(s.name)).join(' | ') || 'never';
+  const mapBody = screens
+    .map((s) => {
+      const union = s.elements.map((n) => JSON.stringify(n)).join(' | ') || 'never';
+      return `  ${JSON.stringify(s.name)}: ${union};`;
+    })
+    .join('\n');
+  const valueBody = screens
     .map((s) => {
       const names = s.elements.map((n) => JSON.stringify(n)).join(', ');
-      return `  ${JSON.stringify(s.name)}: [${names}] as const,`;
+      return `  ${JSON.stringify(s.name)}: [${names}],`;
     })
     .join('\n');
 
   return `/** Generated catalog of FUSE screens. Update when authoring a screen. */
-export const screens = {
-${body}
-} as const;
+export type ScreenName = ${screenNames};
 
-export type ScreenName = keyof typeof screens;
-export type ElementName<S extends ScreenName> = (typeof screens)[S][number];
+export type ElementName<S extends ScreenName> = {
+${mapBody}
+}[S];
+
+export const screens: { [K in ScreenName]: readonly ElementName<K>[] } = {
+${valueBody}
+};
 `;
 }
 
