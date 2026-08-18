@@ -16,6 +16,19 @@
   button:hover { filter: brightness(1.12); }
   #status { color: #8c8; flex: 1; min-width: 120px; }
   #status.err { color: #f88; }
+  #toast { position: fixed; right: 16px; bottom: 16px; max-width: 360px; background: #4a2020; color: #fcc; border: 1px solid #c66; padding: 10px 12px; border-radius: 6px; display: none; z-index: 20; }
+  .layout { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
+  aside { overflow: auto; padding: 12px; border-right: 1px solid #333; background: #181818; }
+  main { overflow: auto; background: #000; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .tree { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; margin: 0 0 12px; }
+  .tree details { margin-left: 12px; }
+  .tree > details { margin-left: 0; }
+  .tree summary, .tree .file { cursor: pointer; padding: 2px 4px; border-radius: 3px; }
+  .tree summary:hover, .tree .file:hover { background: #2a2a2a; }
+  .tree .active { background: #243a24; color: #cfc; }
+  .tree .local { color: #8c8; }
+  .push-off { opacity: 0.55; }
   .layout { display: grid; grid-template-columns: 360px 1fr; min-height: 0; }
   aside { overflow: auto; padding: 12px; border-right: 1px solid #333; background: #181818; }
   main { overflow: auto; background: #000; }
@@ -40,16 +53,17 @@
   <input id="gcs" type="text" spellcheck="false">
   <button id="saveSettings" type="button">Save URI</button>
   <button id="pullAll" type="button">Pull GCS</button>
-  <button id="pushAll" type="button">Push GCS</button>
+  <button id="pushAll" class="push-off" type="button" title="GCS write disabled">Push GCS</button>
   <span id="status"></span>
 </header>
+<div id="toast"></div>
 <div class="layout">
 <aside>
   <div class="row">
-    <select id="screen"></select>
-    <button id="pullOne" type="button">Pull</button>
-    <button id="pushOne" type="button">Push</button>
+    <button id="pullOne" type="button">Pull selected</button>
+    <button id="pushOne" class="push-off" type="button" title="GCS write disabled">Push</button>
   </div>
+  <div id="tree" class="tree"></div>
   <div class="row">
     <button id="detect" class="primary" type="button">Detect</button>
     <button id="apply" class="primary" type="button">Apply</button>
@@ -75,8 +89,9 @@
 </div>
 <script>
 const statusEl = document.getElementById('status');
+const toastEl = document.getElementById('toast');
 const gcs = document.getElementById('gcs');
-const screenSel = document.getElementById('screen');
+const treeEl = document.getElementById('tree');
 const boxesBody = document.getElementById('boxes');
 const list = document.getElementById('list');
 const blank = document.getElementById('blank');
@@ -85,10 +100,23 @@ const showDetected = document.getElementById('showDetected');
 const showAnnotated = document.getElementById('showAnnotated');
 const meta = document.getElementById('meta');
 let state = { name: '', elements: [], boxes: [], width: 0, height: 0, names: {} };
+let selectedScreen = '';
 
 function setStatus(msg, err) {
   statusEl.textContent = msg;
   statusEl.className = err ? 'err' : '';
+}
+
+function toast(msg) {
+  toastEl.textContent = msg;
+  toastEl.style.display = 'block';
+  setStatus(msg, true);
+  clearTimeout(toast.t);
+  toast.t = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
+}
+
+function gcsWriteBlocked() {
+  toast('GCS write/delete is disabled. Pull and local detect/apply only.');
 }
 
 async function api(path, opts) {
@@ -98,25 +126,51 @@ async function api(path, opts) {
   return body;
 }
 
-function fillScreens(names, selected) {
-  const current = selected || screenSel.value;
-  screenSel.innerHTML = names.map((n) => '<option' + (n === current ? ' selected' : '') + '>' + n + '</option>').join('');
+function mergeListing(remote, local) {
+  const dirs = [...new Set([...(remote.dirs || []), ...(local.dirs || [])])].sort();
+  const files = [...new Set([...(remote.files || []), ...(local.files || [])])].sort();
+  const localSet = new Set([...(local.dirs || []), ...(local.files || [])]);
+  return { dirs, files, localSet };
+}
+
+function listingHtml(rel, merged) {
+  let html = '';
+  for (const dir of merged.dirs) {
+    const path = rel ? rel + '/' + dir : dir;
+    const screen = path.split('/')[0];
+    const active = screen === selectedScreen && path === screen ? ' active' : '';
+    const local = merged.localSet.has(dir) ? ' local' : '';
+    html += '<details data-path="' + path + '"><summary class="dir' + active + local + '" data-screen="' + screen + '">' + dir + '/</summary></details>';
+  }
+  for (const file of merged.files) {
+    html += '<div class="file' + (merged.localSet.has(file) ? ' local' : '') + '">' + file + '</div>';
+  }
+  return html;
+}
+
+async function renderTree() {
+  const root = await api('/api/ls?path=');
+  treeEl.innerHTML = listingHtml('', mergeListing(root.remote, root.local));
+}
+
+function highlightTree() {
+  treeEl.querySelectorAll('summary.dir').forEach((el) => {
+    el.classList.toggle('active', el.dataset.screen === selectedScreen && el.parentElement.dataset.path === selectedScreen);
+  });
+}
+
+function currentScreen() {
+  return selectedScreen || '';
 }
 
 async function loadSettings() {
   const s = await api('/api/settings');
   gcs.value = s.gcsUri;
-  fillScreens(s.localScreens || [], screenSel.value);
-}
-
-async function refreshRemote() {
-  const remote = await api('/api/remote');
-  const local = (await api('/api/settings')).localScreens || [];
-  fillScreens([...new Set([...remote.screens, ...local])].sort(), screenSel.value);
 }
 
 async function loadScreen(name) {
   if (!name) return;
+  selectedScreen = name;
   const data = await api('/api/screen?name=' + encodeURIComponent(name));
   state = {
     name,
@@ -136,9 +190,12 @@ async function loadScreen(name) {
   }
   meta.textContent = (data.width ? data.width + '×' + data.height : 'no detect yet') +
     ' · ' + state.boxes.length + ' boxes · ' + state.elements.length + ' crops';
+  if (!data.hasBlank) setStatus(name + ' is not in the local cache — Pull selected', true);
+  else setStatus(name);
   renderImage();
   renderBoxes();
   renderElements();
+  highlightTree();
 }
 
 function renderImage() {
@@ -209,7 +266,24 @@ blank.addEventListener('load', paint);
 window.addEventListener('resize', paint);
 showDetected.addEventListener('change', paint);
 showAnnotated.addEventListener('change', renderImage);
-screenSel.addEventListener('change', () => loadScreen(screenSel.value));
+
+treeEl.addEventListener('click', (e) => {
+  const sum = e.target.closest('summary[data-screen]');
+  if (!sum) return;
+  const screen = sum.dataset.screen;
+  if (screen && screen !== selectedScreen) loadScreen(screen).catch((err) => setStatus(err.message, true));
+});
+treeEl.addEventListener('toggle', async (e) => {
+  const details = e.target;
+  if (details.tagName !== 'DETAILS' || !details.open || details.dataset.loaded) return;
+  const rel = details.dataset.path;
+  if (!rel) return;
+  try {
+    const listing = await api('/api/ls?path=' + encodeURIComponent(rel));
+    details.insertAdjacentHTML('beforeend', listingHtml(rel, mergeListing(listing.remote, listing.local)) || '<div class="muted">empty</div>');
+    details.dataset.loaded = '1';
+  } catch (err) { setStatus(err.message, true); }
+}, true);
 
 boxesBody.addEventListener('input', (e) => {
   const id = Number(e.target.dataset.id);
@@ -228,46 +302,38 @@ document.getElementById('saveSettings').onclick = async () => {
   try {
     await api('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gcsUri: gcs.value }) });
     setStatus('saved URI');
-    await refreshRemote();
+    await renderTree();
   } catch (err) { setStatus(err.message, true); }
 };
 document.getElementById('pullAll').onclick = async () => {
   try {
     setStatus('pulling…');
     const out = await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    fillScreens(out.localScreens);
     setStatus('pulled ' + out.localScreens.length + ' local screens');
-    if (screenSel.value) await loadScreen(screenSel.value);
+    await renderTree();
+    if (currentScreen()) await loadScreen(currentScreen());
   } catch (err) { setStatus(err.message, true); }
 };
-document.getElementById('pushAll').onclick = async () => {
-  try {
-    setStatus('pushing…');
-    await api('/api/push', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    setStatus('pushed cache → GCS');
-  } catch (err) { setStatus(err.message, true); }
-};
+document.getElementById('pushAll').onclick = () => gcsWriteBlocked();
 document.getElementById('pullOne').onclick = async () => {
   try {
-    setStatus('pulling ' + screenSel.value + '…');
-    await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: screenSel.value }) });
-    setStatus('pulled ' + screenSel.value);
-    await loadScreen(screenSel.value);
+    const name = currentScreen();
+    if (!name) throw new Error('select a screen folder first');
+    setStatus('pulling ' + name + '…');
+    await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name }) });
+    setStatus('pulled ' + name);
+    await loadScreen(name);
   } catch (err) { setStatus(err.message, true); }
 };
-document.getElementById('pushOne').onclick = async () => {
-  try {
-    setStatus('pushing ' + screenSel.value + '…');
-    await api('/api/push', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: screenSel.value }) });
-    setStatus('pushed ' + screenSel.value);
-  } catch (err) { setStatus(err.message, true); }
-};
+document.getElementById('pushOne').onclick = () => gcsWriteBlocked();
 document.getElementById('detect').onclick = async () => {
   try {
+    const name = currentScreen();
+    if (!name) throw new Error('select a screen folder first');
     setStatus('detecting…');
-    await api('/api/detect?name=' + encodeURIComponent(screenSel.value), { method: 'POST' });
-    setStatus('detected ' + screenSel.value);
-    await loadScreen(screenSel.value);
+    await api('/api/detect?name=' + encodeURIComponent(name), { method: 'POST' });
+    setStatus('detected ' + name);
+    await loadScreen(name);
   } catch (err) { setStatus(err.message, true); }
 };
 document.getElementById('apply').onclick = async () => {
@@ -296,8 +362,7 @@ document.getElementById('saveEls').onclick = async () => {
 };
 
 loadSettings()
-  .then(refreshRemote)
-  .then(() => { if (screenSel.value) return loadScreen(screenSel.value); })
+  .then(renderTree)
   .catch((err) => setStatus(err.message, true));
 </script>
 </body>

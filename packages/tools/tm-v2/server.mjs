@@ -101,20 +101,46 @@ function runGcloud(args) {
 }
 
 function listRemoteScreens(gcsUri) {
-  return runGcloud(['storage', 'ls', `${gcsUri}/`]).then((stdout) => {
-    const prefix = `${gcsUri}/`;
-    const names = new Set();
-    for (const line of stdout.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith(prefix)) continue;
-      const rest = trimmed.slice(prefix.length).replace(/\/+$/, '');
-      if (!rest || rest.includes('/') || rest.endsWith(':')) continue;
-      if (!/^[a-zA-Z0-9._-]+$/.test(rest)) continue;
-      if (rest.includes('.')) continue;
-      names.add(rest);
-    }
-    return [...names].sort();
-  });
+  return listGcsPrefix(gcsUri, '').then((listing) => listing.dirs);
+}
+
+function parseLs(stdout, gcsPrefix) {
+  const prefix = `${gcsPrefix.replace(/\/+$/, '')}/`;
+  const dirs = new Set();
+  const files = new Set();
+  for (const line of stdout.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('gs://') || trimmed.endsWith(':')) continue;
+    if (!trimmed.startsWith(prefix)) continue;
+    const rest = trimmed.slice(prefix.length);
+    if (!rest) continue;
+    const parts = rest.replace(/\/+$/, '').split('/').filter(Boolean);
+    if (parts.length !== 1) continue;
+    const name = parts[0];
+    if (!/^[a-zA-Z0-9._-]+$/.test(name)) continue;
+    if (trimmed.endsWith('/')) dirs.add(name);
+    else files.add(name);
+  }
+  return { dirs: [...dirs].sort(), files: [...files].sort() };
+}
+
+async function listGcsPrefix(gcsUri, relPath) {
+  const base = relPath ? `${gcsUri}/${relPath}` : gcsUri;
+  const stdout = await runGcloud(['storage', 'ls', `${base}/`]);
+  return parseLs(stdout, base);
+}
+
+function listLocalPrefix(relPath) {
+  const dir = relPath ? path.join(CACHE_DIR, ...relPath.split('/')) : CACHE_DIR;
+  if (!fs.existsSync(dir)) return { dirs: [], files: [] };
+  const dirs = [];
+  const files = [];
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name.startsWith('.')) continue;
+    if (ent.isDirectory()) dirs.push(ent.name);
+    else files.push(ent.name);
+  }
+  return { dirs: dirs.sort(), files: files.sort() };
 }
 
 function listLocalScreens() {
@@ -197,16 +223,18 @@ async function handle(req, res) {
     return;
   }
 
-  if (req.method === 'POST' && url.pathname === '/api/push') {
-    const body = JSON.parse(await readBody(req) || '{}');
+  if (req.method === 'GET' && url.pathname === '/api/ls') {
+    const rel = (url.searchParams.get('path') || '').replace(/^\/+|\/+$/g, '');
+    if (rel.includes('..')) throw new Error('invalid path');
     const gcsUri = readSettings().gcsUri;
-    const screen = body.name ? assertScreenName(body.name) : '';
-    if (screen) {
-      await rsync(screenDir(screen), `${gcsUri}/${screen}`, { deleteUnmatched: true });
-    } else {
-      await rsync(CACHE_DIR, gcsUri);
-    }
-    send(res, 200, { ok: true });
+    const remote = await listGcsPrefix(gcsUri, rel);
+    const local = listLocalPrefix(rel);
+    send(res, 200, { path: rel, remote, local });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/push') {
+    send(res, 403, { error: 'GCS write is disabled in TM v2 for now' });
     return;
   }
 
