@@ -10,19 +10,22 @@ You run in a **flow**, not the wolf shell.
 
 The **flow runner** installs whatever `package.json` pins (`@rickcedwhat/playwright-smart-vision`). Session-workspace `node_modules` and `npx` will not have this package — that is expected. Do not `npm install`. A shell `ERR_MODULE_NOT_FOUND` is not a package bug.
 
+`flow` is **not** a smart-vision export. Import it from `@qawolf/flows/web`.
+
 Validate `/author` **in a flow**:
 
 ```ts
 import * as author from '@rickcedwhat/playwright-smart-vision/author';
 console.log(Object.keys(author).sort());
-// expect: applyScreen, detectScreen, showAnnotated, writeScreenCatalog
+// expect: applyScreen, detectScreen, showAnnotated, writeScreenCatalog, screenCatalogSource
 ```
 
-If that import fails in a flow, the pin is wrong or the runner did not install.
+If that import fails in a flow, the pin is wrong or the runner did not install. If `showAnnotated` is missing, render `detected.annotatedPath` on the current page as a fallback.
 
 ## Setup
 
 ```ts
+import { flow } from '@qawolf/flows/web';
 import { configure, saveScreen } from '@rickcedwhat/playwright-smart-vision';
 import {
   detectScreen,
@@ -142,11 +145,15 @@ await applyScreen('customer-info', {
 
 Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates.
 
-5. **Catalog** — typed helper for test authors:
+5. **Catalog** — the flow runtime can write FUSE, not the git workspace (`/app/generatedProgram`). **Do not** call `writeScreenCatalog('src/helpers/screens.generated.ts')` from a flow (ENOENT). In the flow:
 
 ```ts
-writeScreenCatalog('src/helpers/screens.generated.ts');
+const source = writeScreenCatalog();
+console.log(source);
+// also on FUSE: {TEAM_STORAGE_DIR}/screens/screens.generated.ts
 ```
+
+After the flow, as a workspace file write (not a flow), copy that source to `src/helpers/screens.generated.ts`. Prefer the FUSE file if the log is truncated.
 
 6. Product tests only **read** FUSE:
 
