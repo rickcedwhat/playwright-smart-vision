@@ -84,7 +84,7 @@ Also read `detected.boxes`, `detected.labels`, and `detected.boxesPath`. Do not 
 
 ## Loop
 
-1. **Capture** — eye FAB, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`.
+1. **Capture** — FAB `+` → eye, or `await saveScreen(page, 'customer-info')`. Lands at `{TEAM_STORAGE_DIR}/screens/{name}/blank.png`. Overlay on the live page needs a chosen catalog screen (FAB library).
 2. **Detect** — `const detected = await author.detectScreen('customer-info')`.
 3. **Inspect** — `showAnnotated` as above.
 4. **Name** — you emit first-pass JSON and pass it to `author.applyScreen` (it writes `first-pass.json` for you):
