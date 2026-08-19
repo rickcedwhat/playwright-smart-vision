@@ -14,7 +14,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { configure } from '@rickcedwhat/playwright-smart-vision';
-import { applyScreen, detectScreen } from '@rickcedwhat/playwright-smart-vision/author';
+import { applyScreen, detectScreen, writeBoxes } from '@rickcedwhat/playwright-smart-vision/author';
 
 const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const HTML_FILE = path.join(TOOLS_DIR, 'index.html');
@@ -55,6 +55,20 @@ function assertScreenName(name) {
 
 function screenDir(name) {
   return path.join(CACHE_DIR, assertScreenName(name));
+}
+
+function safeCachePath(rel) {
+  const clean = String(rel || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+|\/+$/g, '');
+  const parts = clean.split('/');
+  if (!clean || parts.some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('invalid path');
+  }
+  if (!parts.every((part) => /^[a-zA-Z0-9._-]+$/.test(part))) {
+    throw new Error('invalid path');
+  }
+  return path.join(CACHE_DIR, ...parts);
 }
 
 function cropPng(pngBuffer, x, y, width, height) {
@@ -165,6 +179,28 @@ async function ensureConfigured() {
   await configure({ storage: { root: CACHE_DIR } });
 }
 
+function resetScreenDir(name) {
+  const dir = screenDir(name);
+  if (!fs.existsSync(dir)) return false;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (ent.name === 'blank.png') continue;
+    fs.rmSync(path.join(dir, ent.name), { recursive: true, force: true });
+  }
+  return true;
+}
+
+function applyIfFirstPassNewer(name) {
+  const dir = screenDir(name);
+  const firstPassPath = path.join(dir, 'first-pass.json');
+  const indexPath = path.join(dir, 'index.json');
+  if (!fs.existsSync(firstPassPath)) return false;
+  if (fs.existsSync(indexPath) && fs.statSync(indexPath).mtimeMs >= fs.statSync(firstPassPath).mtimeMs) {
+    return false;
+  }
+  applyScreen(assertScreenName(name));
+  return true;
+}
+
 function send(res, status, body, type = 'application/json') {
   const payload = typeof body === 'string' || Buffer.isBuffer(body) ? body : `${JSON.stringify(body)}\n`;
   res.writeHead(status, { 'content-type': type });
@@ -190,7 +226,8 @@ async function handle(req, res) {
   const name = url.searchParams.get('name') || '';
 
   if (req.method === 'GET' && url.pathname === '/') {
-    sendFile(res, HTML_FILE, 'text/html; charset=utf-8');
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+    res.end(fs.readFileSync(HTML_FILE));
     return;
   }
 
@@ -240,21 +277,27 @@ async function handle(req, res) {
 
   if (req.method === 'GET' && url.pathname === '/api/screen' && name) {
     const dir = screenDir(name);
+    await ensureConfigured();
+    const applied = applyIfFirstPassNewer(assertScreenName(name));
     const indexPath = path.join(dir, 'index.json');
     const boxesPath = path.join(dir, 'boxes.json');
     const firstPassPath = path.join(dir, 'first-pass.json');
     let width = 0;
     let height = 0;
     let elements = [];
+    let sections = [];
     let boxes = [];
+    let labels = [];
     let firstPass = null;
     if (fs.existsSync(indexPath)) {
       const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
       elements = index.elements || [];
+      sections = index.sections || [];
     }
     if (fs.existsSync(boxesPath)) {
       const file = JSON.parse(fs.readFileSync(boxesPath, 'utf8'));
       boxes = file.boxes || [];
+      labels = file.labels || [];
       width = file.width || 0;
       height = file.height || 0;
     }
@@ -266,10 +309,13 @@ async function handle(req, res) {
       width,
       height,
       elements,
+      sections,
       boxes,
+      labels,
       firstPass,
       hasBlank: fs.existsSync(path.join(dir, 'blank.png')),
       hasAnnotated: fs.existsSync(path.join(dir, 'boxes-annotated.png')),
+      applied,
     });
     return;
   }
@@ -282,6 +328,21 @@ async function handle(req, res) {
       width: result.width,
       height: result.height,
       boxes: result.boxes,
+      labels: result.labels,
+    });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/boxes' && name) {
+    await ensureConfigured();
+    const body = JSON.parse(await readBody(req) || '{}');
+    const result = await writeBoxes(assertScreenName(name), body.boxes || []);
+    send(res, 200, {
+      name,
+      width: result.width,
+      height: result.height,
+      boxes: result.boxes,
+      labels: result.labels,
     });
     return;
   }
@@ -291,7 +352,26 @@ async function handle(req, res) {
     const firstPass = JSON.parse(await readBody(req));
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'first-pass.json'), `${JSON.stringify(firstPass, null, 2)}\n`);
+    await ensureConfigured();
+    applyIfFirstPassNewer(assertScreenName(name));
     send(res, 200, { saved: name });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/reset') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    if (body.all) {
+      const names = listLocalScreens();
+      for (const screen of names) resetScreenDir(screen);
+      send(res, 200, { ok: true, reset: names });
+      return;
+    }
+    const screen = assertScreenName(body.name || name);
+    if (!resetScreenDir(screen)) {
+      send(res, 404, { error: 'screen not in local cache' });
+      return;
+    }
+    send(res, 200, { ok: true, reset: [screen] });
     return;
   }
 
@@ -338,6 +418,24 @@ async function handle(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/file') {
+    const rel = url.searchParams.get('path') || '';
+    const file = safeCachePath(rel);
+    const types = {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+    };
+    const type = types[path.extname(file).toLowerCase()];
+    if (!type) {
+      send(res, 400, { error: 'not an image' });
+      return;
+    }
+    sendFile(res, file, type);
+    return;
+  }
   if (req.method === 'GET' && url.pathname === '/file/blank' && name) {
     sendFile(res, path.join(screenDir(name), 'blank.png'), 'image/png');
     return;

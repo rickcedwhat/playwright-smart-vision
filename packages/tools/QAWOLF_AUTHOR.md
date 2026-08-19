@@ -63,9 +63,10 @@ After `detectScreen(name)`, do not guess paths. Use the return value:
 ```ts
 const detected = await author.detectScreen('customer-info');
 // detected.dir            — folder on FUSE
-// detected.annotatedPath  — PNG with box IDs drawn on the blank
+// detected.annotatedPath  — PNG with red box IDs and gold L{id} labels
 // detected.boxesPath      — boxes.json
 // detected.boxes          — [{ id, x, y, width, height }, ...]
+// detected.labels         — [{ id, x, y, width, height, text }, ...]
 ```
 
 ## Inspect the annotated PNG (required before naming)
@@ -75,11 +76,11 @@ Raw FUSE bytes are not a visual. `showAnnotated` opens the PNG in a **new tab** 
 ```ts
 const viewer = await author.showAnnotated(page, detected.annotatedPath);
 await viewer.bringToFront();
-// inspect the viewer tab's flow screenshot — red boxes + numeric IDs
+// inspect the viewer tab's flow screenshot — red boxes + gold L{id} labels
 await viewer.close();
 ```
 
-Also read `detected.boxes` / `detected.boxesPath` for the id list. Do not invent ids or coordinates.
+Also read `detected.boxes`, `detected.labels`, and `detected.boxesPath`. Do not invent ids or coordinates. Join a control with `boxIds` plus the `labelIds` that caption it (any side).
 
 ## Loop
 
@@ -102,12 +103,14 @@ await author.applyScreen('customer-info', {
       type: 'field',
       section: null,
       boxIds: [12],
+      labelIds: [3],
     },
     {
       name: 'fullName',
       type: 'field',
       section: null,
       boxIds: [14, 15, 16],
+      labelIds: [5],
       parts: [
         { name: 'firstName', boxId: 14 },
         { name: 'middleInitial', boxId: 15 },
@@ -127,15 +130,17 @@ await author.applyScreen('customer-info', {
 | `screen.width` / `height` | number | copy from `detected.width` / `detected.height` |
 | `notes` | `string[]` | optional observations |
 | `unknowns` | `string[]` | **human-readable reasons only.** A control with no box, a missing layout variant, or a box you cannot read. Never put coordinates here. Example: `"phone extension: no box"`. Use `[]` if everything was assigned. |
-| `sections` | `[]` | **Always `[]` for now.** `applyScreen` ignores this. Do not invent section crops. Only revisit if two fields are still interchangeable after including their labels. |
+| `sections` | optional | Dropdown glued to a value field: one `{name}Section` with **both** `boxIds`, then two elements that share that `section` (not parts). Apply uses the union as the match crop. Otherwise `[]`. |
 | `elements` | array | one entry per named control |
 | `elements[].name` | string | camelCase |
-| `elements[].type` | string | `field` \| `button` \| `checkbox` \| `radio` \| `dropdown` \| `tab` \| `label` \| `icon` \| `message` \| `other` |
-| `elements[].section` | `null` | always `null` until sections are supported |
+| `elements[].type` | string | `field` \| `button` \| `checkbox` \| `radio` \| `dropdown` \| `tab` \| `label` \| `icon` \| `message` \| `other`. Crop is the union of `boxIds` + `labelIds`. Type from the screenshot; do not assume wider = field. |
+| `elements[].includeLabel` | optional boolean | Legacy left-grow when Detect missed the caption. Prefer `labelIds`. |
+| `elements[].section` | string or `null` | `{row}Section` name when used; otherwise `null` |
 | `elements[].boxIds` | `number[]` | **only ids from `detected.boxes`**. One or more boxes. |
-| `elements[].parts` | optional | shared-label rows: `{ name: camelCase, boxId: number }[]` matching ids in `boxIds` |
+| `elements[].labelIds` | `number[]` | **only ids from `detected.labels`**. Caption may be left, top, right, or below. Omit for buttons whose text is inside the box. |
+| `elements[].parts` | optional | Same-kind cells of one control only (`{ name, boxId }[]`: dates, name row, phones). Never for a dropdown+field pair. Names-only parts only if Detect still merged the cells into one box. |
 
-Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not use `as` or `as const` in authored files.
+Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not grow left by default. Do not use `as` or `as const` in authored files.
 
 5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored: add it to `ScreenName`, add a key on the `ElementName` map, add a key on `screens`. Element names must match `elements[].name` from the first-pass you applied. No `as` / `as const`.
 

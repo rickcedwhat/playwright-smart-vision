@@ -13,6 +13,7 @@ import {
   insetRect,
   ocrRectFromBoxes,
   relativeToCrop,
+  unionRects,
 } from './detect-boxes.mjs';
 
 const TYPE_ENUM = {
@@ -48,9 +49,12 @@ function titleCase(folder) {
 
 export function applyFirstPass(screenDir) {
   const blank = fs.readFileSync(path.join(screenDir, 'blank.png'));
-  const boxes = JSON.parse(fs.readFileSync(path.join(screenDir, 'boxes.json'), 'utf8')).boxes;
+  const boxesFile = JSON.parse(fs.readFileSync(path.join(screenDir, 'boxes.json'), 'utf8'));
+  const boxes = boxesFile.boxes || [];
+  const labels = boxesFile.labels || [];
   const pass = JSON.parse(fs.readFileSync(path.join(screenDir, 'first-pass.json'), 'utf8'));
   const byId = new Map(boxes.map((box) => [box.id, box]));
+  const byLabel = new Map(labels.map((label) => [label.id, label]));
   const tmplDir = path.join(screenDir, 'templates');
   fs.rmSync(tmplDir, { recursive: true, force: true });
   fs.mkdirSync(tmplDir, { recursive: true });
@@ -58,9 +62,19 @@ export function applyFirstPass(screenDir) {
   const elements = [];
   for (const el of pass.elements || []) {
     const fieldBoxes = (el.boxIds || []).map((id) => byId.get(id)).filter(Boolean);
-    const crop = fieldBoxes.length
-      ? expandLeftForLabel(boxes, fieldBoxes)
-      : el.crop;
+    const labelRects = (el.labelIds || []).map((id) => byLabel.get(id)).filter(Boolean);
+    const joined = [...fieldBoxes, ...labelRects];
+    let crop;
+    if (labelRects.length && joined.length) {
+      const union = unionRects(joined);
+      crop = { x: Math.max(0, union.x - 4), y: Math.max(0, union.y - 4), width: union.width + 8, height: union.height + 8 };
+    } else if (el.includeLabel === true && fieldBoxes.length) {
+      crop = expandLeftForLabel(boxes, fieldBoxes);
+    } else if (fieldBoxes.length) {
+      crop = unionRects(fieldBoxes);
+    } else {
+      crop = el.crop;
+    }
     if (!crop) continue;
     const filename = `${kebab(el.name)}.png`;
     fs.writeFileSync(path.join(tmplDir, filename), cropPng(blank, crop.x, crop.y, crop.width, crop.height));
@@ -78,6 +92,7 @@ export function applyFirstPass(screenDir) {
       width: crop.width,
       height: crop.height,
       boxIds: el.boxIds,
+      labelIds: el.labelIds,
       charset: el.charset,
       options: el.options,
       ocrRect: fieldBoxes.length ? ocrRectFromBoxes(crop, fieldBoxes, el.type || 'field') : undefined,

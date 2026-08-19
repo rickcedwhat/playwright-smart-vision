@@ -200,14 +200,23 @@ export class OCRUtil {
     this.worker = await createWorker(language);
   }
 
-  private ocrParams(options: { charset?: string; psm?: string } = {}): Record<string, string> {
-    return {
+  private ocrParams(options: { charset?: string; psm?: string; dpi?: string; whitelist?: boolean } = {}): Record<string, string> {
+    const params: Record<string, string> = {
       tessedit_pageseg_mode: options.psm ?? '7',
-      tessedit_char_whitelist: options.charset
-        || 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@._- /',
-      user_defined_dpi: '300',
+      user_defined_dpi: options.dpi ?? '300',
       preserve_interword_spaces: '1',
     };
+    if (options.whitelist === false) {
+      // Empty string means "allow nothing" in Tesseract. Use a broad set so
+      // a leftover field whitelist cannot stick, without blocking letters.
+      params.tessedit_char_whitelist =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' +
+        ` ~!@#$%^&*()-_=+[]{}|;:'",.<>/?\\\``;
+    } else {
+      params.tessedit_char_whitelist = options.charset
+        || 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789@._- /';
+    }
+    return params;
   }
 
   private async ensureWorker(): Promise<Worker> {
@@ -250,6 +259,50 @@ export class OCRUtil {
         bbox: line.bbox,
       })) || [],
     };
+  }
+
+  /**
+   * Full-page word boxes for authoring (labels next to controls).
+   * Sparse text mode, no charset whitelist.
+   */
+  async extractPageWords(imageBuffer: Buffer): Promise<Array<{
+    text: string;
+    confidence: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }>> {
+    const worker = await this.ensureWorker();
+    await worker.setParameters(this.ocrParams({
+      psm: '11',
+      dpi: '96',
+      whitelist: false,
+    }));
+    const { data } = await worker.recognize(imageBuffer, {}, { text: true, blocks: true });
+    const words = [];
+    for (const block of data.blocks || []) {
+      for (const para of block.paragraphs || []) {
+        for (const line of para.lines || []) {
+          for (const word of line.words || []) {
+            const bbox = word.bbox;
+            if (!bbox || bbox.x0 == null || bbox.y0 == null || bbox.x1 == null || bbox.y1 == null) continue;
+            const width = bbox.x1 - bbox.x0;
+            const height = bbox.y1 - bbox.y0;
+            if (width < 3 || height < 5) continue;
+            words.push({
+              text: String(word.text || ''),
+              confidence: Number(word.confidence) || 0,
+              x: bbox.x0,
+              y: bbox.y0,
+              width,
+              height,
+            });
+          }
+        }
+      }
+    }
+    return words;
   }
 
   async terminate(): Promise<void> {
