@@ -7,11 +7,11 @@ This is authoring only. Do not invent runtime matchers or API calls.
 ## Inputs
 
 1. **blank** and one or more **filled** shots (same width and height)
-2. **boxes.json** — rectangles from `tools/detect-boxes.mjs` (OpenCV). Each has `id, x, y, width, height`
-3. **boxes-annotated.png** — the blank with those IDs drawn on it
+2. **boxes.json** — `boxes` (controls) and `labels` (OCR captions). Each has `id, x, y, width, height`. Labels also have `text`.
+3. **boxes-annotated.png** — red box IDs and gold `L{id}` label IDs on the blank
 4. Optional **focus** — only assign these controls
 
-Do not invent coordinates. Only use `boxIds` from `boxes.json`. If a control has no box, put it in `unknowns`.
+Do not invent coordinates. Only use `boxIds` from `boxes` and `labelIds` from `labels`. If a control has no box, put it in `unknowns`.
 
 Extra filled shots are layout variants (e.g. Individual unchecked). If a variant is missing, list it under `unknowns`.
 
@@ -31,6 +31,7 @@ Return **only** JSON:
       "type": "field",
       "section": null,
       "boxIds": [12, 13, 14],
+      "labelIds": [4],
       "parts": [
         { "name": "firstName", "boxId": 12 },
         { "name": "middleInitial", "boxId": 13 },
@@ -45,18 +46,39 @@ Return **only** JSON:
 
 ## Rules
 
-1. **Assign, do not draw.** Every element is one or more detected boxes. The apply step builds the match crop (boxes + label to the left) and insets `parts` inside each box (no border).
+1. **Assign, do not draw.** Join existing rectangles. Apply crops the **union** of `boxIds` plus `labelIds`. Labels may sit left, above, right, or below the control — pick the gold `L{id}` that captions it. Buttons with text inside the red box usually need no `labelIds`. Do **not** assume the caption is to the left. Prefer `labelIds` over `"includeLabel": true` (legacy left-grow when Detect missed the caption).
 
-2. **Fields first. Sections only if two assignments would still be interchangeable** after each includes its label. Usually `sections` is `[]`.
+2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{row}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply crops the section as that union and uses it as each member’s match template so the small box is not a tiny needle.
 
-3. **Shared-label rows** (Name, City/State, phones): one element, several `boxIds`, `parts` for each inner box.
+   ```json
+   { "name": "primaryContactSection", "boxIds": [34, 35] }
+   { "name": "primaryContactMethod", "type": "dropdown", "section": "primaryContactSection", "boxIds": [34], "labelIds": [23] }
+   { "name": "primaryContactField", "type": "field", "section": "primaryContactSection", "boxIds": [35] }
+   { "name": "warrantyRepairSection", "boxIds": [57, 58] }
+   { "name": "warrantyRepair", "type": "dropdown", "section": "warrantyRepairSection", "boxIds": [57] }
+   { "name": "warrantyCode", "type": "field", "section": "warrantyRepairSection", "boxIds": [58] }
+   ```
 
-4. **Split at the assertion boundary.** If tests need first / middle / last, emit those `parts`.
+3. **Parts are only same-kind cells of one control.** Detect may emit one box per cell (mm / dd / yy, first / MI / last, phone segments). That is one element, several `boxIds`, `parts` with a `boxId` for each cell. Do not invent coordinates. Do not use parts for a dropdown+field pair.
+
+   ```json
+   { "name": "inService", "type": "field", "boxIds": [58, 59, 60], "labelIds": [20], "parts": [
+     { "name": "month", "boxId": 58 }, { "name": "day", "boxId": 59 }, { "name": "year", "boxId": 60 }
+   ]}
+   ```
+
+   Names-only parts (no `boxId`) only if Detect still left **one** merged box. Apply then finds inner cells from the blank.
+
+4. **Shared-label rows** (Name, City/State, phones): same as rule 3 — one element, several `boxIds`, one shared `labelIds` entry, `parts` with a `boxId` for each inner box.
 
 5. **Look at filled shots** to see which boxes received values. Crops still come from the blank.
 
-6. **Skip chrome:** browser tabs, desktop icons, window title, footer buttons unless asked.
+6. **Skip OS chrome:** desktop icons, browser tabs, the OS window title bar. Keep in-window controls — footer buttons, a close X the human drew, and other app buttons.
 
 7. **Names** are camelCase. Screen folder names stay kebab-case.
 
 8. Skip a box you cannot read. Do not reuse IDs from a previous screenshot.
+
+## After you write the file
+
+Write `first-pass.json` next to `boxes.json` (under `~/.smart-vision/screens/{name}/`). TM v2 applies automatically when that file is newer than `index.json`, including on Reload. Tell the user to Reload in TM v2. Do not tell them to Apply.

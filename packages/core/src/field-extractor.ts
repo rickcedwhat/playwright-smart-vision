@@ -315,27 +315,17 @@ export class FieldExtractor {
       const blankSection = this.visionUtil.matchTemplate(this.blankForm!, sectionTemplate);
       const filledSection = this.visionUtil.matchTemplate(this.filledForm!, sectionTemplate);
       sectionTemplate.delete();
-      // Extract from section title's Y downward (full width) so fields below the title are included
-      const blankSectionRect = {
-        x: 0,
-        y: blankSection.rect.y,
-        width: this.blankForm!.cols,
-        height: this.blankForm!.rows - blankSection.rect.y,
-      };
-      const filledSectionRect = {
-        x: 0,
-        y: filledSection.rect.y,
-        width: this.filledForm!.cols,
-        height: this.filledForm!.rows - filledSection.rect.y,
-      };
+      // Search the element inside the matched section crop (dropdown+field strip, not full-width-below).
+      const blankSectionRect = blankSection.rect;
+      const filledSectionRect = filledSection.rect;
       const sectionBlank = this.visionUtil.extractROI(this.blankForm!, blankSectionRect);
       const sectionFilled = this.visionUtil.extractROI(this.filledForm!, filledSectionRect);
       if (sectionBlank.rows >= template.rows && sectionBlank.cols >= template.cols
         && sectionFilled.rows >= template.rows && sectionFilled.cols >= template.cols) {
         sourceBlank = sectionBlank;
         sourceFilled = sectionFilled;
-        blankOrigin = { x: 0, y: blankSection.rect.y, width: blankSectionRect.width, height: blankSectionRect.height };
-        filledOrigin = { x: 0, y: filledSection.rect.y, width: filledSectionRect.width, height: filledSectionRect.height };
+        blankOrigin = blankSectionRect;
+        filledOrigin = filledSectionRect;
       } else {
         sectionBlank.delete();
         sectionFilled.delete();

@@ -2,19 +2,29 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import {
+  cellRunsToRects,
+  evenHorizontalSlices,
   expandLeftForLabel,
+  findAlignedCells,
   insetRect,
   kebab,
   ocrRectFromBoxes,
   relativeToCrop,
+  sliceRectHorizontal,
+  unionRects,
   type DetectedBox,
 } from './geometry.js';
 import type { BoxesFile } from './detect.js';
+import type { DetectedLabel } from './labels.js';
 import { screenDir } from './storage.js';
 
 export interface FirstPassPart {
   name: string;
-  boxId: number;
+  /** Detected box. Omit to split the parent field box left-to-right. */
+  boxId?: number;
+  /** Optional 0–1 span of the parent field union when boxId is omitted. */
+  start?: number;
+  end?: number;
 }
 
 export interface FirstPassElement {
@@ -22,17 +32,35 @@ export interface FirstPassElement {
   type?: string;
   section?: string | null;
   boxIds: number[];
+  /** Detected label ids to union into the crop (any side of the control). */
+  labelIds?: number[];
   parts?: FirstPassPart[];
   charset?: string;
   options?: string[];
+  /** If true and labelIds is empty, grow the crop left (legacy). Default is box-only. */
+  includeLabel?: boolean;
+}
+
+export interface FirstPassSection {
+  name: string;
+  boxIds: number[];
 }
 
 export interface FirstPass {
   screen?: { name?: string; width?: number; height?: number };
   notes?: string[];
   unknowns?: string[];
-  sections?: unknown[];
+  sections?: FirstPassSection[];
   elements: FirstPassElement[];
+}
+
+export interface AppliedSection {
+  name: string;
+  filename: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface AppliedElement {
@@ -44,8 +72,10 @@ export interface AppliedElement {
   width: number;
   height: number;
   boxIds?: number[];
+  labelIds?: number[];
   charset?: string;
   options?: string[];
+  section?: string;
   ocrRect?: { x: number; y: number; width: number; height: number };
   parts?: Array<{ name: string; x: number; y: number; width: number; height: number }>;
 }
@@ -71,12 +101,104 @@ function cropPng(pngBuffer: Buffer, x: number, y: number, width: number, height:
   return PNG.sync.write(out);
 }
 
-function toIndex(name: string, elements: AppliedElement[]) {
+function padRect(rect: { x: number; y: number; width: number; height: number }, pad: number) {
+  return {
+    x: Math.max(0, rect.x - pad),
+    y: Math.max(0, rect.y - pad),
+    width: rect.width + pad * 2,
+    height: rect.height + pad * 2,
+  };
+}
+
+/** Union of assigned boxes + labels. Left-grow only when includeLabel is true and no labelIds. */
+function cropForElement(
+  el: FirstPassElement,
+  boxes: DetectedBox[],
+  fieldBoxes: DetectedBox[],
+  labelRects: DetectedLabel[],
+  png: { width: number; height: number; data: Buffer | Uint8Array },
+  extraBoxes: DetectedBox[] = [],
+) {
+  const joined = [...fieldBoxes, ...labelRects, ...extraBoxes];
+  if (!joined.length) return undefined;
+  if (labelRects.length) return padRect(unionRects(joined), 4);
+  if (el.includeLabel === true && fieldBoxes.length) {
+    const grown = expandLeftForLabel(boxes, fieldBoxes, 8, 140, png);
+    return extraBoxes.length ? unionRects([grown, ...extraBoxes]) : grown;
+  }
+  if (extraBoxes.length) return padRect(unionRects(joined), 2);
+  return unionRects(fieldBoxes);
+}
+
+function toIndex(name: string, elements: AppliedElement[], sections: AppliedSection[]) {
   return {
     name,
-    sections: [],
+    sections,
     elements,
   };
+}
+
+function columnMeans(png: { width: number; height: number; data: Buffer | Uint8Array }, rect: { x: number; y: number; width: number; height: number }): number[] {
+  const y0 = Math.max(0, Math.round(rect.y) + 2);
+  const y1 = Math.min(png.height, Math.round(rect.y + rect.height) - 2);
+  const rows = Math.max(1, y1 - y0);
+  const x0 = Math.round(rect.x);
+  const width = Math.round(rect.width);
+  const means: number[] = [];
+  for (let dx = 0; dx < width; dx++) {
+    const x = x0 + dx;
+    if (x < 0 || x >= png.width) {
+      means.push(0);
+      continue;
+    }
+    let sum = 0;
+    for (let y = y0; y < y1; y++) {
+      const i = (y * png.width + x) * 4;
+      sum += (png.data[i]! + png.data[i + 1]! + png.data[i + 2]!) / 3;
+    }
+    means.push(sum / rows);
+  }
+  return means;
+}
+
+function resolveParts(
+  specs: FirstPassPart[],
+  fieldBoxes: DetectedBox[],
+  crop: { x: number; y: number; width: number; height: number },
+  byId: Map<number, DetectedBox>,
+  png?: { width: number; height: number; data: Buffer | Uint8Array },
+): Array<{ name: string; x: number; y: number; width: number; height: number }> {
+  if (!specs.length || !fieldBoxes.length) return [];
+  const union = unionRects(fieldBoxes);
+  const namesOnly = specs.every((part) => part.boxId == null);
+  let cells: ReturnType<typeof cellRunsToRects> = [];
+  if (namesOnly && png && specs.every((part) => part.start == null && part.end == null)) {
+    const runs = findAlignedCells(columnMeans(png, union), specs.length);
+    if (runs) cells = cellRunsToRects(union, runs);
+  }
+  const even = namesOnly && !cells.length
+    ? evenHorizontalSlices(insetRect(union, 2), specs.length)
+    : [];
+  const out: Array<{ name: string; x: number; y: number; width: number; height: number }> = [];
+  for (let i = 0; i < specs.length; i++) {
+    const part = specs[i]!;
+    let rect;
+    if (part.boxId != null) {
+      const box = byId.get(part.boxId);
+      if (!box) continue;
+      rect = insetRect(box, 2);
+    } else if (part.start != null && part.end != null) {
+      rect = sliceRectHorizontal(insetRect(union, 2), part.start, part.end);
+    } else if (cells[i]) {
+      rect = cells[i]!;
+    } else if (even[i]) {
+      rect = even[i]!;
+    } else {
+      continue;
+    }
+    out.push({ name: part.name, ...relativeToCrop(rect, crop) });
+  }
+  return out;
 }
 
 /**
@@ -102,48 +224,70 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   }
 
   const blank = fs.readFileSync(blankPath);
-  const { boxes } = JSON.parse(fs.readFileSync(boxesPath, 'utf8')) as BoxesFile;
+  const png = PNG.sync.read(blank);
+  const boxesFile = JSON.parse(fs.readFileSync(boxesPath, 'utf8')) as BoxesFile;
+  const { boxes } = boxesFile;
+  const labels = boxesFile.labels || [];
   const pass = JSON.parse(fs.readFileSync(firstPassPath, 'utf8')) as FirstPass;
   const byId = new Map(boxes.map((box) => [box.id, box]));
+  const byLabel = new Map(labels.map((label) => [label.id, label]));
   const tmplDir = path.join(dir, 'templates');
   fs.rmSync(tmplDir, { recursive: true, force: true });
   fs.mkdirSync(tmplDir, { recursive: true });
 
+  const indexSections: AppliedSection[] = [];
+  const sectionFile = new Map<string, string>();
+  const sectionBoxesByName = new Map<string, DetectedBox[]>();
+  for (const sec of pass.sections || []) {
+    const secBoxes = (sec.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
+    if (!sec.name || !secBoxes.length) continue;
+    const memberLabels = (pass.elements || [])
+      .filter((el) => el.section === sec.name)
+      .flatMap((el) => (el.labelIds || []).map((id) => byLabel.get(id)).filter((l): l is DetectedLabel => Boolean(l)));
+    const union = unionRects([...secBoxes, ...memberLabels]);
+    const crop = padRect(union, memberLabels.length ? 4 : 2);
+    const filename = `section-${kebab(sec.name)}.png`;
+    fs.writeFileSync(path.join(tmplDir, filename), cropPng(blank, crop.x, crop.y, crop.width, crop.height));
+    indexSections.push({ name: sec.name, filename, ...crop });
+    sectionFile.set(sec.name, filename);
+    sectionBoxesByName.set(sec.name, secBoxes);
+  }
+
   const elements: AppliedElement[] = [];
   for (const el of pass.elements || []) {
     const fieldBoxes = (el.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
-    const crop = fieldBoxes.length ? expandLeftForLabel(boxes, fieldBoxes) : undefined;
-    if (!crop) continue;
+    const labelRects = (el.labelIds || []).map((id) => byLabel.get(id)).filter((l): l is DetectedLabel => Boolean(l));
+    const extraBoxes = el.section ? (sectionBoxesByName.get(el.section) || []) : [];
+    const overlay = cropForElement(el, boxes, fieldBoxes, labelRects, png);
+    const match = cropForElement(el, boxes, fieldBoxes, labelRects, png, extraBoxes);
+    if (!match) continue;
     const filename = `${kebab(el.name)}.png`;
-    fs.writeFileSync(path.join(tmplDir, filename), cropPng(blank, crop.x, crop.y, crop.width, crop.height));
-    const parts = (el.parts || [])
-      .map((part) => {
-        const box = byId.get(part.boxId);
-        if (!box) return null;
-        return { name: part.name, ...relativeToCrop(insetRect(box, 2), crop) };
-      })
-      .filter((p): p is NonNullable<typeof p> => p !== null);
+    fs.writeFileSync(path.join(tmplDir, filename), cropPng(blank, match.x, match.y, match.width, match.height));
+    const parts = resolveParts(el.parts || [], fieldBoxes, match, byId, png);
+    const shown = overlay || match;
 
     const applied: AppliedElement = {
       name: el.name,
       filename,
       type: el.type || 'field',
-      x: crop.x,
-      y: crop.y,
-      width: crop.width,
-      height: crop.height,
+      x: shown.x,
+      y: shown.y,
+      width: shown.width,
+      height: shown.height,
     };
     if (el.boxIds?.length) applied.boxIds = el.boxIds;
+    if (el.labelIds?.length) applied.labelIds = el.labelIds;
     if (el.charset) applied.charset = el.charset;
     if (el.options?.length) applied.options = el.options;
-    if (fieldBoxes.length) applied.ocrRect = ocrRectFromBoxes(crop, fieldBoxes, el.type || 'field');
+    if (el.section) applied.section = sectionFile.get(el.section) || el.section;
+    if (fieldBoxes.length) applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
     if (parts.length) applied.parts = parts;
     elements.push(applied);
   }
 
   const folder = pass.screen?.name || name;
   const indexPath = path.join(dir, 'index.json');
-  fs.writeFileSync(indexPath, `${JSON.stringify(toIndex(folder, elements), null, 2)}\n`);
+  fs.writeFileSync(indexPath, `${JSON.stringify(toIndex(folder, elements, indexSections), null, 2)}\n`);
 
   return { dir, indexPath, firstPassPath, elements };
 }

@@ -172,6 +172,12 @@ export function ocrRectFromBoxes(crop, fieldBoxes, type = 'field', pad = 2) {
   };
 }
 
+export function includeLabelForType(type, override) {
+  if (override != null) return override;
+  const t = type || 'field';
+  return t === 'field' || t === 'dropdown';
+}
+
 export function expandLeftForLabel(boxes, fieldBoxes, pad = 8, maxLabel = 140) {
   const ids = new Set(fieldBoxes.map((box) => box.id));
   const union = unionRects(fieldBoxes);

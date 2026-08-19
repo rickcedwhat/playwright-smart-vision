@@ -28,6 +28,9 @@ describe('author apply + catalog', () => {
         { id: 1, x: 590, y: 147, width: 204, height: 22 },
         { id: 2, x: 590, y: 174, width: 204, height: 22 },
       ],
+      labels: [
+        { id: 1, x: 500, y: 149, width: 80, height: 16, text: 'Username:' },
+      ],
     }, null, 2)}\n`);
   });
 
@@ -43,12 +46,99 @@ describe('author apply + catalog', () => {
       ],
     });
     expect(result.elements.map((e) => e.name)).toEqual(['username', 'password']);
+    expect(result.elements[0]).toMatchObject({ x: 590, y: 147, width: 204, height: 22 });
+    expect(result.elements[0]!.x + result.elements[0]!.width).toBe(590 + 204);
     expect(fs.existsSync(path.join(result.dir, 'index.json'))).toBe(true);
     for (const el of result.elements) {
       expect(fs.existsSync(path.join(result.dir, 'templates', el.filename))).toBe(true);
     }
     const screen = loadScreen(name);
     expect(screen.elementConfigs.map((e) => e.name)).toEqual(['username', 'password']);
+  });
+
+  it('applyScreen splits a merged box into named parts without extra boxIds', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        {
+          name: 'delivered',
+          type: 'field',
+          boxIds: [1],
+          parts: [{ name: 'month' }, { name: 'day' }, { name: 'year' }],
+        },
+      ],
+    });
+    const delivered = result.elements.find((el) => el.name === 'delivered');
+    expect(delivered?.parts?.map((p) => p.name)).toEqual(['month', 'day', 'year']);
+    expect(delivered?.parts?.[0]?.width).toBeGreaterThan(0);
+    expect(delivered?.parts?.[2]?.x).toBeGreaterThan(delivered!.parts![0]!.x);
+  });
+
+  it('applyScreen keeps button crops on the detected box', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'username', type: 'field', boxIds: [1] },
+        { name: 'ok', type: 'button', boxIds: [2] },
+      ],
+    });
+    const ok = result.elements.find((el) => el.name === 'ok');
+    expect(ok).toMatchObject({ x: 590, y: 174, width: 204, height: 22 });
+    const username = result.elements.find((el) => el.name === 'username');
+    expect(username).toMatchObject({ x: 590, y: 147, width: 204, height: 22 });
+  });
+
+  it('applyScreen unions section boxes into the match crop and keeps overlay on the element', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      sections: [{ name: 'pairSection', boxIds: [1, 2] }],
+      elements: [
+        { name: 'wide', type: 'dropdown', section: 'pairSection', boxIds: [1] },
+        { name: 'narrow', type: 'field', section: 'pairSection', boxIds: [2] },
+      ],
+    });
+    const wide = result.elements.find((el) => el.name === 'wide')!;
+    const narrow = result.elements.find((el) => el.name === 'narrow')!;
+    expect(wide).toMatchObject({ x: 590, y: 147, width: 204, height: 22 });
+    expect(narrow).toMatchObject({ x: 590, y: 174, width: 204, height: 22 });
+    expect(wide.section).toBe('section-pair-section.png');
+    expect(narrow.section).toBe('section-pair-section.png');
+    expect(wide.ocrRect!.y).toBeLessThan(10);
+    expect(narrow.ocrRect!.y).toBeGreaterThan(20);
+    const index = JSON.parse(fs.readFileSync(result.indexPath, 'utf8')) as {
+      sections: Array<{ name: string; filename: string; x: number; y: number; width: number; height: number }>;
+    };
+    expect(index.sections[0]).toMatchObject({
+      name: 'pairSection',
+      filename: 'section-pair-section.png',
+      x: 588,
+      y: 145,
+    });
+    expect(index.sections[0]!.height).toBeGreaterThan(48);
+  });
+
+  it('applyScreen unions assigned labelIds into the crop', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'username', type: 'field', boxIds: [1], labelIds: [1] },
+      ],
+    });
+    const username = result.elements[0]!;
+    expect(username.x).toBeLessThan(500);
+    expect(username.x + username.width).toBeGreaterThan(590 + 204);
+    expect(username.labelIds).toEqual([1]);
+  });
+
+  it('applyScreen grows left only when includeLabel is true and labelIds are empty', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'username', type: 'field', boxIds: [1], includeLabel: true },
+      ],
+    });
+    expect(result.elements[0]!.x).toBeLessThan(590);
+    expect(result.elements[0]!.x + result.elements[0]!.width).toBeGreaterThan(590 + 204);
   });
 
   it('writeScreenCatalog emits typed screen/element names', () => {
