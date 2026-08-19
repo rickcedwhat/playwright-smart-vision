@@ -92,7 +92,7 @@ export class FieldExtractor {
    */
   async extractElements(
     elementConfigs: readonly ElementConfig[] | ElementConfig[],
-    options: { ocrThreshold?: number } = {},
+    options: { ocrThreshold?: number; locateOnly?: boolean } = {},
   ): Promise<ScreenComparison> {
     if (!this.blankForm || !this.filledForm) {
       throw new Error('Forms not loaded. Call loadForms() first.');
@@ -125,7 +125,7 @@ export class FieldExtractor {
    */
   async extractElement(
     config: ElementConfig,
-    options: { ocrThreshold?: number } = {},
+    options: { ocrThreshold?: number; locateOnly?: boolean } = {},
   ): Promise<ElementResult> {
     if (!this.blankForm || !this.filledForm) {
       throw new Error('Forms not loaded. Call loadForms() first.');
@@ -175,6 +175,34 @@ export class FieldExtractor {
     const filledRect = located.filledRect;
 
     const readRect = offsetRect(filledRect, config.ocrRect, this.filledForm.cols, this.filledForm.rows);
+    if (options.locateOnly) {
+      const parts = (config.parts || []).map((part) => {
+        const loc = offsetRect(filledRect, part, this.filledForm!.cols, this.filledForm!.rows);
+        return {
+          name: part.name,
+          value: '',
+          confidence: located.filledConfidence,
+          location: loc,
+          ocrLocation: loc,
+          isEmpty: true,
+          type: config.type,
+        };
+      });
+      template.delete();
+      located.cleanup();
+      return {
+        name: config.name,
+        value: '',
+        confidence: located.filledConfidence,
+        location: filledRect,
+        ocrLocation: readRect,
+        blankLocation: blankRect,
+        isEmpty: true,
+        type: config.type,
+        variant: activeVariant,
+        parts: parts.length ? parts : undefined,
+      };
+    }
     const blankReadRect = offsetRect(blankRect, config.ocrRect, this.blankForm.cols, this.blankForm.rows);
     const filledROI = this.visionUtil.extractROI(this.filledForm, readRect);
     const blankROI = this.visionUtil.extractROI(this.blankForm, blankReadRect);
