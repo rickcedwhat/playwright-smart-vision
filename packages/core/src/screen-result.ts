@@ -4,6 +4,7 @@ import { ScreenElement, VISIBLE_CONFIDENCE, type MatchOptions, type WaitForOptio
 import type { Page } from '@playwright/test';
 import { ocrStep } from './ocr-step.js';
 import { hideOcrOverlay, overlayBoxesFromResult, showOcrOverlay } from './ocr-overlay.js';
+import { unhoverBeforeCapture } from './unhover.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -28,6 +29,8 @@ export type ScreenHost = {
   screen: ScreenConfig;
   shotDir: string;
   overlay?: boolean;
+  /** Override global unhoverBeforeCapture for this bind. */
+  unhover?: boolean;
 };
 
 async function extractComparison(
@@ -70,14 +73,20 @@ export class ScreenResult {
     extractor: ScreenExtractor,
     screen: ScreenConfig,
     shotDir: string,
-    options: { overlay?: boolean } = {},
+    options: { overlay?: boolean; unhover?: boolean } = {},
   ): ScreenResult {
     return new ScreenResult({
       elements: [],
       totalElements: 0,
       filledElements: 0,
       emptyElements: 0,
-    }, page, { extractor, screen, shotDir, ...(options.overlay !== undefined && { overlay: options.overlay }) });
+    }, page, {
+      extractor,
+      screen,
+      shotDir,
+      ...(options.overlay !== undefined && { overlay: options.overlay }),
+      ...(options.unhover !== undefined && { unhover: options.unhover }),
+    });
   }
 
   /**
@@ -277,6 +286,7 @@ export class ScreenResult {
   }
 
   private async captureLive(shot: string): Promise<void> {
+    await unhoverBeforeCapture(this.page!, this.host?.unhover);
     await this.page!.screenshot({ path: shot, timeout: 2_000 });
   }
 

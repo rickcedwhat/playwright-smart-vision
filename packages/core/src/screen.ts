@@ -12,6 +12,11 @@ import { ensureCvReady } from './utils/vision.js';
 export interface BindOcrScreenOptions {
   shotDir?: string;
   overlay?: boolean;
+  /**
+   * Override `configure({ unhoverBeforeCapture })` for this screen.
+   * Default inherits global config (true when unset).
+   */
+  unhover?: boolean;
 }
 
 let sharedExtractor: FieldExtractor | null = null;
@@ -46,6 +51,7 @@ export function bindOcrScreen(
 ): ScreenResult {
   return ScreenResult.bind(page, extractor, config, shotDir, {
     ...(options.overlay !== undefined && { overlay: options.overlay }),
+    ...(options.unhover !== undefined && { unhover: options.unhover }),
   });
 }
 
