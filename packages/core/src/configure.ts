@@ -12,6 +12,12 @@ interface GlobalConfig {
   storage?: StorageConfig;
   devtools?: boolean;
   page?: Page;
+  /**
+   * Move the mouse to a neutral corner before live OCR screenshots
+   * (`waitFor`, `refresh`, locate). Clears hover highlights that break
+   * template matching. Default: true.
+   */
+  unhoverBeforeCapture?: boolean;
 }
 
 let globalConfig: GlobalConfig = {};
@@ -20,12 +26,22 @@ export function getGlobalConfig(): GlobalConfig {
   return globalConfig;
 }
 
+/** Reset merged config (unit tests). */
+export function resetGlobalConfig(): void {
+  globalConfig = {};
+}
+
 /**
  * Configure storage root and optional devtools FAB.
  * Pass `page` to inject the FAB immediately (QA Wolf / non-fixture usage).
  * In fixture-based Playwright tests the FAB is injected automatically by the ocrScreen fixture.
  *
- * await configure({ storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' }, devtools: true, page });
+ * await configure({
+ *   storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+ *   devtools: true,
+ *   page,
+ *   // unhoverBeforeCapture: false, // keep hover for a rare case
+ * });
  */
 export async function configure(config: GlobalConfig): Promise<void> {
   const { page, ...rest } = config;

@@ -7,6 +7,7 @@ export {
   screen,
 } from './screen.js';
 export type { BindOcrScreenOptions } from './screen.js';
+export { UNHOVER_POINT, unhoverBeforeCapture } from './unhover.js';
 
 export { defineScreen, screenAssetsDir } from './screen-config.js';
 export type { ScreenConfig } from './screen-config.js';

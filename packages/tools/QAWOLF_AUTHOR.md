@@ -188,6 +188,7 @@ await configure({
   page,
   storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
 });
+// Live screenshots auto-unhover the cursor (opt out: unhoverBeforeCapture: false).
 const customerInfo = await screen('customer-info');
 await customerInfo.element('customerNumber').toHaveValue(expected);
 await releaseOcrScreen(); // optional at end of flow

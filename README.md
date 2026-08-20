@@ -79,6 +79,21 @@ Playwright Test fixture. Returns a `ScreenResult` bound to the current page.
 
 Same bound screen for QA Wolf flows (or any runner that is not `@playwright/test`). Requires `configure({ page, storage: { root } })`. Initializes OCR/OpenCV, loads the named screen from FUSE, and binds `ScreenResult`. Call `releaseOcrScreen()` when the flow finishes.
 
+### `configure({ unhoverBeforeCapture })`
+
+Before each live OCR screenshot (`waitFor`, `refresh`, locate), the library moves the mouse to `(8, 8)` so hover highlights do not break template matching. **Default: on.** Opt out globally or per screen:
+
+```ts
+await configure({
+  page,
+  storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+  unhoverBeforeCapture: false, // keep hover
+});
+
+// or one screen only:
+const service = await screen('service', { unhover: false });
+```
+
 ### `screen.element(name)` → `ScreenElement`
 
 Assertions mirror Playwright's locator API:
