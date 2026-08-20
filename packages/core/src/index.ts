@@ -1,4 +1,12 @@
 export { configure, saveScreen } from './configure.js';
+export {
+  bindOcrScreen,
+  createOcrExtractor,
+  ensureOcrRuntime,
+  releaseOcrScreen,
+  screen,
+} from './screen.js';
+export type { BindOcrScreenOptions } from './screen.js';
 
 export { defineScreen, screenAssetsDir } from './screen-config.js';
 export type { ScreenConfig } from './screen-config.js';

@@ -153,10 +153,15 @@ describe('author apply + catalog', () => {
     const src = writeScreenCatalog(dest);
     expect(src).toContain('"html-login"');
     expect(src).toContain('"username"');
+    expect(src).toContain('type: "field"');
+    expect(src).not.toContain('parts: []');
+    expect(src).toContain('export type Screens');
+    expect(src).toContain('export type PartName');
     expect(src).not.toMatch(/\bas const\b/);
     expect(src).toContain('export type ScreenName');
     expect(src).toContain('export type ElementName');
     expect(fs.readFileSync(dest, 'utf8')).toBe(src);
+    expect(fs.readFileSync(path.join(root, 'generated.ts'), 'utf8')).toContain('"html-login"');
     expect(readScreenCatalog()['html-login']).toEqual(['username', 'password']);
   });
 

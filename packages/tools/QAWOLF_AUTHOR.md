@@ -43,6 +43,7 @@ Root is always `process.env.TEAM_STORAGE_DIR + '/screens'` (same as `configure`)
 {TEAM_STORAGE_DIR}/screens/{name}/first-pass.json         ← after you name boxes
 {TEAM_STORAGE_DIR}/screens/{name}/index.json              ← after apply
 {TEAM_STORAGE_DIR}/screens/{name}/templates/*.png
+{TEAM_STORAGE_DIR}/screens/generated.ts                   ← after apply (all screens)
 ```
 
 `{name}` is the FAB save name / `saveScreen` argument (`customer-info`).
@@ -142,26 +143,56 @@ await author.applyScreen('customer-info', {
 
 Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not grow left by default. Do not use `as` or `as const` in authored files.
 
-5. **Catalog (not a flow)** — after apply succeeds, write `src/helpers/screens.generated.ts` in the repo with your file-write tool. Do not call `writeScreenCatalog` and do not mkdir `/app/generatedProgram`. If the file already exists, keep every other screen and add/replace only the one you just authored: add it to `ScreenName`, add a key on the `ElementName` map, add a key on `screens`. Element names must match `elements[].name` from the first-pass you applied. No `as` / `as const`.
+5. **Catalog** — `applyScreen` writes `{TEAM_STORAGE_DIR}/screens/generated.ts` (every applied screen, not just the one you named). After the flow, **copy that file** to `src/helpers/screens.generated.ts` in the repo with your file-write tool (overwrite the whole file). Do not invent names, do not merge by hand, do not call `writeScreenCatalog`, and do not mkdir `/app/generatedProgram`. No `as` / `as const`.
 
 ```ts
-/** Generated catalog of FUSE screens. Update when authoring a screen. */
-export type ScreenName = "customer-info";
+import fs from 'node:fs';
+const src = process.env.TEAM_STORAGE_DIR + '/screens/generated.ts';
+const dest = 'src/helpers/screens.generated.ts';
+// Read `src` (FUSE). Write the same bytes to `dest` in the git repo.
+```
 
-export type ElementName<S extends ScreenName> = {
-  "customer-info": "lastName" | "fullName" | "ok";
-}[S];
+Example shape (do not type this from memory — copy `generated.ts`):
 
-export const screens: { [K in ScreenName]: readonly ElementName<K>[] } = {
-  "customer-info": ["lastName", "fullName", "ok"],
+```ts
+/** Generated from screens/*/index.json. Copy to src/helpers/screens.generated.ts */
+export type Screens = {
+  "customer-info": {
+    "fullName": { type: "field"; parts: ["firstName", "middleInitial", "lastName"] };
+    "primaryContactMethod": { type: "dropdown"; section: "primaryContactSection" };
+    "save": { type: "button" };
+  };
+};
+
+export type ScreenName = keyof Screens;
+export type ElementName<S extends ScreenName> = keyof Screens[S] & string;
+export type ElementType<S extends ScreenName, E extends ElementName<S>> = Screens[S][E]["type"];
+export type PartName<S extends ScreenName, E extends ElementName<S>> =
+  Screens[S][E] extends { parts: readonly (infer P)[] } ? P : never;
+
+export const screens: Screens = {
+  "customer-info": {
+    "fullName": { type: "field", parts: ["firstName", "middleInitial", "lastName"] },
+    "primaryContactMethod": { type: "dropdown", section: "primaryContactSection" },
+    "save": { type: "button" },
+  },
 };
 ```
 
-6. Product tests only **read** FUSE:
+6. Product tests only **read** FUSE. In a **QA Wolf flow** (no Playwright `ocrScreen` fixture):
 
 ```ts
-const screen = ocrScreen('customer-info');
-await screen.element('lastName').toHaveValue('Smith');
+import { configure, releaseOcrScreen, screen } from '@rickcedwhat/playwright-smart-vision';
+
+await configure({
+  page,
+  storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+});
+const customerInfo = await screen('customer-info');
+await customerInfo.element('customerNumber').toHaveValue(expected);
+await releaseOcrScreen(); // optional at end of flow
 ```
+
+Import from `@rickcedwhat/playwright-smart-vision` only. Do **not** import `FieldExtractor` or anything under `dist/`. Playwright Test can keep using `ocrScreen` from `@rickcedwhat/playwright-smart-vision/test`.
 
 No LLM during assertions.

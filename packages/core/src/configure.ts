@@ -30,6 +30,7 @@ export function getGlobalConfig(): GlobalConfig {
 export async function configure(config: GlobalConfig): Promise<void> {
   const { page, ...rest } = config;
   globalConfig = { ...globalConfig, ...rest };
+  if (page) globalConfig.page = page;
   if (rest.devtools && page) {
     const { injectDevtools } = await import('./devtools.js');
     await injectDevtools(page);

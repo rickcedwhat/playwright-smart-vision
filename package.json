@@ -9,7 +9,7 @@
     "test:unit": "pnpm -r --if-present test:unit",
     "test:e2e": "pnpm -r --if-present test:e2e",
     "dev": "node packages/tools/template-manager-server.mjs",
-    "tm:v2": "pnpm build && node packages/tools/tm-v2/server.mjs",
+    "tm:v2": "pnpm build && pnpm dev",
     "dev:fixtures": "node packages/core/scripts/serve-fixtures.mjs",
     "capture": "pnpm --filter @rickcedwhat/playwright-smart-vision test:e2e --grep=CAPTURE_ONLY_NO_TESTS --pass-with-no-tests"
   }

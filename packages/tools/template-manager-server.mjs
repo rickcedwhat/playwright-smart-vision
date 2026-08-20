@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { exec, spawn } from 'node:child_process';
 import { publishHtmlFixtureArtifacts } from './publish-test-artifacts.mjs';
+import { handleTmV2Request, initTmV2, tmV2StartupLines } from './tm-v2/handler.mjs';
 import { PNG } from 'pngjs';
 import { VisionUtil } from '@rickcedwhat/playwright-smart-vision/utils/vision';
 import { OCRUtil, charsetForField, pickFromOptions } from '@rickcedwhat/playwright-smart-vision/utils/ocr';
@@ -1242,6 +1243,8 @@ async function handle(req, res) {
     return;
   }
 
+  if (await handleTmV2Request(req, res, url)) return;
+
   if (req.method === 'GET' && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {
     serveApp(res, url.pathname);
     return;
@@ -1458,6 +1461,7 @@ function listen(port) {
     const url = `http://localhost:${port}/`;
     console.log(`Hub:              ${url}`);
     console.log(`Template Manager: ${url}template-manager.html`);
+    for (const line of tmV2StartupLines(port)) console.log(line);
     console.log(`App login:        ${url}app/login.html`);
     console.log(`App customer:     ${url}app/customer.html`);
     console.log(`App source:       ${url}app/config.html`);
@@ -1467,4 +1471,5 @@ function listen(port) {
   });
 }
 
+initTmV2();
 listen(DEFAULT_PORT);

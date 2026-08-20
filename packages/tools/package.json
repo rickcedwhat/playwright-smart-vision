@@ -8,7 +8,7 @@
   },
   "scripts": {
     "start": "node template-manager-server.mjs",
-    "start:v2": "node tm-v2/server.mjs"
+    "start:v2": "node template-manager-server.mjs"
   },
   "keywords": [
     "playwright",

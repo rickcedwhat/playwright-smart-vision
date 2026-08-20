@@ -1,17 +1,16 @@
 import { test as base } from '@playwright/test';
 import fs from 'node:fs';
-import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import type { ScreenConfig } from './screen-config.js';
 import { loadScreen, getGlobalConfig, configure } from './configure.js';
-import { getOCRUtil, cleanupOCR } from './utils/ocr.js';
-import { ensureCvReady } from './utils/vision.js';
+import { bindOcrScreen, createOcrExtractor, ensureOcrRuntime } from './screen.js';
+import { cleanupOCR } from './utils/ocr.js';
 
 export type OcrScreen = (screen: ScreenConfig | string) => ScreenResult;
 
 export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, { ocrReady: void }>({
   ocrReady: [async ({}, use) => {
-    await Promise.all([getOCRUtil(), ensureCvReady()]);
+    await ensureOcrRuntime();
     await use();
     await cleanupOCR();
   }, { scope: 'worker' }],
@@ -28,13 +27,12 @@ export const test = base.extend<{ ocrScreen: OcrScreen; ocrOverlay: boolean }, {
     if (getGlobalConfig().devtools) {
       await configure({ devtools: true, page });
     }
-    const ocr = await getOCRUtil();
-    const extractor = new FieldExtractor(ocr, !!process.env.OCR_DEBUG);
+    const extractor = await createOcrExtractor();
     const shotDir = testInfo.outputPath('ocr-shots');
     fs.mkdirSync(shotDir, { recursive: true });
-    await use((screen) => {
-      const config = typeof screen === 'string' ? loadScreen(screen) : screen;
-      return ScreenResult.bind(page, extractor, config, shotDir, { overlay: ocrOverlay });
+    await use((screenArg) => {
+      const config = typeof screenArg === 'string' ? loadScreen(screenArg) : screenArg;
+      return bindOcrScreen(page, config, extractor, shotDir, { overlay: ocrOverlay });
     });
     extractor.cleanup();
   },
