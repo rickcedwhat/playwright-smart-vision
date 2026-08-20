@@ -52,6 +52,19 @@ test('logs in', async ({ ocrScreen }) => {
 });
 ```
 
+QA Wolf flows do not get the `ocrScreen` fixture:
+
+```ts
+import { configure, screen } from '@rickcedwhat/playwright-smart-vision';
+
+await configure({
+  page,
+  storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+});
+const wolf01 = await screen('wolf01');
+await wolf01.element('service').click();
+```
+
 ## API
 
 ### `test` / `expect`
@@ -60,7 +73,11 @@ Drop-in replacements for `@playwright/test`'s `test` and `expect`. Adds the `ocr
 
 ### `ocrScreen(config)` → `ScreenResult`
 
-Returns a `ScreenResult` bound to the current page.
+Playwright Test fixture. Returns a `ScreenResult` bound to the current page.
+
+### `screen(name)` → `Promise<ScreenResult>`
+
+Same bound screen for QA Wolf flows (or any runner that is not `@playwright/test`). Requires `configure({ page, storage: { root } })`. Initializes OCR/OpenCV, loads the named screen from FUSE, and binds `ScreenResult`. Call `releaseOcrScreen()` when the flow finishes.
 
 ### `screen.element(name)` → `ScreenElement`
 

@@ -17,6 +17,7 @@ import {
 import type { BoxesFile } from './detect.js';
 import type { DetectedLabel } from './labels.js';
 import { screenDir } from './storage.js';
+import { writeScreenCatalog } from './catalog.js';
 
 export interface FirstPassPart {
   name: string;
@@ -288,6 +289,7 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   const folder = pass.screen?.name || name;
   const indexPath = path.join(dir, 'index.json');
   fs.writeFileSync(indexPath, `${JSON.stringify(toIndex(folder, elements, indexSections), null, 2)}\n`);
+  writeScreenCatalog();
 
   return { dir, indexPath, firstPassPath, elements };
 }

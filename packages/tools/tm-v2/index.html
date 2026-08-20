@@ -53,8 +53,38 @@
   .view-pill.catalog { border-color: #3a8; }
   .view-pill.catalog.on { background: #3a8; border-color: #3a8; }
   .push-off { opacity: 0.55; }
-  .stage { position: relative; display: inline-block; }
+  #pushModal {
+    position: fixed; inset: 0; z-index: 40;
+    background: rgba(0,0,0,0.65);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  #pushModal[hidden] { display: none; }
+  .push-card {
+    width: min(720px, 94vw); max-height: 86vh;
+    background: #1c1c1c; border: 1px solid #555; border-radius: 10px;
+    padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .push-card h3 { margin: 0; font-size: 15px; }
+  .push-card p { margin: 0; color: #ccc; }
+  #pushLog {
+    flex: 1; min-height: 160px; max-height: 48vh; overflow: auto;
+    margin: 0; padding: 10px; background: #111; border: 1px solid #333;
+    border-radius: 6px; color: #cfc;
+    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+  }
+  .push-actions { display: flex; gap: 8px; justify-content: flex-end; }
+  .stage { position: relative; display: inline-block; min-width: 100%; }
   .stage img { display: block; max-width: 100%; height: auto; }
+  .stage img[hidden] { display: none; }
+  #fileText {
+    margin: 0; padding: 16px 18px; min-height: 100%;
+    color: #ddd; background: #111;
+    font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre; overflow: auto;
+  }
+  #fileText[hidden] { display: none; }
   #overlays { position: absolute; inset: 0; pointer-events: none; }
   .box, .el-box, .label-box, .section-box { position: absolute; }
   .box, .el-box { pointer-events: auto; cursor: pointer; }
@@ -95,7 +125,7 @@
   <input id="gcs" type="text" spellcheck="false">
   <button id="saveSettings" type="button">Save URI</button>
   <button id="pullAll" type="button">Pull GCS</button>
-  <button id="pushAll" class="push-off" type="button" title="GCS write disabled">Push GCS</button>
+  <button id="pushAll" type="button" title="Copy blank.png, index.json, and templates/ — does not delete">Push GCS</button>
   <div class="reset-wrap">
     <button id="resetOne" type="button">Reset</button>
     <button id="resetMenuBtn" type="button" aria-label="reset options">▾</button>
@@ -106,6 +136,16 @@
   <span id="status"></span>
 </header>
 <div id="toast"></div>
+<div id="pushModal" hidden>
+  <div class="push-card">
+    <h3 id="pushTitle">GCS push</h3>
+    <p id="pushSummary"></p>
+    <pre id="pushLog"></pre>
+    <div class="push-actions">
+      <button id="pushCancel" type="button">Close</button>
+    </div>
+  </div>
+</div>
 <div class="layout">
 <aside>
   <div id="tree" class="tree"></div>
@@ -113,6 +153,7 @@
 <main id="main">
   <div class="stage" id="stage">
     <img id="blank" alt="screen">
+    <pre id="fileText" hidden></pre>
     <div id="overlays"></div>
   </div>
   <div id="pop" hidden>
@@ -129,6 +170,11 @@
 </main>
 </div>
 <script>
+const TM_BASE = (() => {
+  const p = location.pathname.replace(/\/$/, '');
+  return p.endsWith('/template-manager') ? p : '';
+})();
+
 const statusEl = document.getElementById('status');
 const toastEl = document.getElementById('toast');
 const gcs = document.getElementById('gcs');
@@ -161,12 +207,31 @@ function toast(msg) {
   toast.t = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
 }
 
-function gcsWriteBlocked() {
-  toast('GCS write/delete is disabled. Pull and local detect/apply only.');
+function formatPushResult(out) {
+  const lines = [];
+  lines.push(out.dryRun ? 'DRY RUN — nothing was written.' : 'PUSH COMPLETE');
+  lines.push('Deletes: never (' + String(out.deletes) + ')');
+  lines.push('Destination prefix: ' + out.gcsUri);
+  lines.push('Screens: ' + (out.pushed || []).join(', '));
+  if ((out.skipped || []).length) {
+    lines.push('Skipped:');
+    for (const row of out.skipped) lines.push('  - ' + row.name + ': ' + row.reason);
+  }
+  lines.push('');
+  for (const op of out.operations || []) {
+    lines.push('== ' + op.screen + ' → ' + op.dest);
+    for (const file of op.files || []) lines.push('  ' + file);
+    if (op.gcloud) {
+      lines.push('-- gcloud --');
+      lines.push(op.gcloud);
+    }
+    lines.push('');
+  }
+  return lines.join('\n');
 }
 
 async function api(path, opts) {
-  const res = await fetch(path, opts);
+  const res = await fetch(TM_BASE + path, opts);
   const body = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(body.error || res.statusText);
   return body;
@@ -564,7 +629,7 @@ async function loadScreen(name, opts = {}) {
       for (const id of el.boxIds || []) state.names[id] = el.name;
     }
   }
-  if (!data.hasBlank) setStatus(name + ' is not in the local cache — Pull selected', true);
+  if (!data.hasBlank) setStatus(name + ' has no local blank.png — Pull GCS', true);
   else if (data.applied) setStatus((opts.status || name) + ' — applied first-pass.json');
   else setStatus(opts.status || name);
   updateMeta();
@@ -574,12 +639,42 @@ async function loadScreen(name, opts = {}) {
   else setView(view);
 }
 
-function renderImage() {
-  if (selectedFile) {
-    blank.src = '/file?path=' + encodeURIComponent(selectedFile) + '&t=' + Date.now();
+function isImagePath(rel) {
+  return /\.(png|jpe?g|gif|webp)$/i.test(rel || '');
+}
+
+async function renderImage() {
+  const textEl = document.getElementById('fileText');
+  if (selectedFile && !isImagePath(selectedFile)) {
+    blank.hidden = true;
+    overlays.innerHTML = '';
+    hidePop();
+    textEl.hidden = false;
+    textEl.textContent = 'Loading…';
+    try {
+      const res = await fetch(TM_BASE + '/file?path=' + encodeURIComponent(selectedFile) + '&t=' + Date.now());
+      const body = await res.text();
+      if (!res.ok) {
+        let msg = body;
+        try { msg = JSON.parse(body).error || body; } catch (_) {}
+        throw new Error(msg || res.statusText);
+      }
+      try { textEl.textContent = JSON.stringify(JSON.parse(body), null, 2); }
+      catch { textEl.textContent = body; }
+    } catch (err) {
+      textEl.textContent = '';
+      setStatus(err.message, true);
+    }
     return;
   }
-  blank.src = '/file/blank?name=' + encodeURIComponent(state.name) + '&t=' + Date.now();
+  textEl.hidden = true;
+  textEl.textContent = '';
+  blank.hidden = false;
+  if (selectedFile) {
+    blank.src = TM_BASE + '/file?path=' + encodeURIComponent(selectedFile) + '&t=' + Date.now();
+    return;
+  }
+  blank.src = TM_BASE + '/file/blank?name=' + encodeURIComponent(state.name) + '&t=' + Date.now();
 }
 
 function overlayMode() {
@@ -738,7 +833,9 @@ blank.addEventListener('load', () => {
 });
 blank.addEventListener('error', () => {
   overlays.innerHTML = '';
-  setStatus((selectedFile || selectedScreen || 'file') + ' is not in the local cache — Pull selected', true);
+  if (selectedFile) setStatus('could not display ' + selectedFile, true);
+  else if (!state.name) setStatus('no screen selected', true);
+  else setStatus(state.name + ' has no local blank.png — Pull GCS', true);
 });
 window.addEventListener('resize', paint);
 
@@ -877,7 +974,33 @@ document.getElementById('pullAll').onclick = async () => {
     if (currentScreen()) await loadScreen(currentScreen(), { keepView: true });
   } catch (err) { setStatus(err.message, true); }
 };
-document.getElementById('pushAll').onclick = () => gcsWriteBlocked();
+document.getElementById('pushAll').onclick = async () => {
+  const modal = document.getElementById('pushModal');
+  try {
+    setStatus('pushing to GCS…');
+    const out = await api('/api/push', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ dryRun: false }),
+    });
+    document.getElementById('pushTitle').textContent = 'GCS push complete';
+    document.getElementById('pushSummary').textContent =
+      'Copied blank.png, index.json, and templates/*.png. Nothing was deleted.';
+    document.getElementById('pushLog').textContent = formatPushResult(out);
+    modal.hidden = false;
+    setStatus('pushed ' + (out.pushed || []).join(', '));
+    await renderTree();
+  } catch (err) { setStatus(err.message, true); }
+};
+document.getElementById('pushCancel').onclick = () => {
+  document.getElementById('pushModal').hidden = true;
+};
+document.getElementById('pushModal').addEventListener('click', (e) => {
+  if (e.target.id === 'pushModal') document.getElementById('pushModal').hidden = true;
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') document.getElementById('pushModal').hidden = true;
+});
 document.getElementById('copyPrompt').onclick = async () => {
   try {
     const name = currentScreen();
