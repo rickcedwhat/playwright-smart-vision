@@ -583,11 +583,9 @@ function hidePop() {
 }
 
 const CHARSET_OPTIONS = [
-  { value: 'auto', label: 'Infer from name' },
   { value: 'text', label: 'Text' },
   { value: 'digits', label: 'Digits' },
   { value: 'alnum', label: 'Letters + digits' },
-  { value: 'email', label: 'Email' },
 ];
 
 function fillCharsetSelect(select, selected) {
@@ -668,7 +666,7 @@ function renderPop() {
   document.getElementById('popSection').textContent = info.section || '—';
   document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
-  fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'auto');
+  fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
   document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
   syncOverflowVisibility();
