@@ -20,7 +20,7 @@
   #status { color: #8c8; flex: 1; min-width: 120px; }
   #status.err { color: #f88; }
   #toast { position: fixed; right: 16px; bottom: 16px; max-width: 360px; background: #4a2020; color: #fcc; border: 1px solid #c66; padding: 10px 12px; border-radius: 6px; display: none; z-index: 20; }
-  .layout { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+  .layout { display: grid; grid-template-columns: 280px 1fr min(320px, 25vw); min-height: 0; }
   aside { overflow: hidden; padding: 10px 8px 12px; border-right: 1px solid #333; background: #181818; display: flex; flex-direction: column; min-height: 0; }
   .tree { flex: 1; overflow: auto; min-height: 80px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
   .reset-wrap { position: relative; display: flex; gap: 0; }
@@ -29,8 +29,10 @@
   .reset-menu { position: absolute; right: 0; top: 100%; margin-top: 4px; background: #222; border: 1px solid #555; border-radius: 4px; min-width: 180px; display: none; z-index: 30; }
   .reset-menu.open { display: block; }
   .reset-menu button { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 0; }
-  #pop { position: absolute; z-index: 8; width: min(360px, 90vw); background: #1c1c1c; border: 1px solid #444; border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px #000a; pointer-events: auto; }
-  #pop[hidden] { display: none; }
+  #detail { border-left: 1px solid #333; background: #181818; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+  #detailPlaceholder { color: #555; font-size: 12px; text-align: center; margin-top: 48px; }
+  #pop { padding: 10px; }
+  #pop[hidden], [hidden] { display: none; }
   #pop canvas { display: block; max-width: 100%; height: auto; background: #000; border: 1px solid #333; image-rendering: pixelated; }
   #popJson { margin: 8px 0 0; max-height: 140px; overflow: auto; padding: 8px; background: #111; border: 1px solid #2a2a2a; border-radius: 4px; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; color: #ddd; }
   main { overflow: auto; background: #000; position: relative; }
@@ -165,6 +167,9 @@
     <pre id="fileText" hidden></pre>
     <div id="overlays"></div>
   </div>
+</main>
+<div id="detail">
+  <div id="detailPlaceholder">Click an element to inspect</div>
   <div id="pop" hidden>
     <canvas id="popCanvas"></canvas>
     <div class="inspect-parts" id="popParts"></div>
@@ -184,7 +189,7 @@
           <option value="clipboard">clipboard (select-all + copy)</option>
         </select>
       </label>
-      <label>Overflow
+      <label id="overflowLabel">Overflow
         <select id="popOverflow">
           <option value="">none</option>
           <option value="end">end (prefix + trailing garbage)</option>
@@ -204,7 +209,7 @@
       </details>
     </div>
   </div>
-</main>
+</div>
 </div>
 <script>
 const TM_BASE = (() => {
@@ -574,15 +579,15 @@ function drawSourceRect(canvas, rect, maxW, overlays) {
 
 function hidePop() {
   popEl.hidden = true;
+  document.getElementById('detailPlaceholder').hidden = false;
 }
 
 const CHARSET_OPTIONS = [
-  { value: 'auto', label: 'Auto (from field name)' },
+  { value: 'auto', label: 'Infer from name' },
   { value: 'text', label: 'Text' },
   { value: 'digits', label: 'Digits' },
   { value: 'alnum', label: 'Letters + digits' },
   { value: 'email', label: 'Email' },
-  { value: 'vin', label: 'VIN / code' },
 ];
 
 function fillCharsetSelect(select, selected) {
@@ -637,22 +642,10 @@ function catalogElement(key) {
   return state.elements.find((item) => item.name === key.slice(5)) || null;
 }
 
-function placePop(key) {
-  const hit = overlays.querySelector('[data-key="' + CSS.escape(key) + '"]');
-  if (!hit) {
-    hidePop();
-    return;
-  }
-  popEl.hidden = false;
-  const hr = hit.getBoundingClientRect();
-  const mr = mainEl.getBoundingClientRect();
-  let left = hr.right - mr.left + mainEl.scrollLeft + 8;
-  let top = hr.top - mr.top + mainEl.scrollTop;
-  const maxLeft = mainEl.scrollLeft + Math.max(8, mainEl.clientWidth - popEl.offsetWidth - 8);
-  const maxTop = mainEl.scrollTop + Math.max(8, mainEl.clientHeight - popEl.offsetHeight - 8);
-  if (left > maxLeft) left = hr.left - mr.left + mainEl.scrollLeft - popEl.offsetWidth - 8;
-  popEl.style.left = Math.max(mainEl.scrollLeft + 8, Math.min(left, maxLeft)) + 'px';
-  popEl.style.top = Math.max(mainEl.scrollTop + 8, Math.min(top, maxTop)) + 'px';
+
+function syncOverflowVisibility() {
+  const isClipboard = document.getElementById('popRead').value === 'clipboard';
+  document.getElementById('overflowLabel').hidden = isClipboard;
 }
 
 function renderPop() {
@@ -660,7 +653,7 @@ function renderPop() {
     hidePop();
     return;
   }
-  const key = pinnedKey || hoverKey;
+  const key = pinnedKey;
   const info = inspectInfo(key);
   const el = catalogElement(key);
   document.getElementById('copyRevise').disabled = !pinnedKey;
@@ -668,14 +661,17 @@ function renderPop() {
     hidePop();
     return;
   }
+  document.getElementById('detailPlaceholder').hidden = true;
+  popEl.hidden = false;
   document.getElementById('popName').textContent = info.name || 'unnamed';
   document.getElementById('popType').textContent = info.type || '—';
   document.getElementById('popSection').textContent = info.section || '—';
   document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
   fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'auto');
-  document.getElementById('popRead').value = el.read ?? (el.type === 'password' ? 'clipboard' : 'ocr');
+  document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
+  syncOverflowVisibility();
   renderSwapRows(document.getElementById('popSwaps'), el.swaps);
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
@@ -693,7 +689,6 @@ function renderPop() {
     partsEl.appendChild(wrap);
     drawSourceRect(canvas, part, 140, []);
   }
-  placePop(key);
 }
 
 document.getElementById('popAddSwap').addEventListener('click', () => {
@@ -986,35 +981,17 @@ blank.addEventListener('error', () => {
 });
 window.addEventListener('resize', paint);
 
-let popHide = 0;
-function cancelHidePop() {
-  clearTimeout(popHide);
-}
-function scheduleHidePop() {
-  cancelHidePop();
-  popHide = setTimeout(() => {
-    if (pinnedKey) return;
-    hoverKey = '';
-    renderPop();
-    markActive();
-  }, 180);
-}
 overlays.addEventListener('pointerover', (e) => {
   if (view !== 'catalog') return;
   const hit = e.target.closest('[data-key]');
   if (!hit) return;
-  cancelHidePop();
   hoverKey = hit.dataset.key;
-  renderPop();
   markActive();
 });
 overlays.addEventListener('pointerout', (e) => {
-  if (e.relatedTarget && (e.currentTarget.contains(e.relatedTarget) || popEl.contains(e.relatedTarget))) return;
-  scheduleHidePop();
-});
-popEl.addEventListener('pointerenter', cancelHidePop);
-popEl.addEventListener('pointerleave', () => {
-  if (!pinnedKey) scheduleHidePop();
+  if (e.relatedTarget && e.currentTarget.contains(e.relatedTarget)) return;
+  hoverKey = '';
+  markActive();
 });
 overlays.addEventListener('click', (e) => {
   if (view === 'draft' && detectTool === 'erase') return;
@@ -1240,9 +1217,7 @@ stage.addEventListener('click', (e) => {
   renderPop();
   markActive();
 });
-mainEl.addEventListener('scroll', () => {
-  if (view === 'catalog' && !popEl.hidden) renderPop();
-});
+document.getElementById('popRead').addEventListener('change', syncOverflowVisibility);
 
 loadSettings()
   .then(renderTree)
