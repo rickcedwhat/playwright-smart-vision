@@ -23,8 +23,9 @@ export type HaveTextOptions = {
   /** Expected glyph → OCR glyphs allowed in its place, e.g. `{ '@': ['Q', 'C'], '5': 'S' }`. */
   swaps?: OcrSwaps;
   /**
-   * Charset to use for this assertion — name of a charset registered in `init()` or an inline
-   * `Charset` object. Its bundled swaps are applied unless explicit `swaps` are also set.
+   * Charset to use for this assertion — name registered in `init()` or an inline `Charset` object.
+   * Only the bundled `swaps` are applied at assertion time; `chars` has no effect here because
+   * OCR extraction already ran. For `chars` to take effect, set `charset` on the element config.
    * Explicit `swaps` always win over `charset.swaps`.
    */
   charset?: string | Charset;

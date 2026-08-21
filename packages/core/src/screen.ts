@@ -144,6 +144,7 @@ export function screen(
 export async function release(): Promise<void> {
   initState?.extractor.cleanup();
   initState = null;
+  setCharsetRegistry({});
   await cleanupOCR();
 }
 

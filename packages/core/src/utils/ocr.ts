@@ -23,9 +23,13 @@ export interface Charset {
 
 let charsetRegistry: Record<string, Charset> = {};
 
-/** Called by `init()` to register user-defined charsets. */
+/**
+ * Called by `init()` to register user-defined charsets.
+ * Merges into the existing registry — subsequent calls accumulate charsets rather than replacing them.
+ * Call `setCharsetRegistry({})` (or `release()`) to clear.
+ */
 export function setCharsetRegistry(registry: Record<string, Charset>): void {
-  charsetRegistry = registry;
+  charsetRegistry = { ...charsetRegistry, ...registry };
 }
 
 /** Look up a registered charset by name, or return undefined if not found. */
@@ -40,14 +44,17 @@ export function lookupCharset(name: string): Charset | undefined {
 export function resolveCharsetSwaps(charset: string | Charset | undefined): OcrSwaps | undefined {
   if (!charset) return undefined;
   if (typeof charset === 'object') return charset.swaps;
-  return charsetRegistry[charset]?.swaps;
+  return lookupCharset(charset)?.swaps;
 }
 
 export function charsetForField(name = '', type = '', preset = 'auto'): string | undefined {
   if (type === 'checkbox') return undefined;
-  // Check the user registry first (registered charsets take priority over built-in presets).
-  if (preset && preset !== 'auto' && charsetRegistry[preset]) return charsetRegistry[preset].chars;
-  if (preset && preset !== 'auto' && CHARSET_PRESETS[preset]) return CHARSET_PRESETS[preset];
+  if (preset && preset !== 'auto') {
+    // User-registered charsets take priority over built-in presets.
+    const custom = lookupCharset(preset);
+    if (custom) return custom.chars;
+    if (CHARSET_PRESETS[preset]) return CHARSET_PRESETS[preset];
+  }
   const key = `${name} ${type}`.toLowerCase();
   if (key.includes('email')) return CHARSET_PRESETS.email;
   if (key.includes('vin')) return CHARSET_PRESETS.vin;

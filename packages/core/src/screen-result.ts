@@ -125,8 +125,8 @@ export class ScreenResult {
     if (!config) return {};
     const part = partName ? config.parts?.find(row => row.name === partName) : undefined;
     const match: MatchOptions = {};
-    // Explicit swaps win; fall back to the charset's bundled swaps.
-    const swaps = part?.swaps ?? config.swaps ?? resolveCharsetSwaps(part?.charset ?? config.charset);
+    // Resolution order respects specificity: part > config, explicit > charset-derived.
+    const swaps = part?.swaps ?? resolveCharsetSwaps(part?.charset) ?? config.swaps ?? resolveCharsetSwaps(config.charset);
     const overflow = part?.overflow ?? config.overflow;
     const read = part?.read ?? config.read;
     if (swaps) match.swaps = swaps;
