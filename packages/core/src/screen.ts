@@ -7,7 +7,7 @@ import type { ScreenConfig } from './screen-config.js';
 import { loadScreen } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setCharsetRegistry, type Charset } from './utils/ocr.js';
 import { ensureCvReady } from './utils/vision.js';
 
 export interface BindOcrScreenOptions {
@@ -51,6 +51,9 @@ interface InitOptions {
   storage?: { root: string };
   devtools?: boolean;
   unhoverBeforeCapture?: boolean;
+  strategies?: {
+    charsets?: Record<string, Charset>;
+  };
 }
 
 interface InitState {
@@ -83,6 +86,10 @@ export async function init(options: InitOptions): Promise<void> {
     initState = { config: options, extractor, shotDir: defaultShotDir() };
   } else {
     initState.config = { ...initState.config, ...options };
+  }
+
+  if (options.strategies?.charsets) {
+    setCharsetRegistry(options.strategies.charsets);
   }
 
   try {

@@ -13,8 +13,40 @@ export const CHARSET_PRESETS: Record<string, string> = {
   vin: `${UPPER}${LOWER}${DIGITS}`,
 };
 
+/** A named charset bundling a Tesseract whitelist with expected OCR confusions. */
+export interface Charset {
+  /** Tesseract character whitelist passed directly to `tessedit_char_whitelist`. */
+  chars: string;
+  /** Expected glyph → OCR glyphs that are acceptable in its place. */
+  swaps?: OcrSwaps;
+}
+
+let charsetRegistry: Record<string, Charset> = {};
+
+/** Called by `init()` to register user-defined charsets. */
+export function setCharsetRegistry(registry: Record<string, Charset>): void {
+  charsetRegistry = registry;
+}
+
+/** Look up a registered charset by name, or return undefined if not found. */
+export function lookupCharset(name: string): Charset | undefined {
+  return charsetRegistry[name];
+}
+
+/**
+ * Resolve the bundled swaps for a charset name string or inline Charset object.
+ * Returns undefined if the name is not registered or the charset has no swaps.
+ */
+export function resolveCharsetSwaps(charset: string | Charset | undefined): OcrSwaps | undefined {
+  if (!charset) return undefined;
+  if (typeof charset === 'object') return charset.swaps;
+  return charsetRegistry[charset]?.swaps;
+}
+
 export function charsetForField(name = '', type = '', preset = 'auto'): string | undefined {
   if (type === 'checkbox') return undefined;
+  // Check the user registry first (registered charsets take priority over built-in presets).
+  if (preset && preset !== 'auto' && charsetRegistry[preset]) return charsetRegistry[preset].chars;
   if (preset && preset !== 'auto' && CHARSET_PRESETS[preset]) return CHARSET_PRESETS[preset];
   const key = `${name} ${type}`.toLowerCase();
   if (key.includes('email')) return CHARSET_PRESETS.email;

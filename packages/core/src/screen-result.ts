@@ -5,6 +5,7 @@ import type { Page } from '@playwright/test';
 import { ocrStep } from './ocr-step.js';
 import { hideOcrOverlay, overlayBoxesFromResult, showOcrOverlay } from './ocr-overlay.js';
 import { unhoverBeforeCapture } from './unhover.js';
+import { resolveCharsetSwaps } from './utils/ocr.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -124,7 +125,8 @@ export class ScreenResult {
     if (!config) return {};
     const part = partName ? config.parts?.find(row => row.name === partName) : undefined;
     const match: MatchOptions = {};
-    const swaps = part?.swaps ?? config.swaps;
+    // Explicit swaps win; fall back to the charset's bundled swaps.
+    const swaps = part?.swaps ?? config.swaps ?? resolveCharsetSwaps(part?.charset ?? config.charset);
     const overflow = part?.overflow ?? config.overflow;
     const read = part?.read ?? config.read;
     if (swaps) match.swaps = swaps;

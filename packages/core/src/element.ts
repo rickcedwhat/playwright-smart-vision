@@ -2,6 +2,8 @@ import type { ElementResult, Rect, ElementType } from './types.js';
 import type { Page } from '@playwright/test';
 import {
   ocrTextMatches,
+  resolveCharsetSwaps,
+  type Charset,
   type FieldRead,
   type OcrOverflow,
   type OcrSwaps,
@@ -20,6 +22,12 @@ export type HaveTextOptions = {
   timeout?: number;
   /** Expected glyph → OCR glyphs allowed in its place, e.g. `{ '@': ['Q', 'C'], '5': 'S' }`. */
   swaps?: OcrSwaps;
+  /**
+   * Charset to use for this assertion — name of a charset registered in `init()` or an inline
+   * `Charset` object. Its bundled swaps are applied unless explicit `swaps` are also set.
+   * Explicit `swaps` always win over `charset.swaps`.
+   */
+  charset?: string | Charset;
   /** Clip handling. Prefer setting this on the screen config. */
   overflow?: OcrOverflow;
   overflowSlop?: number;
@@ -513,7 +521,10 @@ export class ScreenElement {
   private resolvedMatch(options?: HaveTextOptions): MatchOptions {
     const fromConfig = this.live?.matchOptions(this.rootName, this.partName) ?? {};
     const match: MatchOptions = {};
-    const swaps = options?.swaps ?? fromConfig.swaps;
+    // Priority: explicit call-site swaps > call-site charset swaps > config swaps (which already
+    // incorporates the element config's charset bundled swaps as a fallback).
+    const callCharsetSwaps = options?.charset ? resolveCharsetSwaps(options.charset) : undefined;
+    const swaps = options?.swaps ?? callCharsetSwaps ?? fromConfig.swaps;
     const overflow = options?.overflow ?? fromConfig.overflow;
     const read = options?.read ?? fromConfig.read;
     if (swaps) match.swaps = swaps;
