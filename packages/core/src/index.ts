@@ -1,12 +1,15 @@
-export { configure, saveScreen } from './configure.js';
+export { saveScreen } from './configure.js';
 export {
   bindOcrScreen,
+  createFixture,
   createOcrExtractor,
   ensureOcrRuntime,
+  init,
+  release,
   releaseOcrScreen,
   screen,
 } from './screen.js';
-export type { BindOcrScreenOptions } from './screen.js';
+export type { BindOcrScreenOptions, ScreenFixture } from './screen.js';
 export { UNHOVER_POINT, unhoverBeforeCapture } from './unhover.js';
 
 export { defineScreen, screenAssetsDir } from './screen-config.js';

@@ -3,8 +3,7 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import { configure } from '../src/configure.js';
-import { releaseOcrScreen, screen } from '../src/screen.js';
+import { init, release, screen } from '../src/screen.js';
 
 const testsDir = path.dirname(fileURLToPath(import.meta.url));
 const loginBlank = path.join(testsDir, 'screens', 'html-login', 'blank.png');
@@ -23,7 +22,7 @@ function writeMinimalScreen(root: string, name: string, element: string) {
 }
 
 test.describe('screen()', () => {
-  test('binds a named screen when configure({ page }) was called', async ({ page }) => {
+  test('binds a named screen when init({ page }) was called', async ({ page }) => {
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ocr-screen-api-'));
     const dir = path.join(tmp, 'wolf01');
     fs.mkdirSync(dir);
@@ -33,12 +32,12 @@ test.describe('screen()', () => {
       elements: [{ name: 'service', filename: 'service.png', type: 'button' }],
     })}\n`);
 
-    await configure({ storage: { root: tmp }, page });
+    await init({ storage: { root: tmp }, page });
     await page.goto('/');
 
-    const wolf01 = await screen('wolf01');
+    const wolf01 = screen('wolf01');
     expect(wolf01.element('service')).toBeTruthy();
-    await releaseOcrScreen();
+    await release();
   });
 
   test('waitFor moves the mouse to the unhover corner before screenshot', async ({ page }) => {
@@ -52,12 +51,12 @@ test.describe('screen()', () => {
       return original(x, y, options);
     };
 
-    await configure({ storage: { root: tmp }, page, unhoverBeforeCapture: true });
+    await init({ storage: { root: tmp }, page, unhoverBeforeCapture: true });
     await page.goto('/');
-    const desktop = await screen('desktop');
+    const desktop = screen('desktop');
     await desktop.waitFor({ timeout: 1_500 }).catch(() => {});
     expect(moves.some((m) => m.x === 8 && m.y === 8)).toBe(true);
-    await releaseOcrScreen();
+    await release();
   });
 
   test('unhover: false skips the mouse move', async ({ page }) => {
@@ -71,11 +70,11 @@ test.describe('screen()', () => {
       return original(x, y, options);
     };
 
-    await configure({ storage: { root: tmp }, page, unhoverBeforeCapture: false });
+    await init({ storage: { root: tmp }, page, unhoverBeforeCapture: false });
     await page.goto('/');
-    const desktop = await screen('desktop');
+    const desktop = screen('desktop');
     await desktop.waitFor({ timeout: 1_500 }).catch(() => {});
     expect(moves.some((m) => m.x === 8 && m.y === 8)).toBe(false);
-    await releaseOcrScreen();
+    await release();
   });
 });

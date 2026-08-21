@@ -1,7 +1,10 @@
-import { test, expect } from '../src/ocr-test.js';
+import { expect } from '@playwright/test';
+import { createFixture } from '../src/screen.js';
 import { htmlLoginScreen } from './screens/html-login/config.js';
 import { htmlNavScreen } from './screens/html-nav/config.js';
 import { htmlCustomerInformationScreen } from './screens/html-customer-information/config.js';
+
+const test = createFixture();
 
 test.use({
   trace: 'on',
@@ -10,20 +13,20 @@ test.use({
 
 test.setTimeout(180_000);
 
-test('HTML Customer Information — full flow', async ({ page, ocrScreen }) => {
+test('HTML Customer Information — full flow', async ({ page, screen }) => {
   await page.goto('/login.html');
 
-  const login = ocrScreen(htmlLoginScreen);
+  const login = screen(htmlLoginScreen);
   await login.element('username').fill('qawolf');
   await login.element('password').fill('secret');
   await login.element('username').toHaveValue('qawolf');
   await login.element('signIn').click();
 
-  const nav = ocrScreen(htmlNavScreen);
+  const nav = screen(htmlNavScreen);
   await nav.waitFor();
   await nav.element('customerSearch').click();
 
-  const customer = ocrScreen(htmlCustomerInformationScreen);
+  const customer = screen(htmlCustomerInformationScreen);
   await customer.waitFor();
 
   // Basic field values
