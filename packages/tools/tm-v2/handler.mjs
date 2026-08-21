@@ -609,10 +609,24 @@ export function initTmV2() {
   ensureConfigured().catch((err) => console.error(err));
 }
 
+function isAuthError(msg) {
+  return /gcloud not found|active account|auth login|UNAUTHENTICATED|invalid authentication credentials|credentials do not satisfy|could not refresh|invalid_grant|AccessDeniedException/i.test(msg);
+}
+
 /** Returns true when the request was handled. */
 export async function handleTmV2Request(req, res, url) {
   if (!matchesTmV2(url)) return false;
-  await handleInternal(req, res, stripTmV2Base(url));
+  try {
+    await handleInternal(req, res, stripTmV2Base(url));
+  } catch (err) {
+    const msg = String(err instanceof Error ? err.message : err);
+    console.error('[tm-v2]', msg);
+    if (isAuthError(msg)) {
+      send(res, 401, { error: 'GCS auth error — run: gcloud auth login', authRequired: true });
+    } else {
+      send(res, 500, { error: msg });
+    }
+  }
   return true;
 }
 
