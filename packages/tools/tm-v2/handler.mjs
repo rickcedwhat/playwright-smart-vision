@@ -21,6 +21,7 @@ const CACHE_DIR = path.join(HOME, 'screens');
 const DEFAULT_GCS = 'gs://qawolf-prod-team-storage/clzn2wsor00hcda0ickzd3544/screens';
 
 const RUNTIME_FILES = ['blank.png', 'index.json'];
+const CHARSETS_FILE = path.join(HOME, 'charsets.json');
 
 function normalizeGcs(raw) {
   const uri = String(raw || '').trim().replace(/\/+$/, '');
@@ -270,6 +271,18 @@ async function pushRuntimeScreens({ names, dryRun }) {
         gcloud: String(log).trim(),
       });
     }
+    if (fs.existsSync(CHARSETS_FILE)) {
+      const dest = `${gcsUri}/charsets.json`;
+      const log = dryRun
+        ? `Would copy ${CHARSETS_FILE} to ${dest}`
+        : await runGcloud(['storage', 'cp', CHARSETS_FILE, dest]);
+      logs.push({
+        screen: 'charsets.json',
+        dest,
+        files: ['charsets.json'],
+        gcloud: String(log).trim(),
+      });
+    }
   } finally {
     fs.rmSync(staging, { recursive: true, force: true });
   }
@@ -364,6 +377,22 @@ async function handleInternal(req, res, url) {
     const settings = { gcsUri: normalizeGcs(body.gcsUri) };
     writeSettings(settings);
     send(res, 200, { ...settings, cacheDir: CACHE_DIR });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/charsets') {
+    const data = fs.existsSync(CHARSETS_FILE)
+      ? JSON.parse(fs.readFileSync(CHARSETS_FILE, 'utf8'))
+      : {};
+    send(res, 200, { charsets: data });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/charsets') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    fs.mkdirSync(HOME, { recursive: true });
+    fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(body.charsets || {}, null, 2)}\n`);
+    send(res, 200, { charsets: body.charsets || {} });
     return;
   }
 
