@@ -140,8 +140,22 @@ await author.applyScreen('customer-info', {
 | `elements[].boxIds` | `number[]` | **only ids from `detected.boxes`**. One or more boxes. |
 | `elements[].labelIds` | `number[]` | **only ids from `detected.labels`**. Caption may be left, top, right, or below. Omit for buttons whose text is inside the box. |
 | `elements[].parts` | optional | Same-kind cells of one control only (`{ name, boxId }[]`: dates, name row, phones). Never for a dropdown+field pair. Names-only parts only if Detect still merged the cells into one box. |
+| `elements[].charset` | optional | OCR charset: `text` \| `digits` \| `alnum` \| `email` \| `vin`. Omit / `auto` = infer from field name. Prefer setting in TM v2 popover after apply. |
+| `elements[].swaps` | optional | OCR correction map, e.g. `{ "5": ["S"], "@": ["Q","C"] }`. Survives re-apply by element name. |
+| `elements[].read` | optional | `clipboard` for select-all + copy (needs clipboard permissions). Default is OCR. |
+| `elements[].overflow` | optional | e.g. `end` when the field crops trailing garbage after a known prefix. |
 
 Rules: assign, do not draw. Skip chrome (taskbar, desktop icons, window title). Do not invent coordinates. Do not grow left by default. Do not use `as` or `as const` in authored files.
+
+### OCR options in Template Manager (after apply)
+
+Open hub **Template Manager** (`/template-manager` on port 2020). In catalog view, click an element:
+
+- **Charset / Read / Overflow / Swaps** — form controls in the inspect popover. **Save options** writes both `first-pass.json` and `index.json` (no re-crop).
+- Re-running `applyScreen` **merges** prior charset/swaps/read/overflow by element (and part) name, so AI renames that omit those fields do not wipe TM tweaks.
+- Prefer the popover over hand-editing JSON. Raw element JSON stays under **Advanced / JSON**.
+
+`loadScreen` / `screen(name)` honor `read`, `swaps`, and charset from FUSE `index.json`. Clipboard read still needs `clipboard-read` / `clipboard-write` (and Guacamole may not expose a real clipboard).
 
 5. **Catalog** — `applyScreen` writes `{TEAM_STORAGE_DIR}/screens/generated.ts` (every applied screen, not just the one you named). After the flow, **copy that file** to `src/helpers/screens.generated.ts` in the repo with your file-write tool (overwrite the whole file). Do not invent names, do not merge by hand, do not call `writeScreenCatalog`, and do not mkdir `/app/generatedProgram`. No `as` / `as const`.
 

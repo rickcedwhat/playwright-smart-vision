@@ -29,7 +29,7 @@
   .reset-menu { position: absolute; right: 0; top: 100%; margin-top: 4px; background: #222; border: 1px solid #555; border-radius: 4px; min-width: 180px; display: none; z-index: 30; }
   .reset-menu.open { display: block; }
   .reset-menu button { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 0; }
-  #pop { position: absolute; z-index: 8; width: min(320px, 90vw); background: #1c1c1c; border: 1px solid #444; border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px #000a; pointer-events: auto; }
+  #pop { position: absolute; z-index: 8; width: min(360px, 90vw); background: #1c1c1c; border: 1px solid #444; border-radius: 8px; padding: 10px; box-shadow: 0 8px 24px #000a; pointer-events: auto; }
   #pop[hidden] { display: none; }
   #pop canvas { display: block; max-width: 100%; height: auto; background: #000; border: 1px solid #333; image-rendering: pixelated; }
   #popJson { margin: 8px 0 0; max-height: 140px; overflow: auto; padding: 8px; background: #111; border: 1px solid #2a2a2a; border-radius: 4px; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; color: #ddd; }
@@ -106,6 +106,15 @@
   #pop dl { margin: 8px 0 0; display: grid; grid-template-columns: 52px 1fr; gap: 4px 8px; }
   #pop dt { color: #888; }
   #pop dd { margin: 0; word-break: break-word; }
+  #popOpts { margin-top: 10px; display: grid; gap: 8px; }
+  #popOpts label { display: flex; flex-direction: column; gap: 3px; color: #aaa; font-size: 11px; }
+  #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
+  #popSwaps { display: flex; flex-direction: column; gap: 4px; }
+  .swap-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 4px; align-items: center; }
+  .swap-row input { min-width: 0; }
+  #popOpts .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  #popOpts details { margin-top: 4px; }
+  #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
   .muted { color: #888; }
 </style>
 </head>
@@ -165,7 +174,35 @@
       <dt>section</dt><dd id="popSection"></dd>
       <dt>parts</dt><dd id="popPartNames"></dd>
     </dl>
-    <pre id="popJson"></pre>
+    <div id="popOpts">
+      <label>Charset
+        <select id="popCharset"></select>
+      </label>
+      <label>Read
+        <select id="popRead">
+          <option value="ocr">ocr (Tesseract)</option>
+          <option value="clipboard">clipboard (select-all + copy)</option>
+        </select>
+      </label>
+      <label>Overflow
+        <select id="popOverflow">
+          <option value="">none</option>
+          <option value="end">end (prefix + trailing garbage)</option>
+        </select>
+      </label>
+      <div>
+        <div class="muted" style="margin-bottom:4px">Swaps (expected → OCR glyphs)</div>
+        <div id="popSwaps"></div>
+        <div class="row-actions" style="margin-top:6px">
+          <button type="button" id="popAddSwap">Add swap</button>
+          <button type="button" id="popSaveOpts" class="primary">Save options</button>
+        </div>
+      </div>
+      <details>
+        <summary>Advanced / JSON</summary>
+        <pre id="popJson"></pre>
+      </details>
+    </div>
   </div>
 </main>
 </div>
@@ -539,6 +576,62 @@ function hidePop() {
   popEl.hidden = true;
 }
 
+const CHARSET_OPTIONS = [
+  { value: 'auto', label: 'Auto (from field name)' },
+  { value: 'text', label: 'Text' },
+  { value: 'digits', label: 'Digits' },
+  { value: 'alnum', label: 'Letters + digits' },
+  { value: 'email', label: 'Email' },
+  { value: 'vin', label: 'VIN / code' },
+];
+
+function fillCharsetSelect(select, selected) {
+  const current = selected || 'auto';
+  select.innerHTML = CHARSET_OPTIONS.map((opt) =>
+    `<option value="${opt.value}"${opt.value === current ? ' selected' : ''}>${opt.label}</option>`,
+  ).join('');
+}
+
+function swapsToRows(swaps) {
+  const rows = [];
+  if (!swaps || typeof swaps !== 'object') return rows;
+  for (const [from, to] of Object.entries(swaps)) {
+    rows.push({
+      from,
+      to: Array.isArray(to) ? to.join(',') : String(to ?? ''),
+    });
+  }
+  return rows;
+}
+
+function rowsToSwaps(container) {
+  const out = {};
+  for (const row of container.querySelectorAll('.swap-row')) {
+    const from = row.querySelector('[data-swap=from]').value.trim();
+    const to = row.querySelector('[data-swap=to]').value
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (from && to.length) out[from] = to;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+function renderSwapRows(container, swaps) {
+  const rows = swapsToRows(swaps);
+  if (!rows.length) rows.push({ from: '', to: '' });
+  container.innerHTML = '';
+  for (const row of rows) {
+    const el = document.createElement('div');
+    el.className = 'swap-row';
+    el.innerHTML =
+      `<input data-swap="from" type="text" maxlength="4" placeholder="@" value="${row.from.replace(/"/g, '&quot;')}">` +
+      `<input data-swap="to" type="text" placeholder="Q,C" value="${row.to.replace(/"/g, '&quot;')}">` +
+      `<button type="button" data-swap-remove title="Remove">×</button>`;
+    container.appendChild(el);
+  }
+}
+
 function catalogElement(key) {
   if (!key || !key.startsWith('crop:')) return null;
   return state.elements.find((item) => item.name === key.slice(5)) || null;
@@ -580,6 +673,11 @@ function renderPop() {
   document.getElementById('popSection').textContent = info.section || '—';
   document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
+  fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'auto');
+  document.getElementById('popRead').value = el.read === 'clipboard' ? 'clipboard' : 'ocr';
+  document.getElementById('popOverflow').value = el.overflow || '';
+  renderSwapRows(document.getElementById('popSwaps'), el.swaps);
+  popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
   drawSourceRect(document.getElementById('popCanvas'), parent, 280, info.parts);
   const partsEl = document.getElementById('popParts');
@@ -597,6 +695,55 @@ function renderPop() {
   }
   placePop(key);
 }
+
+document.getElementById('popAddSwap').addEventListener('click', () => {
+  const container = document.getElementById('popSwaps');
+  const el = document.createElement('div');
+  el.className = 'swap-row';
+  el.innerHTML =
+    `<input data-swap="from" type="text" maxlength="4" placeholder="@">` +
+    `<input data-swap="to" type="text" placeholder="Q,C">` +
+    `<button type="button" data-swap-remove title="Remove">×</button>`;
+  container.appendChild(el);
+});
+
+document.getElementById('popSwaps').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-swap-remove]');
+  if (!btn) return;
+  const row = btn.closest('.swap-row');
+  const container = document.getElementById('popSwaps');
+  row.remove();
+  if (!container.children.length) renderSwapRows(container, null);
+});
+
+document.getElementById('popSaveOpts').addEventListener('click', async () => {
+  const element = popEl.dataset.element;
+  if (!element || !state.name) return;
+  try {
+    const charset = document.getElementById('popCharset').value;
+    const read = document.getElementById('popRead').value;
+    const overflow = document.getElementById('popOverflow').value;
+    const swaps = rowsToSwaps(document.getElementById('popSwaps'));
+    const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        element,
+        charset,
+        read,
+        overflow: overflow || null,
+        swaps,
+      }),
+    });
+    const idx = state.elements.findIndex((item) => item.name === element);
+    // Replace wholesale so cleared charset/read/swaps do not linger from prior state.
+    if (idx >= 0) state.elements[idx] = out.index;
+    setStatus('Saved options for ' + element);
+    renderPop();
+  } catch (err) {
+    toast(err.message || String(err));
+  }
+});
 
 async function copyText(text, ok) {
   await navigator.clipboard.writeText(text);

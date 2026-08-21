@@ -26,6 +26,10 @@ export interface FirstPassPart {
   /** Optional 0–1 span of the parent field union when boxId is omitted. */
   start?: number;
   end?: number;
+  charset?: string;
+  swaps?: Record<string, string | string[]>;
+  overflow?: string;
+  read?: string;
 }
 
 export interface FirstPassElement {
@@ -37,6 +41,10 @@ export interface FirstPassElement {
   labelIds?: number[];
   parts?: FirstPassPart[];
   charset?: string;
+  swaps?: Record<string, string | string[]>;
+  overflow?: string;
+  /** How to read the value: `ocr` (default) or `clipboard`. */
+  read?: string;
   options?: string[];
   /** If true and labelIds is empty, grow the crop left (legacy). Default is box-only. */
   includeLabel?: boolean;
@@ -75,10 +83,23 @@ export interface AppliedElement {
   boxIds?: number[];
   labelIds?: number[];
   charset?: string;
+  swaps?: Record<string, string | string[]>;
+  overflow?: string;
+  read?: string;
   options?: string[];
   section?: string;
   ocrRect?: { x: number; y: number; width: number; height: number };
-  parts?: Array<{ name: string; x: number; y: number; width: number; height: number }>;
+  parts?: Array<{
+    name: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    charset?: string;
+    swaps?: Record<string, string | string[]>;
+    overflow?: string;
+    read?: string;
+  }>;
 }
 
 export interface ApplyScreenResult {
@@ -168,7 +189,8 @@ function resolveParts(
   crop: { x: number; y: number; width: number; height: number },
   byId: Map<number, DetectedBox>,
   png?: { width: number; height: number; data: Buffer | Uint8Array },
-): Array<{ name: string; x: number; y: number; width: number; height: number }> {
+  prevParts?: AppliedElement['parts'],
+): NonNullable<AppliedElement['parts']> {
   if (!specs.length || !fieldBoxes.length) return [];
   const union = unionRects(fieldBoxes);
   const namesOnly = specs.every((part) => part.boxId == null);
@@ -180,7 +202,8 @@ function resolveParts(
   const even = namesOnly && !cells.length
     ? evenHorizontalSlices(insetRect(union, 2), specs.length)
     : [];
-  const out: Array<{ name: string; x: number; y: number; width: number; height: number }> = [];
+  const prevByName = new Map((prevParts || []).map((part) => [part.name, part]));
+  const out: NonNullable<AppliedElement['parts']> = [];
   for (let i = 0; i < specs.length; i++) {
     const part = specs[i]!;
     let rect;
@@ -197,9 +220,37 @@ function resolveParts(
     } else {
       continue;
     }
-    out.push({ name: part.name, ...relativeToCrop(rect, crop) });
+    const prev = prevByName.get(part.name);
+    const row: NonNullable<AppliedElement['parts']>[number] = {
+      name: part.name,
+      ...relativeToCrop(rect, crop),
+    };
+    const charset = part.charset ?? prev?.charset;
+    const swaps = part.swaps ?? prev?.swaps;
+    const overflow = part.overflow ?? prev?.overflow;
+    const read = part.read ?? prev?.read;
+    if (charset) row.charset = charset;
+    if (swaps) row.swaps = swaps;
+    if (overflow) row.overflow = overflow;
+    if (read) row.read = read;
+    out.push(row);
   }
   return out;
+}
+
+function readPreviousIndex(dir: string): Map<string, AppliedElement> {
+  const indexPath = path.join(dir, 'index.json');
+  if (!fs.existsSync(indexPath)) return new Map();
+  try {
+    const raw = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as { elements?: AppliedElement[] };
+    return new Map((raw.elements || []).map((el) => [el.name, el]));
+  } catch {
+    return new Map();
+  }
+}
+
+function pickOption<T>(next: T | undefined, prev: T | undefined): T | undefined {
+  return next !== undefined ? next : prev;
 }
 
 /**
@@ -230,6 +281,7 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   const { boxes } = boxesFile;
   const labels = boxesFile.labels || [];
   const pass = JSON.parse(fs.readFileSync(firstPassPath, 'utf8')) as FirstPass;
+  const previous = readPreviousIndex(dir);
   const byId = new Map(boxes.map((box) => [box.id, box]));
   const byLabel = new Map(labels.map((label) => [label.id, label]));
   const tmplDir = path.join(dir, 'templates');
@@ -264,7 +316,8 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     if (!match) continue;
     const filename = `${kebab(el.name)}.png`;
     fs.writeFileSync(path.join(tmplDir, filename), cropPng(blank, match.x, match.y, match.width, match.height));
-    const parts = resolveParts(el.parts || [], fieldBoxes, match, byId, png);
+    const prev = previous.get(el.name);
+    const parts = resolveParts(el.parts || [], fieldBoxes, match, byId, png, prev?.parts);
     const shown = overlay || match;
 
     const applied: AppliedElement = {
@@ -278,7 +331,14 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     };
     if (el.boxIds?.length) applied.boxIds = el.boxIds;
     if (el.labelIds?.length) applied.labelIds = el.labelIds;
-    if (el.charset) applied.charset = el.charset;
+    const charset = pickOption(el.charset, prev?.charset);
+    const swaps = pickOption(el.swaps, prev?.swaps);
+    const overflow = pickOption(el.overflow, prev?.overflow);
+    const read = pickOption(el.read, prev?.read);
+    if (charset) applied.charset = charset;
+    if (swaps) applied.swaps = swaps;
+    if (overflow) applied.overflow = overflow;
+    if (read) applied.read = read;
     if (el.options?.length) applied.options = el.options;
     if (el.section) applied.section = sectionFile.get(el.section) || el.section;
     if (fieldBoxes.length) applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');

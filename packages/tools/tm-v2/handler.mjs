@@ -9,7 +9,7 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { configure } from '@rickcedwhat/playwright-smart-vision';
-import { applyScreen, detectScreen, writeBoxes, writeScreenCatalog } from '@rickcedwhat/playwright-smart-vision/author';
+import { applyScreen, detectScreen, writeBoxes, writeScreenCatalog, patchElementOptions, patchPartOptions } from '@rickcedwhat/playwright-smart-vision/author';
 
 export const TM_V2_BASE = '/template-manager';
 
@@ -471,6 +471,30 @@ async function handleInternal(req, res, url) {
       boxes: result.boxes,
       labels: result.labels,
     });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/element-options' && name) {
+    await ensureConfigured();
+    const body = JSON.parse(await readBody(req) || '{}');
+    const element = String(body.element || '');
+    if (!element) {
+      send(res, 400, { error: 'body.element is required' });
+      return;
+    }
+    const patch = {
+      ...('charset' in body && { charset: body.charset }),
+      ...('swaps' in body && { swaps: body.swaps }),
+      ...('overflow' in body && { overflow: body.overflow }),
+      ...('read' in body && { read: body.read }),
+    };
+    if (body.part) {
+      const result = patchPartOptions(assertScreenName(name), element, String(body.part), patch);
+      send(res, 200, { name, element, part: body.part, firstPass: result.firstPass, index: result.index });
+      return;
+    }
+    const result = patchElementOptions(assertScreenName(name), element, patch);
+    send(res, 200, { name, element, firstPass: result.firstPass, index: result.index });
     return;
   }
 

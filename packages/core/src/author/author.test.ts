@@ -141,6 +141,79 @@ describe('author apply + catalog', () => {
     expect(result.elements[0]!.x + result.elements[0]!.width).toBeGreaterThan(590 + 204);
   });
 
+  it('applyScreen writes swaps/read and preserves them across re-apply', () => {
+    applyScreen(name, {
+      screen: { name },
+      elements: [
+        {
+          name: 'username',
+          type: 'field',
+          boxIds: [1],
+          charset: 'alnum',
+          read: 'clipboard',
+          swaps: { '@': ['Q'] },
+          overflow: 'end',
+        },
+        { name: 'password', type: 'field', boxIds: [2] },
+      ],
+    });
+    const first = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+    expect(first.elements[0]).toMatchObject({
+      name: 'username',
+      charset: 'alnum',
+      read: 'clipboard',
+      swaps: { '@': ['Q'] },
+      overflow: 'end',
+    });
+
+    // Re-apply without options on first-pass — prior index options must stick.
+    applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'username', type: 'field', boxIds: [1] },
+        { name: 'password', type: 'field', boxIds: [2] },
+      ],
+    });
+    const second = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+    expect(second.elements[0]).toMatchObject({
+      charset: 'alnum',
+      read: 'clipboard',
+      swaps: { '@': ['Q'] },
+      overflow: 'end',
+    });
+    const loaded = loadScreen(name).elementConfigs.find((el) => el.name === 'username');
+    expect(loaded?.read).toBe('clipboard');
+    expect(loaded?.swaps).toEqual({ '@': ['Q'] });
+  });
+
+  it('patchElementOptions updates first-pass and index without wiping crops', async () => {
+    const { patchElementOptions } = await import('./options.js');
+    applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'username', type: 'field', boxIds: [1] },
+        { name: 'password', type: 'field', boxIds: [2] },
+      ],
+    });
+    const before = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+    const result = patchElementOptions(name, 'username', {
+      charset: 'email',
+      read: 'clipboard',
+      swaps: { '@': ['C', 'Q'] },
+    });
+    expect(result.index).toMatchObject({ charset: 'email', read: 'clipboard' });
+    const after = JSON.parse(fs.readFileSync(path.join(dir, 'index.json'), 'utf8'));
+    expect(after.elements[0].filename).toBe(before.elements[0].filename);
+    expect(after.elements[0].x).toBe(before.elements[0].x);
+    const fp = JSON.parse(fs.readFileSync(path.join(dir, 'first-pass.json'), 'utf8'));
+    expect(fp.elements[0]).toMatchObject({
+      name: 'username',
+      charset: 'email',
+      read: 'clipboard',
+      swaps: { '@': ['C', 'Q'] },
+    });
+  });
+
   it('writeScreenCatalog emits typed screen/element names', () => {
     applyScreen(name, {
       screen: { name },
