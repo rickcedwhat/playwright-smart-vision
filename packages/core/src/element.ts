@@ -381,6 +381,43 @@ export class ScreenElement {
     });
   }
 
+  async check(options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').check()`, async () => {
+      await this.ensureLocated(options?.timeout);
+      if (this.result.value !== 'checked') {
+        await this.withOverlay(async () => {
+          await this.clickRect(this.result.ocrLocation ?? this.result.location);
+          this.live?.markDirty();
+        });
+      }
+    });
+  }
+
+  async uncheck(options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').uncheck()`, async () => {
+      await this.ensureLocated(options?.timeout);
+      if (this.result.value !== 'unchecked') {
+        await this.withOverlay(async () => {
+          await this.clickRect(this.result.ocrLocation ?? this.result.location);
+          this.live?.markDirty();
+        });
+      }
+    });
+  }
+
+  async selectOption(value: string, options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').selectOption(${JSON.stringify(value)})`, async () => {
+      await this.ensureLocated(options?.timeout);
+      await this.withOverlay(async () => {
+        await this.clickRect(this.result.ocrLocation ?? this.result.location);
+        if (!this.page) throw new Error('Page not provided. Cannot select option.');
+        await this.page.keyboard.type(value);
+        await this.page.keyboard.press('Enter');
+        this.live?.markDirty();
+      });
+    });
+  }
+
   async dblclick(options?: { timeout?: number }): Promise<void> {
     return ocrStep(`element('${this.label}').dblclick()`, async () => {
       await this.ensureLocated(options?.timeout);
