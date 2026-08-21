@@ -4,6 +4,9 @@ export type { DetectScreenResult, BoxesFile } from './detect.js';
 export { applyScreen } from './apply.js';
 export type { FirstPass, FirstPassElement, FirstPassPart, FirstPassSection, ApplyScreenResult, AppliedElement, AppliedSection } from './apply.js';
 
+export { patchElementOptions, patchPartOptions } from './options.js';
+export type { ElementOptionsPatch } from './options.js';
+
 export { writeScreenCatalog, readScreenCatalog, screenCatalogSource, screenCatalogPath } from './catalog.js';
 export type { ScreenCatalog } from './catalog.js';
 

@@ -82,11 +82,22 @@ interface StorageElement {
   section?: string;
   type?: string;
   ocrRect?: { x: number; y: number; width: number; height: number };
-  parts?: Array<{ name?: string; x: number; y: number; width: number; height: number; charset?: string }>;
+  parts?: Array<{
+    name?: string;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    charset?: string;
+    swaps?: Record<string, string[]>;
+    overflow?: string;
+    read?: string;
+  }>;
   charset?: string;
   options?: string[];
   overflow?: string;
   swaps?: Record<string, string[]>;
+  read?: string;
   variants?: Record<string, { filename: string }>;
   animated?: boolean;
 }
@@ -129,15 +140,22 @@ export function loadScreen(name: string): ScreenConfig {
     if (el.options?.length) cfg.options = el.options;
     if (el.overflow) cfg.overflow = el.overflow as ElementConfig['overflow'];
     if (el.swaps) cfg.swaps = el.swaps;
+    if (el.read) cfg.read = el.read as ElementConfig['read'];
     if (el.parts?.length) {
-      cfg.parts = el.parts.map((p): FieldPart => ({
-        name: p.name ?? '',
-        x: p.x,
-        y: p.y,
-        width: p.width,
-        height: p.height,
-        charset: p.charset,
-      }));
+      cfg.parts = el.parts.map((p): FieldPart => {
+        const part: FieldPart = {
+          name: p.name ?? '',
+          x: p.x,
+          y: p.y,
+          width: p.width,
+          height: p.height,
+        };
+        if (p.charset) part.charset = p.charset;
+        if (p.swaps) part.swaps = p.swaps;
+        if (p.overflow) part.overflow = p.overflow as FieldPart['overflow'];
+        if (p.read) part.read = p.read as FieldPart['read'];
+        return part;
+      });
     }
     if (el.variants) {
       cfg.variants = Object.fromEntries(
