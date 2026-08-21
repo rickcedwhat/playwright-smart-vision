@@ -674,7 +674,7 @@ function renderPop() {
   document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
   fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'auto');
-  document.getElementById('popRead').value = el.read === 'clipboard' ? 'clipboard' : 'ocr';
+  document.getElementById('popRead').value = el.read ?? (el.type === 'password' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
   renderSwapRows(document.getElementById('popSwaps'), el.swaps);
   popEl.dataset.element = el.name;

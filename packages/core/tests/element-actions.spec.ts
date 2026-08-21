@@ -83,4 +83,81 @@ test.describe('ScreenElement actions', () => {
     const el = new ScreenElement(makeResult());
     await expect(el.dblclick()).rejects.toThrow('Page not provided');
   });
+
+  test('check() clicks when value is not "checked"', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__clickCount = 0;
+      document.addEventListener('click', () => { (window as any).__clickCount++; });
+    });
+
+    const el = new ScreenElement(makeResult({ value: 'unchecked' }), page);
+    await el.check();
+
+    const clicks = await page.evaluate(() => (window as any).__clickCount);
+    expect(clicks).toBe(1);
+  });
+
+  test('check() skips click when already checked', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__clickCount = 0;
+      document.addEventListener('click', () => { (window as any).__clickCount++; });
+    });
+
+    const el = new ScreenElement(makeResult({ value: 'checked' }), page);
+    await el.check();
+
+    const clicks = await page.evaluate(() => (window as any).__clickCount);
+    expect(clicks).toBe(0);
+  });
+
+  test('uncheck() clicks when value is not "unchecked"', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__clickCount = 0;
+      document.addEventListener('click', () => { (window as any).__clickCount++; });
+    });
+
+    const el = new ScreenElement(makeResult({ value: 'checked' }), page);
+    await el.uncheck();
+
+    const clicks = await page.evaluate(() => (window as any).__clickCount);
+    expect(clicks).toBe(1);
+  });
+
+  test('uncheck() skips click when already unchecked', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__clickCount = 0;
+      document.addEventListener('click', () => { (window as any).__clickCount++; });
+    });
+
+    const el = new ScreenElement(makeResult({ value: 'unchecked' }), page);
+    await el.uncheck();
+
+    const clicks = await page.evaluate(() => (window as any).__clickCount);
+    expect(clicks).toBe(0);
+  });
+
+  test('selectOption() clicks then types the value and presses Enter', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__events = [];
+      document.addEventListener('click', () => (window as any).__events.push('click'));
+      document.addEventListener('keydown', (e) => (window as any).__events.push(e.key));
+    });
+
+    const el = new ScreenElement(makeResult(), page);
+    await el.selectOption('Option A');
+
+    const events = await page.evaluate(() => (window as any).__events);
+    expect(events[0]).toBe('click');
+    expect(events).toContain('Enter');
+  });
 });
