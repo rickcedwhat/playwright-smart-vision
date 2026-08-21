@@ -381,6 +381,27 @@ export class ScreenElement {
     });
   }
 
+  async dblclick(options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').dblclick()`, async () => {
+      await this.ensureLocated(options?.timeout);
+      await this.withOverlay(async () => {
+        const rect = this.result.ocrLocation ?? this.result.location;
+        if (!this.page) throw new Error('Page not provided. Cannot double-click element.');
+        await this.page.mouse.dblclick(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        this.live?.markDirty();
+      });
+    });
+  }
+
+  async hover(options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').hover()`, async () => {
+      await this.ensureLocated(options?.timeout);
+      const rect = this.result.ocrLocation ?? this.result.location;
+      if (!this.page) throw new Error('Page not provided. Cannot hover element.');
+      await this.page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    });
+  }
+
   private async clickRect(rect: Rect): Promise<void> {
     if (!this.page) {
       throw new Error('Page not provided. Cannot click element.');
