@@ -10,9 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createRequire } from 'node:module';
-import { exec, spawn } from 'node:child_process';
-import { publishHtmlFixtureArtifacts } from './publish-test-artifacts.mjs';
+import { exec } from 'node:child_process';
 import { handleTmV2Request, initTmV2, tmV2StartupLines } from './tm-v2/handler.mjs';
 import { PNG } from 'pngjs';
 import { VisionUtil } from '@rickcedwhat/playwright-smart-vision/utils/vision';
@@ -21,9 +19,6 @@ import { OCRUtil, charsetForField, pickFromOptions } from '@rickcedwhat/playwrig
 const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(TOOLS_DIR, '..');
 const REPO_SCREENS_DIR = path.join(PROJECT_ROOT, 'core', 'tests', 'screens');
-const HTML_FILE = path.join(TOOLS_DIR, 'template-manager.html');
-const INDEX_FILE = path.join(TOOLS_DIR, 'index.html');
-const APP_DIR = path.join(PROJECT_ROOT, 'core', 'tests', 'fixtures');
 const SETTINGS_FILE = path.join(os.homedir(), '.playwright-ocr-screens.json');
 const DEFAULT_EXTERNAL_DIR = path.join(os.homedir(), 'ocr-screens');
 const MAX_BODY_BYTES = 50 * 1024 * 1024;
@@ -883,13 +878,6 @@ function writeScreen(payload) {
   };
 }
 
-function serveHtml(res, filePath, missing) {
-  if (!fs.existsSync(filePath)) {
-    sendText(res, 500, missing);
-    return;
-  }
-  sendText(res, 200, fs.readFileSync(filePath), 'text/html; charset=utf-8');
-}
 
 const APP_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -906,319 +894,7 @@ const APP_TYPES = {
   '.map': 'application/json',
 };
 
-const ARTIFACTS_DIR = path.join(PROJECT_ROOT, 'artifacts');
-// playwright-core is not a direct dep of core — resolve via @playwright/test.
-// Must use realpathSync so createRequire sees the pnpm store's own node_modules.
-const _atTestReal = fs.realpathSync(
-  path.join(PROJECT_ROOT, 'core', 'node_modules', '@playwright', 'test', 'index.js')
-);
-const _playwrightCorePkg = createRequire(_atTestReal).resolve('playwright-core/package.json');
-const TRACE_VIEWER_DIR = path.join(path.dirname(_playwrightCorePkg), 'lib', 'vite', 'traceViewer');
 
-function labelFromScreenName(name) {
-  return name
-    .replace(/^html-/, '')
-    .replace(/-(.)/g, (_, c) => ' ' + c.toUpperCase())
-    .replace(/^(.)/, (_, c) => c.toUpperCase());
-}
-
-/** Parse element names from a screen config.ts — top-level entries in elements:[...] only. */
-function parseConfigElementNames(configPath) {
-  if (!fs.existsSync(configPath)) return [];
-  const text = fs.readFileSync(configPath, 'utf8');
-  const startIdx = text.indexOf('elements: [');
-  if (startIdx === -1) return [];
-
-  const names = [];
-  let i = startIdx + 'elements: ['.length;
-  let depth = 1;
-
-  while (i < text.length && depth > 0) {
-    const ch = text[i];
-    // Skip string literals so brackets inside strings don't count
-    if (ch === "'" || ch === '"' || ch === '`') {
-      const q = ch;
-      i++;
-      while (i < text.length && text[i] !== q) {
-        if (text[i] === '\\') i++;
-        i++;
-      }
-      i++;
-      continue;
-    }
-    if (ch === '{') {
-      if (depth === 1) {
-        // Opening brace of a top-level element — grab its name
-        const slice = text.slice(i + 1);
-        const m = slice.match(/name:\s*['"]([^'"]+)['"]/);
-        if (m) names.push(m[1]);
-      }
-      depth++;
-    } else if (ch === '[') {
-      depth++;
-    } else if (ch === '}' || ch === ']') {
-      depth--;
-    }
-    i++;
-  }
-
-  return names;
-}
-
-function getSourceFiles() {
-  const files = {
-    test: path.join(PROJECT_ROOT, 'core', 'tests', 'customer.spec.ts'),
-  };
-  if (fs.existsSync(REPO_SCREENS_DIR)) {
-    for (const entry of fs.readdirSync(REPO_SCREENS_DIR, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue;
-      const configPath = path.join(REPO_SCREENS_DIR, entry.name, 'config.ts');
-      if (fs.existsSync(configPath)) files[entry.name] = configPath;
-    }
-  }
-  return files;
-}
-
-function htmlScreenCatalog() {
-  if (!fs.existsSync(REPO_SCREENS_DIR)) return [];
-  return fs.readdirSync(REPO_SCREENS_DIR, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
-    .map((e) => e.name)
-    .map((screenName) => {
-      const screenDir = path.join(REPO_SCREENS_DIR, screenName);
-      const blankPath = path.join(screenDir, 'blank.png');
-      if (!fs.existsSync(blankPath)) return null;
-
-      const indexPath = path.join(screenDir, 'index.json');
-      const configPath = path.join(screenDir, 'config.ts');
-      const filledPath = path.join(screenDir, 'filled.png');
-
-      const index = fs.existsSync(indexPath)
-        ? JSON.parse(fs.readFileSync(indexPath, 'utf8'))
-        : { elements: [] };
-
-      const configNames = parseConfigElementNames(configPath);
-      const indexByName = Object.fromEntries(
-        (index.elements || []).map((el) => [el.name, el]),
-      );
-
-      // Config.ts is authoritative for which elements exist; index.json provides positions.
-      const elementNames = configNames.length > 0 ? configNames : (index.elements || []).map((el) => el.name);
-      const elements = elementNames.map((name) => {
-        const m = indexByName[name] || {};
-        return {
-          name,
-          type: m.type,
-          x: m.x,
-          y: m.y,
-          width: m.width,
-          height: m.height,
-          parts: (m.parts || []).map((p) => ({ name: p.name, x: p.x, y: p.y, width: p.width, height: p.height })),
-        };
-      });
-
-      // href: use stored value from index.json if present, otherwise derive from first name segment
-      const firstSegment = screenName.replace(/^html-/, '').replace(/-.*$/, '');
-      const href = index.href || `/app/${firstSegment}.html`;
-      const sections = (index.sections && index.sections.length) ? index.sections : null;
-
-      return {
-        name: screenName,
-        label: labelFromScreenName(screenName),
-        href,
-        blank: `/screens/${screenName}/blank.png`,
-        filled: fs.existsSync(filledPath) ? `/screens/${screenName}/filled.png` : null,
-        sections,
-        elements,
-      };
-    })
-    .filter(Boolean);
-}
-
-function loadSource(rawKey) {
-  const filePath = getSourceFiles()[String(rawKey ?? '')];
-  if (!filePath) {
-    return { status: 404, body: { error: 'Unknown source file.' } };
-  }
-  if (!fs.existsSync(filePath)) {
-    return { status: 404, body: { error: `${displayPath(filePath)} was not found.` } };
-  }
-  return {
-    status: 200,
-    body: {
-      ok: true,
-      path: displayPath(filePath),
-      source: fs.readFileSync(filePath, 'utf8'),
-    },
-  };
-}
-
-function serveStatic(res, root, pathname, prefix) {
-  const relative = decodeURIComponent(pathname.replace(prefix, ''));
-  const target = path.normalize(path.join(root, relative || 'index.html'));
-  try {
-    assertInsideRoot(root, target);
-  } catch {
-    sendText(res, 403, 'Forbidden');
-    return;
-  }
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
-    sendText(res, 404, 'Not found');
-    return;
-  }
-  const type = APP_TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream';
-  const body = fs.readFileSync(target);
-  res.writeHead(200, {
-    'Content-Type': type,
-    'Content-Length': body.length,
-    'Cache-Control': 'no-store, no-cache, must-revalidate',
-    'Access-Control-Allow-Origin': '*',
-  });
-  res.end(body);
-}
-
-function artifactPayload() {
-  const video = path.join(ARTIFACTS_DIR, 'html-fixture', 'video.webm');
-  const trace = path.join(ARTIFACTS_DIR, 'html-fixture', 'trace.zip');
-  const hasVideo = fs.existsSync(video);
-  const hasTrace = fs.existsSync(trace);
-  const stamp = hasVideo || hasTrace
-    ? new Date(Math.max(
-      hasVideo ? fs.statSync(video).mtimeMs : 0,
-      hasTrace ? fs.statSync(trace).mtimeMs : 0,
-    )).toISOString()
-    : null;
-  return {
-    ok: true,
-    title: 'HTML Customer Information spec',
-    updatedAt: stamp,
-    video: hasVideo ? '/artifacts/html-fixture/video.webm' : null,
-    trace: hasTrace ? '/artifacts/html-fixture/trace.zip' : null,
-  };
-}
-
-const htmlTestRun = {
-  status: 'idle',
-  headed: false,
-  log: '',
-  startedAt: null,
-  finishedAt: null,
-  error: null,
-  child: null,
-};
-
-function runPayload() {
-  return {
-    ok: true,
-    status: htmlTestRun.status,
-    headed: htmlTestRun.headed,
-    log: htmlTestRun.log.slice(-12_000),
-    startedAt: htmlTestRun.startedAt,
-    finishedAt: htmlTestRun.finishedAt,
-    error: htmlTestRun.error,
-    artifacts: artifactPayload(),
-  };
-}
-
-function appendRunLog(chunk) {
-  htmlTestRun.log += chunk.toString();
-  if (htmlTestRun.log.length > 40_000) {
-    htmlTestRun.log = htmlTestRun.log.slice(-30_000);
-  }
-}
-
-function startHtmlTest({ headed = false } = {}) {
-  if (htmlTestRun.status === 'running') {
-    return { status: 409, body: { error: 'A test is already running.', ...runPayload() } };
-  }
-
-  htmlTestRun.status = 'running';
-  htmlTestRun.headed = Boolean(headed);
-  htmlTestRun.log = '';
-  htmlTestRun.startedAt = new Date().toISOString();
-  htmlTestRun.finishedAt = null;
-  htmlTestRun.error = null;
-
-  const CORE_ROOT = path.join(PROJECT_ROOT, 'core');
-  const playwrightBin = path.join(CORE_ROOT, 'node_modules', '.bin', 'playwright');
-  const args = ['test', 'tests/customer.spec.ts'];
-  if (htmlTestRun.headed) args.push('--headed');
-
-  const env = { ...process.env, OCR_OPEN: '0' };
-  delete env.PLAYWRIGHT_BROWSERS_PATH;
-
-  const child = spawn(playwrightBin, args, {
-    cwd: CORE_ROOT,
-    env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  htmlTestRun.child = child;
-
-  child.stdout.on('data', appendRunLog);
-  child.stderr.on('data', appendRunLog);
-  child.on('error', (err) => {
-    htmlTestRun.child = null;
-    htmlTestRun.status = 'failed';
-    htmlTestRun.error = err.message;
-    htmlTestRun.finishedAt = new Date().toISOString();
-    appendRunLog(`\n${err.message}\n`);
-  });
-  child.on('close', (code) => {
-    htmlTestRun.child = null;
-    try {
-      const published = publishHtmlFixtureArtifacts({
-        sinceMs: Date.parse(htmlTestRun.startedAt) - 1_000,
-      });
-      if (!published.video && !published.trace) {
-        appendRunLog('\nNo new video/trace to publish.\n');
-      } else {
-        appendRunLog('\nPublished artifacts/html-fixture.\n');
-      }
-    } catch (err) {
-      appendRunLog(`\nCould not publish artifacts: ${err.message}\n`);
-    }
-    htmlTestRun.status = code === 0 ? 'passed' : 'failed';
-    htmlTestRun.finishedAt = new Date().toISOString();
-    if (code !== 0) htmlTestRun.error = `playwright exited ${code}`;
-  });
-
-  return { status: 202, body: runPayload() };
-}
-
-function serveApp(res, pathname) {
-  const relative = pathname.replace(/^\/app\/?/, '');
-  const target = path.normalize(path.join(APP_DIR, relative || 'login.html'));
-  if (!target.startsWith(APP_DIR)) {
-    sendText(res, 403, 'Forbidden');
-    return;
-  }
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
-    sendText(res, 404, 'Not found');
-    return;
-  }
-  const type = APP_TYPES[path.extname(target).toLowerCase()] || 'application/octet-stream';
-  sendText(res, 200, fs.readFileSync(target), type);
-}
-
-function serveScreenAsset(res, pathname) {
-  const relative = decodeURIComponent(pathname.replace(/^\/screens\/?/, ''));
-  const target = path.normalize(path.join(REPO_SCREENS_DIR, relative));
-  try {
-    assertInsideRoot(REPO_SCREENS_DIR, target);
-  } catch {
-    sendText(res, 403, 'Forbidden');
-    return;
-  }
-  if (path.extname(target).toLowerCase() !== '.png') {
-    sendText(res, 403, 'Forbidden');
-    return;
-  }
-  if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
-    sendText(res, 404, 'Not found');
-    return;
-  }
-  sendText(res, 200, fs.readFileSync(target), 'image/png');
-}
 
 async function handle(req, res) {
   const url = new URL(req.url ?? '/', `http://${req.headers.host || 'localhost'}`);
@@ -1233,90 +909,7 @@ async function handle(req, res) {
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/') {
-    serveHtml(res, INDEX_FILE, 'index.html is missing.');
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/template-manager.html') {
-    serveHtml(res, HTML_FILE, 'template-manager.html is missing.');
-    return;
-  }
-
   if (await handleTmV2Request(req, res, url)) return;
-
-  if (req.method === 'GET' && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {
-    serveApp(res, url.pathname);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname.startsWith('/screens/')) {
-    serveScreenAsset(res, url.pathname);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname.startsWith('/artifacts/')) {
-    serveStatic(res, ARTIFACTS_DIR, url.pathname, /^\/artifacts\/?/);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname.startsWith('/trace-viewer/')) {
-    serveStatic(res, TRACE_VIEWER_DIR, url.pathname, /^\/trace-viewer\/?/);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/artifacts') {
-    sendJson(res, 200, artifactPayload());
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/run') {
-    sendJson(res, 200, runPayload());
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/run') {
-    let payload = {};
-    try {
-      const raw = (await readBody(req)).toString('utf8').trim();
-      if (raw) payload = JSON.parse(raw);
-    } catch (err) {
-      sendJson(res, 400, { error: err.message || 'Invalid JSON body.' });
-      return;
-    }
-    const result = startHtmlTest({ headed: Boolean(payload.headed) });
-    sendJson(res, result.status, result.body);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/source') {
-    const result = loadSource(url.searchParams.get('file'));
-    sendJson(res, result.status, result.body);
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/sources') {
-    const sourceFiles = getSourceFiles();
-    const coreRoot = path.join(PROJECT_ROOT, 'core');
-    const screenEntries = Object.entries(sourceFiles)
-      .filter(([k]) => k !== 'test')
-      .sort(([a], [b]) => a.localeCompare(b));
-    const testEntry = Object.entries(sourceFiles).find(([k]) => k === 'test');
-    const ordered = testEntry ? [...screenEntries, testEntry] : screenEntries;
-    const files = ordered.map(([key, filePath]) => ({
-      file: key,
-      tab: key !== 'test' ? `${key}/config.ts` : path.basename(filePath),
-      path: path.relative(coreRoot, filePath).replace(/\\/g, '/'),
-      screen: key !== 'test' ? key : null,
-    }));
-    sendJson(res, 200, { files });
-    return;
-  }
-
-  if (req.method === 'GET' && url.pathname === '/api/html-screens') {
-    sendJson(res, 200, { screens: htmlScreenCatalog() });
-    return;
-  }
 
   if (req.method === 'GET' && url.pathname === '/api/status') {
     sendJson(res, 200, statusPayload());
@@ -1460,11 +1053,7 @@ function listen(port) {
     const dest = destinations(loadSettings());
     const url = `http://localhost:${port}/`;
     console.log(`Hub:              ${url}`);
-    console.log(`Template Manager: ${url}template-manager.html`);
     for (const line of tmV2StartupLines(port)) console.log(line);
-    console.log(`App login:        ${url}app/login.html`);
-    console.log(`App customer:     ${url}app/customer.html`);
-    console.log(`App source:       ${url}app/config.html`);
     console.log(`config.ts → ${dest.configRoot}`);
     console.log(`images    → ${dest.imagesRoot}`);
     openBrowser(url);
