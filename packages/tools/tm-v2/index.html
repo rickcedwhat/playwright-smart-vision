@@ -5,7 +5,7 @@
 <title>smart-vision TM v2</title>
 <style>
   * { box-sizing: border-box; }
-  body { margin: 0; font: 13px/1.4 system-ui, sans-serif; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+  body { margin: 0; font: 13px/1.4 system-ui, sans-serif; background: #111; color: #eee; display: grid; grid-template-rows: auto auto 1fr; height: 100vh; }
   header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #1b1b1b; border-bottom: 1px solid #333; }
   header h1 { font-size: 14px; margin: 0 8px 0 0; white-space: nowrap; }
   #draftTools, #catalogTools { display: flex; gap: 6px; align-items: center; }
@@ -118,6 +118,10 @@
   #popOpts details { margin-top: 4px; }
   #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
   .muted { color: #888; }
+  #authBanner { background: #1e1508; border-bottom: 1px solid #764; color: #fb8; font-size: 12px; padding: 7px 14px; display: flex; align-items: center; gap: 10px; }
+  #authBanner[hidden] { display: none; }
+  #authBanner code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #111; color: #ff4; padding: 1px 6px; border-radius: 3px; user-select: all; }
+  #authBannerClose { margin-left: auto; padding: 2px 8px; font-size: 11px; background: transparent; border: 1px solid #764; color: #fb8; }
 </style>
 </head>
 <body>
@@ -146,6 +150,12 @@
   </div>
   <span id="status"></span>
 </header>
+<div id="authBanner" hidden>
+  GCS authentication required — in your terminal, run:
+  <code>gcloud auth login</code>
+  then reload this page.
+  <button id="authBannerClose" type="button">Dismiss</button>
+</div>
 <div id="toast"></div>
 <div id="pushModal" hidden>
   <div class="push-card">
@@ -275,8 +285,21 @@ function formatPushResult(out) {
 async function api(path, opts) {
   const res = await fetch(TM_BASE + path, opts);
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(body.error || res.statusText);
+  if (!res.ok) {
+    const err = new Error(body.error || res.statusText);
+    if (body.authRequired) err.authRequired = true;
+    throw err;
+  }
   return body;
+}
+
+function showAuthBanner(visible = true) {
+  document.getElementById('authBanner').hidden = !visible;
+}
+
+function handleApiError(err) {
+  setStatus(err.message, true);
+  if (err.authRequired) showAuthBanner();
 }
 
 function mergeListing(remote, local) {
@@ -1085,16 +1108,17 @@ document.getElementById('saveSettings').onclick = async () => {
     await api('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gcsUri: gcs.value }) });
     setStatus('saved URI');
     await renderTree();
-  } catch (err) { setStatus(err.message, true); }
+  } catch (err) { handleApiError(err); }
 };
 document.getElementById('pullAll').onclick = async () => {
   try {
     setStatus('pulling…');
     const out = await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
     setStatus('pulled ' + out.localScreens.length + ' local screens');
+    showAuthBanner(false);
     await renderTree();
     if (currentScreen()) await loadScreen(currentScreen(), { keepView: true });
-  } catch (err) { setStatus(err.message, true); }
+  } catch (err) { handleApiError(err); }
 };
 document.getElementById('pushAll').onclick = async () => {
   const modal = document.getElementById('pushModal');
@@ -1111,8 +1135,9 @@ document.getElementById('pushAll').onclick = async () => {
     document.getElementById('pushLog').textContent = formatPushResult(out);
     modal.hidden = false;
     setStatus('pushed ' + (out.pushed || []).join(', '));
+    showAuthBanner(false);
     await renderTree();
-  } catch (err) { setStatus(err.message, true); }
+  } catch (err) { handleApiError(err); }
 };
 document.getElementById('pushCancel').onclick = () => {
   document.getElementById('pushModal').hidden = true;
@@ -1220,7 +1245,9 @@ document.getElementById('popRead').addEventListener('change', syncOverflowVisibi
 loadSettings()
   .then(renderTree)
   .then(() => setView('source'))
-  .catch((err) => setStatus(err.message, true));
+  .catch(handleApiError);
+
+document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 </script>
 </body>
 </html>
