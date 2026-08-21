@@ -381,18 +381,27 @@ async function handleInternal(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/charsets') {
-    const data = fs.existsSync(CHARSETS_FILE)
-      ? JSON.parse(fs.readFileSync(CHARSETS_FILE, 'utf8'))
-      : {};
+    let data = {};
+    if (fs.existsSync(CHARSETS_FILE)) {
+      try {
+        const parsed = JSON.parse(fs.readFileSync(CHARSETS_FILE, 'utf8'));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) data = parsed;
+      } catch (_) {}
+    }
     send(res, 200, { charsets: data });
     return;
   }
 
   if (req.method === 'PUT' && url.pathname === '/api/charsets') {
     const body = JSON.parse(await readBody(req) || '{}');
+    const incoming = (body && body.charsets) ?? {};
+    if (typeof incoming !== 'object' || incoming === null || Array.isArray(incoming)) {
+      send(res, 400, { error: 'charsets must be a plain object' });
+      return;
+    }
     fs.mkdirSync(HOME, { recursive: true });
-    fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(body.charsets || {}, null, 2)}\n`);
-    send(res, 200, { charsets: body.charsets || {} });
+    fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
+    send(res, 200, { charsets: incoming });
     return;
   }
 
