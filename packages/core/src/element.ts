@@ -224,6 +224,7 @@ export class ScreenElement {
       sync: () => this.syncResult(),
       overlay: (body?: () => Promise<void>) => this.withOverlay(body),
       label: this.label,
+      resolvedMatch: (options?: HaveTextOptions) => this.resolvedMatch(options),
     };
   }
 
@@ -288,15 +289,17 @@ export class ScreenElement {
   }
 
   /**
-   * Assert element value strictly contains the given text (no swap substitutions).
-   * @throws if actual value does not include expected as a literal substring after timeout
+   * Assert element value contains the given text as a substring.
+   * Supports OCR swap substitutions via options or configured Strategies.Ocr.
+   * @throws if actual value does not contain expected after timeout
    */
-  async toContainText(expected: string, options?: { timeout?: number }): Promise<void> {
+  async toContainText(expected: string, options?: HaveTextOptions): Promise<void> {
     return ocrStep(`element('${this.label}').toContainText(${formatExpected(expected)})`, async () => {
+      const match = this.resolvedMatch(options);
       try {
         await this.retryAssertion(() => {
           const actual = this.result.value;
-          return actual.includes(expected)
+          return ocrTextMatches(actual, expected, { ...(match.swaps && { swaps: match.swaps }) })
             ? undefined
             : `Element "${this.label}" does not contain text "${expected}". Actual: "${actual}"`;
         }, expectTimeout(options?.timeout));
@@ -701,13 +704,14 @@ export class NegatedScreenElement {
     });
   }
 
-  async toContainText(expected: string, options?: { timeout?: number }): Promise<void> {
+  async toContainText(expected: string, options?: HaveTextOptions): Promise<void> {
     const i = this.el._internals();
+    const match = i.resolvedMatch(options);
     return ocrStep(`element('${i.label}').not.toContainText(${formatExpected(expected)})`, async () => {
       try {
         await retryUntil(i.live, i.sync, () => {
           const actual = i.result.value;
-          return actual.includes(expected)
+          return ocrTextMatches(actual, expected, { ...(match.swaps && { swaps: match.swaps }) })
             ? `Element "${i.label}" still contains text "${expected}". Actual: "${actual}"`
             : undefined;
         }, expectTimeout(options?.timeout));

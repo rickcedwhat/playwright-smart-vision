@@ -248,20 +248,26 @@ describe('toBeChecked / toBeUnchecked', () => {
 // ---------------------------------------------------------------------------
 
 describe('toContainText', () => {
-  it('passes when actual strictly contains expected', async () => {
+  it('passes when actual contains expected', async () => {
     const el = makeElement({ value: 'HELLO WORLD' });
     await expect(el.toContainText('HELLO')).resolves.toBeUndefined();
-  });
-
-  it('throws when expected is not a literal substring', async () => {
-    const el = makeElement({ value: 'USER Q EXAMPLE.COM' });
-    // '@' is not a literal substring — swaps are not applied
-    await expect(el.toContainText('@')).rejects.toThrow(/does not contain text/);
   });
 
   it('throws when actual does not contain expected', async () => {
     const el = makeElement({ value: 'WORLD' });
     await expect(el.toContainText('HELLO')).rejects.toThrow(/does not contain text/);
+  });
+
+  it('throws without swaps when OCR confuses a glyph', async () => {
+    const el = makeElement({ value: 'USER Q EXAMPLE.COM' });
+    await expect(el.toContainText('USER @ EXAMPLE.COM')).rejects.toThrow(/does not contain text/);
+  });
+
+  it('passes with swap substitution', async () => {
+    const el = makeElement({ value: 'USER Q EXAMPLE.COM' });
+    await expect(
+      el.toContainText('USER @ EXAMPLE.COM', { swaps: { '@': 'Q' } }),
+    ).resolves.toBeUndefined();
   });
 });
 
