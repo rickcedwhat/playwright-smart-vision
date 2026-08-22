@@ -7,9 +7,18 @@ import type { ScreenConfig } from './screen-config.js';
 import { loadScreen } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead, type OcrStrategy } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
 import { setUnhoverPoint } from './unhover.js';
 import { ensureCvReady } from './utils/vision.js';
+import {
+  Strategies,
+  setClickStrategy,
+  setFillStrategy,
+  type ClickStrategy,
+  type FillStrategy,
+  type CaptureStrategy,
+  type OcrStrategy,
+} from './strategies.js';
 
 export interface BindOcrScreenOptions {
   shotDir?: string;
@@ -65,19 +74,12 @@ export function bindOcrScreen(
 export interface Strategies {
   charsets?: Record<string, Charset>;
   ocr?: OcrStrategy;
+  click?: ClickStrategy;
+  fill?: FillStrategy;
+  capture?: CaptureStrategy;
 }
 
-export { type OcrStrategy };
-
-/** Runtime factories for strategy slots. */
-export const Strategies = {
-  Ocr: {
-    /** Create an Ocr strategy with global charset defaults, name-inference, and swaps. */
-    default(options: OcrStrategy): OcrStrategy {
-      return options;
-    },
-  },
-};
+export { Strategies, type OcrStrategy, type ClickStrategy, type FillStrategy, type CaptureStrategy };
 
 interface InitOptions {
   page: Page;
@@ -130,6 +132,17 @@ export async function init(options: InitOptions): Promise<void> {
 
   if (options.unhoverPoint !== undefined) {
     setUnhoverPoint(options.unhoverPoint);
+  }
+  if (options.strategies?.capture !== undefined) {
+    const cap = options.strategies.capture;
+    initState.config.unhoverBeforeCapture = cap.unhover;
+    if (cap.unhoverPoint !== undefined) setUnhoverPoint(cap.unhoverPoint);
+  }
+  if (options.strategies?.click !== undefined) {
+    setClickStrategy(options.strategies.click);
+  }
+  if (options.strategies?.fill !== undefined) {
+    setFillStrategy(options.strategies.fill);
   }
   if (options.strategies?.charsets) {
     setCharsetRegistry(options.strategies.charsets);
@@ -203,6 +216,8 @@ export async function release(): Promise<void> {
   initState?.extractor.cleanup();
   initState = null;
   setUnhoverPoint(undefined);
+  setClickStrategy(undefined);
+  setFillStrategy(undefined);
   setCharsetRegistry({});
   setOcrStrategy(undefined);
   await cleanupOCR();

@@ -9,6 +9,7 @@ import {
   type OcrSwaps,
 } from './utils/ocr.js';
 import { ocrStep, expectTimeout } from './ocr-step.js';
+import { getClickStrategy, getFillStrategy } from './strategies.js';
 
 export const VISIBLE_CONFIDENCE = 0.7;
 
@@ -479,10 +480,7 @@ export class ScreenElement {
     return ocrStep(`element('${this.label}').fill(${JSON.stringify(text)})`, async () => {
       await this.ensureLocated(options?.timeout);
       await this.withOverlay(async () => {
-        await this.clickRect(this.result.ocrLocation ?? this.result.location);
-        await this.page!.keyboard.press('ControlOrMeta+A');
-        await this.page!.keyboard.press('Backspace');
-        await this.page!.keyboard.insertText(text);
+        await getFillStrategy().fill(this.page!, this.result.ocrLocation ?? this.result.location, text);
         this.live?.markDirty();
       });
     });
@@ -550,10 +548,8 @@ export class ScreenElement {
     if (!this.page) {
       throw new Error('Page not provided. Cannot click element.');
     }
-    await this.page.mouse.click(
-      rect.x + rect.width / 2,
-      rect.y + rect.height / 2,
-    );
+    const { x, y } = getClickStrategy().getPoint(rect);
+    await this.page.mouse.click(x, y);
   }
 
   /**
