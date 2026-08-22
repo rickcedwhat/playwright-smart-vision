@@ -19,7 +19,7 @@ export { defineTypedScreen, TypedScreenResult } from './typed-screen.js';
 export type { TypedScreenConfig } from './typed-screen.js';
 
 export { ScreenResult } from './screen-result.js';
-export { ScreenElement } from './element.js';
+export { ScreenElement, NegatedScreenElement } from './element.js';
 export type { HaveTextOptions, MatchOptions, WaitForOptions } from './element.js';
 
 export { ElementType } from './field-extractor.js';
