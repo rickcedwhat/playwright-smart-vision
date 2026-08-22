@@ -46,14 +46,16 @@ export function bindOcrScreen(
 
 // ─── init() state ────────────────────────────────────────────────────────────
 
+export interface Strategies {
+  charsets?: Record<string, Charset>;
+}
+
 interface InitOptions {
   page: Page;
   storage?: { root: string };
   devtools?: boolean;
   unhoverBeforeCapture?: boolean;
-  strategies?: {
-    charsets?: Record<string, Charset>;
-  };
+  strategies?: Strategies;
 }
 
 interface InitState {

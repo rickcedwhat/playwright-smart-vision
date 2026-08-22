@@ -1,7 +1,29 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { storageRoot } from './storage.js';
-import { ElementType } from '../types.js';
+
+function toCamelCase(s: string): string {
+  // Strip leading/trailing hyphens, collapse consecutive hyphens, handle uppercase
+  const camel = s
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
+  // Prefix with _ if result starts with a digit (invalid unquoted TS identifier)
+  return /^\d/.test(camel) ? `_${camel}` : camel;
+}
+
+function readCharsets(): Record<string, unknown> {
+  const charsetFile = path.join(path.dirname(storageRoot()), 'charsets.json');
+  if (!fs.existsSync(charsetFile)) return {};
+  try {
+    const parsed = JSON.parse(fs.readFileSync(charsetFile, 'utf8')) as unknown;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore malformed file
+  }
+  return {};
+}
 
 export interface ScreenCatalog {
   [screen: string]: readonly string[];
@@ -9,21 +31,11 @@ export interface ScreenCatalog {
 
 export interface CatalogElement {
   name: string;
-  type: string;
-  parts: string[];
-  section?: string;
 }
 
 interface CatalogScreen {
   name: string;
   elements: CatalogElement[];
-}
-
-const ELEMENT_TYPES = new Set<string>(Object.values(ElementType));
-
-function catalogType(raw: string | undefined): string {
-  const type = raw || 'other';
-  return ELEMENT_TYPES.has(type) ? type : 'other';
 }
 
 function listScreens(root: string): CatalogScreen[] {
@@ -35,31 +47,11 @@ function listScreens(root: string): CatalogScreen[] {
     if (!fs.existsSync(indexPath)) continue;
     try {
       const raw = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as {
-        sections?: Array<{ name?: string; filename?: string }>;
-        elements?: Array<{
-          name?: string;
-          type?: string;
-          section?: string;
-          parts?: Array<{ name?: string }>;
-        }>;
+        elements?: Array<{ name?: string }>;
       };
-      const sectionByFile = new Map(
-        (raw.sections ?? [])
-          .filter((sec): sec is { name: string; filename: string } => Boolean(sec.name && sec.filename))
-          .map((sec) => [sec.filename, sec.name]),
-      );
       const elements = (raw.elements ?? [])
-        .filter((el): el is { name: string; type?: string; section?: string; parts?: Array<{ name?: string }> } => Boolean(el.name))
-        .map((el) => {
-          const item: CatalogElement = {
-            name: el.name,
-            type: catalogType(el.type),
-            parts: (el.parts ?? []).map((part) => part.name).filter((n): n is string => Boolean(n)),
-          };
-          const section = el.section ? sectionByFile.get(el.section) || undefined : undefined;
-          if (section) item.section = section;
-          return item;
-        });
+        .filter((el): el is { name: string } => Boolean(el.name))
+        .map((el) => ({ name: el.name }));
       out.push({ name: ent.name, elements });
     } catch {
       // skip unreadable index.json
@@ -68,26 +60,6 @@ function listScreens(root: string): CatalogScreen[] {
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function specFields(el: CatalogElement, join: '; ' | ', '): string {
-  const bits = [`type: ${JSON.stringify(el.type)}`];
-  if (el.parts.length) bits.push(`parts: [${el.parts.map((n) => JSON.stringify(n)).join(', ')}]`);
-  if (el.section) bits.push(`section: ${JSON.stringify(el.section)}`);
-  return `{ ${bits.join(join)} }`;
-}
-
-function screenTypeBody(screen: CatalogScreen): string {
-  if (!screen.elements.length) return '    ';
-  return screen.elements
-    .map((el) => `    ${JSON.stringify(el.name)}: ${specFields(el, '; ')};`)
-    .join('\n');
-}
-
-function screenValueBody(screen: CatalogScreen): string {
-  if (!screen.elements.length) return '    ';
-  return screen.elements
-    .map((el) => `    ${JSON.stringify(el.name)}: ${specFields(el, ', ')},`)
-    .join('\n');
-}
 
 export function readScreenCatalog(): ScreenCatalog {
   const catalog: ScreenCatalog = {};
@@ -97,34 +69,38 @@ export function readScreenCatalog(): ScreenCatalog {
   return catalog;
 }
 
-/** Typed catalog helper source. Does not touch the filesystem. No `as` / `as const`. */
-export function screenCatalogSource(): string {
+/** Generated catalog source. Does not touch the filesystem. */
+export function screenCatalogSource(charsets?: Record<string, unknown>): string {
   const screens = listScreens(storageRoot());
-  const screensType = screens.length
-    ? screens
-        .map((s) => `  ${JSON.stringify(s.name)}: {\n${screenTypeBody(s)}\n  };`)
-        .join('\n')
-    : '  [screen: string]: never;';
-  const screensValue = screens.length
-    ? screens
-        .map((s) => `  ${JSON.stringify(s.name)}: {\n${screenValueBody(s)}\n  },`)
-        .join('\n')
-    : '';
+  const resolvedCharsets = charsets ?? readCharsets();
+  const charsetEntries = Object.entries(resolvedCharsets);
 
-  return `/** Generated from screens/*/index.json. Copy to src/helpers/screens.generated.ts */
-export type Screens = {
-${screensType}
-};
+  const strategiesBody = charsetEntries.length
+    ? `{\n  charsets: {\n${charsetEntries
+        .map(([name, cs]) => `    ${JSON.stringify(name)}: ${JSON.stringify(cs)},`)
+        .join('\n')}\n  },\n}`
+    : '{}';
 
-export type ScreenName = keyof Screens;
-export type ElementName<S extends ScreenName> = keyof Screens[S] & string;
-export type ElementType<S extends ScreenName, E extends ElementName<S>> = Screens[S][E]["type"];
-export type PartName<S extends ScreenName, E extends ElementName<S>> =
-  Screens[S][E] extends { parts: readonly (infer P)[] } ? P : never;
+  const screensBody = screens
+    .map((s) => {
+      const key = toCamelCase(s.name);
+      const elementsBody = s.elements.length
+        ? s.elements
+            .map((el) => `      ${JSON.stringify(el.name)}: ${JSON.stringify(el.name)},`)
+            .join('\n')
+        : '';
+      return `  ${key}: {\n    name: ${JSON.stringify(s.name)},\n    elements: {\n${elementsBody}\n    },\n  },`;
+    })
+    .join('\n');
 
-export const screens: Screens = {
-${screensValue}
-};
+  return `/** Auto-generated by TM v2. Do not edit — re-generated on every save. */
+import type { Strategies } from '@rickcedwhat/playwright-smart-vision';
+
+export const strategies = ${strategiesBody} satisfies Strategies;
+
+export const screens = {
+${screensBody}
+} as const;
 `;
 }
 
@@ -136,8 +112,8 @@ export function screenCatalogPath(): string {
  * Write `{storage.root}/generated.ts` (or `destFile` if given).
  * QA Wolf: copy that file to `src/helpers/screens.generated.ts` after the flow.
  */
-export function writeScreenCatalog(destFile?: string): string {
-  const source = screenCatalogSource();
+export function writeScreenCatalog(destFile?: string, charsets?: Record<string, unknown>): string {
+  const source = screenCatalogSource(charsets);
   const dest = destFile || screenCatalogPath();
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, source);

@@ -226,16 +226,29 @@ describe('author apply + catalog', () => {
     const src = writeScreenCatalog(dest);
     expect(src).toContain('"html-login"');
     expect(src).toContain('"username"');
-    expect(src).toContain('type: "field"');
-    expect(src).not.toContain('parts: []');
-    expect(src).toContain('export type Screens');
-    expect(src).toContain('export type PartName');
-    expect(src).not.toMatch(/\bas const\b/);
-    expect(src).toContain('export type ScreenName');
-    expect(src).toContain('export type ElementName');
+    expect(src).toContain('htmlLogin');
+    expect(src).toContain('as const');
+    expect(src).toContain('satisfies Strategies');
+    expect(src).toContain('export const strategies');
+    expect(src).toContain('export const screens');
+    expect(src).not.toContain('type: "field"');
+    expect(src).not.toContain('export type Screens');
     expect(fs.readFileSync(dest, 'utf8')).toBe(src);
     expect(fs.readFileSync(path.join(root, 'generated.ts'), 'utf8')).toContain('"html-login"');
     expect(readScreenCatalog()['html-login']).toEqual(['username', 'password']);
+  });
+
+  it('writeScreenCatalog embeds charsets in strategies when provided', () => {
+    applyScreen(name, {
+      screen: { name },
+      elements: [{ name: 'username', type: 'field', boxIds: [1] }],
+    });
+    const charsets = { vin: { chars: 'ABCDEFGHJKLMNPRSTUVWXYZ0-9', swaps: { O: ['0'], I: ['1'] } } };
+    const src = writeScreenCatalog(undefined, charsets);
+    expect(src).toContain('"vin"');
+    expect(src).toContain('ABCDEFGHJKLMNPRSTUVWXYZ0-9');
+    expect(src).toContain('satisfies Strategies');
+    expect(src).not.toContain('strategies = {}');
   });
 
   it('rejects path traversal in screen names', () => {
