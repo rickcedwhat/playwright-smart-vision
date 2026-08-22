@@ -1,14 +1,13 @@
 import type { ElementConfig, ElementResult, ScreenComparison } from './types.js';
 import type { ScreenConfig } from './screen-config.js';
 import { ScreenElement, VISIBLE_CONFIDENCE, type MatchOptions, type WaitForOptions } from './element.js';
-import { TextElement, findAllMatches, type TextQuery, type TextElementOptions } from './text-element.js';
+import { TextElement, findAllMatches, extractWords, type TextQuery, type TextElementOptions } from './text-element.js';
 import type { Page } from '@playwright/test';
 import { ocrStep, expectTimeout } from './ocr-step.js';
 import { hideOcrOverlay, overlayBoxesFromResult, showOcrOverlay } from './ocr-overlay.js';
 import { unhoverBeforeCapture } from './unhover.js';
 import { resolveCharsetSwaps, getOcrStrategy, getOCRUtil, type FieldRead } from './utils/ocr.js';
 import * as fs from 'node:fs';
-import * as fsp from 'node:fs/promises';
 import * as path from 'node:path';
 
 export type ScreenExtractor = {
@@ -320,18 +319,11 @@ export class ScreenResult {
   // Text locators
   // ---------------------------------------------------------------------------
 
-  private async captureWords(): Promise<{ words: import('./text-element.js').WordBox[]; shotDir: string }> {
+  private async captureWords(): Promise<{ words: import('./text-element.js').WordBox[] }> {
     if (!this.host || !this.page) {
       throw new Error('getByText / toContainText requires ScreenResult.bind(page, ...)');
     }
-    fs.mkdirSync(this.host.shotDir, { recursive: true });
-    const shotPath = path.join(this.host.shotDir, `${this.host.screen.name}-text-live.png`);
-    await unhoverBeforeCapture(this.page, this.host.unhover);
-    await this.page.screenshot({ path: shotPath, timeout: 2_000 });
-    const buf = await fsp.readFile(shotPath);
-    const ocrUtil = await getOCRUtil();
-    const words = await ocrUtil.extractPageWords(buf);
-    return { words, shotDir: this.host.shotDir };
+    return extractWords(this.page, this.host.shotDir, this.host.screen.name, this.host.unhover);
   }
 
   /**
@@ -351,17 +343,21 @@ export class ScreenResult {
       const timeout = options?.timeout ?? 15_000;
       const deadline = Date.now() + timeout;
       while (true) {
-        const { words: w } = await this.captureWords();
-        const matches = findAllMatches(w, query);
-        if (matches[0]) {
-          return new TextElement(
-            matches[0],
-            query,
-            this.page,
-            this.host.shotDir,
-            this.host.screen.name,
-            this.host.unhover,
-          );
+        try {
+          const { words: w } = await this.captureWords();
+          const matches = findAllMatches(w, query);
+          if (matches[0]) {
+            return new TextElement(
+              matches[0],
+              query,
+              this.page,
+              this.host.shotDir,
+              this.host.screen.name,
+              this.host.unhover,
+            );
+          }
+        } catch {
+          // transient screenshot error (navigation, partial load) — retry
         }
         if (Date.now() >= deadline) break;
         await new Promise<void>((r) => setTimeout(r, 150));
@@ -401,12 +397,13 @@ export class ScreenResult {
     return ocrStep(`screen.toContainText(${String(query)})`, async () => {
       const timeout = options?.timeout ?? expectTimeout();
       const deadline = Date.now() + timeout;
-      let found = false;
       while (true) {
-        const { words } = await this.captureWords();
-        const matches = findAllMatches(words, query);
-        found = matches.length > 0 && (matches[0]?.confidence ?? 0) >= VISIBLE_CONFIDENCE;
-        if (found) return;
+        try {
+          const { words } = await this.captureWords();
+          if (findAllMatches(words, query).some((m) => m.confidence >= VISIBLE_CONFIDENCE)) return;
+        } catch {
+          // transient screenshot error (navigation, partial load) — retry
+        }
         if (Date.now() >= deadline) break;
         await new Promise<void>((r) => setTimeout(r, 150));
       }

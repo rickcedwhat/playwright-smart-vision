@@ -4,9 +4,9 @@ import { ocrStep, expectTimeout } from './ocr-step.js';
 import { getOCRUtil } from './utils/ocr.js';
 import { unhoverBeforeCapture } from './unhover.js';
 import { VISIBLE_CONFIDENCE } from './element.js';
+import { getClickStrategy } from './strategies.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as fsp from 'node:fs/promises';
 
 // ---------------------------------------------------------------------------
 // Text matching
@@ -36,7 +36,7 @@ function groupIntoLines(words: WordBox[]): WordBox[][] {
   const lines: WordBox[][] = [];
   for (const word of words) {
     const cy = word.y + word.height / 2;
-    const line = lines.find((l) => Math.abs(l[0]!.y + l[0]!.height / 2 - cy) <= 6);
+    const line = lines.find((l) => l.some((w) => Math.abs(w.y + w.height / 2 - cy) <= 6));
     if (line) {
       line.push(word);
     } else {
@@ -118,15 +118,14 @@ export function findAllMatches(words: WordBox[], query: TextQuery): TextMatch[] 
 const TEXT_VISIBLE_CONFIDENCE = VISIBLE_CONFIDENCE;
 
 /** OCR word extraction from the live page screenshot. */
-async function extractWords(page: Page, shotDir: string, screenName: string, unhover?: boolean): Promise<{ words: WordBox[]; shotPath: string }> {
+export async function extractWords(page: Page, shotDir: string, screenName: string, unhover?: boolean): Promise<{ words: WordBox[] }> {
   fs.mkdirSync(shotDir, { recursive: true });
   const shotPath = path.join(shotDir, `${screenName}-text-live.png`);
   await unhoverBeforeCapture(page, unhover);
-  await page.screenshot({ path: shotPath, timeout: 2_000 });
-  const buf = await fsp.readFile(shotPath);
+  const buf = await page.screenshot({ path: shotPath, timeout: 2_000 });
   const ocrUtil = await getOCRUtil();
   const words = await ocrUtil.extractPageWords(buf);
-  return { words, shotPath };
+  return { words };
 }
 
 export type TextElementOptions = {
@@ -159,12 +158,12 @@ export class TextElement {
     return this.match.text;
   }
 
-  /** Click the center of the matched text region. */
+  /** Click the matched text region using the configured ClickStrategy. */
   async click(): Promise<void> {
     return ocrStep(`getByText(${formatQuery(this.query)}).click()`, async () => {
       if (!this.page) throw new Error('click() requires a live page');
-      const { x, y, width, height } = this.match.location;
-      await this.page.mouse.click(x + width / 2, y + height / 2);
+      const { x, y } = getClickStrategy().getPoint(this.match.location);
+      await this.page.mouse.click(x, y);
     });
   }
 

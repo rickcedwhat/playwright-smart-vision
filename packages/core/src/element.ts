@@ -529,7 +529,8 @@ export class ScreenElement {
       await this.withOverlay(async () => {
         const rect = this.result.ocrLocation ?? this.result.location;
         if (!this.page) throw new Error('Page not provided. Cannot double-click element.');
-        await this.page.mouse.dblclick(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        const { x, y } = getClickStrategy().getPoint(rect);
+        await this.page.mouse.dblclick(x, y);
         this.live?.markDirty();
       });
     });
