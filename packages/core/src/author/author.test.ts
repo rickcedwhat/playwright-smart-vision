@@ -232,6 +232,7 @@ describe('author apply + catalog', () => {
     expect(src).toContain('export const strategies');
     expect(src).toContain('export const screens');
     expect(src).toContain('export type ScreenName');
+    expect(src).toContain('keyof typeof screens extends never');
     expect(src).toContain('export type ElementName');
     expect(src).not.toContain('type: "field"');
     expect(src).not.toContain('export type Screens');
