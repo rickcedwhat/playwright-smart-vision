@@ -238,6 +238,19 @@ describe('author apply + catalog', () => {
     expect(readScreenCatalog()['html-login']).toEqual(['username', 'password']);
   });
 
+  it('writeScreenCatalog embeds charsets in strategies when provided', () => {
+    applyScreen(name, {
+      screen: { name },
+      elements: [{ name: 'username', type: 'field', boxIds: [1] }],
+    });
+    const charsets = { vin: { chars: 'ABCDEFGHJKLMNPRSTUVWXYZ0-9', swaps: { O: ['0'], I: ['1'] } } };
+    const src = writeScreenCatalog(undefined, charsets);
+    expect(src).toContain('"vin"');
+    expect(src).toContain('ABCDEFGHJKLMNPRSTUVWXYZ0-9');
+    expect(src).toContain('satisfies Strategies');
+    expect(src).not.toContain('strategies = {}');
+  });
+
   it('rejects path traversal in screen names', () => {
     expect(() => applyScreen('..')).toThrow(/invalid screen name/);
     expect(() => applyScreen('../elsewhere')).toThrow(/invalid screen name/);

@@ -3,7 +3,12 @@ import path from 'node:path';
 import { storageRoot } from './storage.js';
 
 function toCamelCase(s: string): string {
-  return s.replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase());
+  // Strip leading/trailing hyphens, collapse consecutive hyphens, handle uppercase
+  const camel = s
+    .replace(/^-+|-+$/g, '')
+    .replace(/-+([a-zA-Z0-9])/g, (_, c: string) => c.toUpperCase());
+  // Prefix with _ if result starts with a digit (invalid unquoted TS identifier)
+  return /^\d/.test(camel) ? `_${camel}` : camel;
 }
 
 function readCharsets(): Record<string, unknown> {
@@ -65,10 +70,10 @@ export function readScreenCatalog(): ScreenCatalog {
 }
 
 /** Generated catalog source. Does not touch the filesystem. */
-export function screenCatalogSource(): string {
+export function screenCatalogSource(charsets?: Record<string, unknown>): string {
   const screens = listScreens(storageRoot());
-  const charsets = readCharsets();
-  const charsetEntries = Object.entries(charsets);
+  const resolvedCharsets = charsets ?? readCharsets();
+  const charsetEntries = Object.entries(resolvedCharsets);
 
   const strategiesBody = charsetEntries.length
     ? `{\n  charsets: {\n${charsetEntries
@@ -107,8 +112,8 @@ export function screenCatalogPath(): string {
  * Write `{storage.root}/generated.ts` (or `destFile` if given).
  * QA Wolf: copy that file to `src/helpers/screens.generated.ts` after the flow.
  */
-export function writeScreenCatalog(destFile?: string): string {
-  const source = screenCatalogSource();
+export function writeScreenCatalog(destFile?: string, charsets?: Record<string, unknown>): string {
+  const source = screenCatalogSource(charsets);
   const dest = destFile || screenCatalogPath();
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, source);

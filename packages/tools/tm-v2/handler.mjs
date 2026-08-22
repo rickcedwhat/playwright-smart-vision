@@ -399,9 +399,19 @@ async function handleInternal(req, res, url) {
       send(res, 400, { error: 'charsets must be a plain object' });
       return;
     }
+    for (const [csName, cs] of Object.entries(incoming)) {
+      if (!cs || typeof cs !== 'object' || typeof cs.chars !== 'string') {
+        send(res, 400, { error: `charset "${csName}" must have a "chars" string field` });
+        return;
+      }
+    }
     fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
-    try { await ensureConfigured(); } catch (_) {}
+    try {
+      writeScreenCatalog(undefined, incoming);
+    } catch (err) {
+      console.error('[tm-v2] catalog regeneration failed after charset save:', err);
+    }
     send(res, 200, { charsets: incoming });
     return;
   }
