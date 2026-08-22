@@ -1,6 +1,6 @@
 import { VisionUtil } from './utils/vision.js';
 import type { Rect, MatchResult } from './utils/vision.js';
-import { OCRUtil, charsetForField, pickFromOptions } from './utils/ocr.js';
+import { OCRUtil, charsetForField, pickFromOptions, resolveOcrCharset } from './utils/ocr.js';
 import * as fs from 'fs/promises';
 import { ElementType } from './types.js';
 import type { ElementConfig, ElementResult, ScreenComparison } from './types.js';
@@ -408,7 +408,8 @@ export class FieldExtractor {
     let traceImage: Buffer;
     let traceName: string;
     if (this.visionUtil.hasEnoughInk(ocrImage, 3)) {
-      const charset = charsetForField(name, type, charsetPreset);
+      const resolvedPreset = charsetPreset ?? resolveOcrCharset(name);
+      const charset = charsetForField(name, type, resolvedPreset);
       const charsetOpt = charset !== undefined ? { charset } : {};
       const prep = this.visionUtil.ocrPrepOptions(ocrImage, charsetOpt);
       const prepared = this.visionUtil.prepareForOcr(ocrImage, prep.scale, { ...prep, ...charsetOpt });

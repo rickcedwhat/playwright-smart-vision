@@ -16,7 +16,22 @@ type CatalogElementName<
 export type TypedResult<
   T extends Record<string, { name: string; elements: Record<string, string> }>,
   S extends T[keyof T]['name'],
-> = Omit<ScreenResult, 'element'> & {
+> = Pick<
+  ScreenResult,
+  | 'waitFor'
+  | 'refresh'
+  | 'waitForElement'
+  | 'allElements'
+  | 'filledElements'
+  | 'emptyElements'
+  | 'count'
+  | 'filledCount'
+  | 'emptyCount'
+  | 'hasElement'
+  | 'raw'
+  | 'elementResult'
+  | 'matchOptions'
+> & {
   element(name: CatalogElementName<T, S>): ScreenElement;
 };
 

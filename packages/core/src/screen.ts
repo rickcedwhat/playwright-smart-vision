@@ -7,7 +7,7 @@ import type { ScreenConfig } from './screen-config.js';
 import { loadScreen } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil, setCharsetRegistry, type Charset } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type OcrStrategy } from './utils/ocr.js';
 import { ensureCvReady } from './utils/vision.js';
 
 export interface BindOcrScreenOptions {
@@ -48,7 +48,20 @@ export function bindOcrScreen(
 
 export interface Strategies {
   charsets?: Record<string, Charset>;
+  ocr?: OcrStrategy;
 }
+
+export { type OcrStrategy };
+
+/** Runtime factories for strategy slots. */
+export const Strategies = {
+  Ocr: {
+    /** Create an Ocr strategy with global charset defaults, name-inference, and swaps. */
+    default(options: OcrStrategy): OcrStrategy {
+      return options;
+    },
+  },
+};
 
 interface InitOptions {
   page: Page;
@@ -92,6 +105,9 @@ export async function init(options: InitOptions): Promise<void> {
 
   if (options.strategies?.charsets) {
     setCharsetRegistry(options.strategies.charsets);
+  }
+  if (options.strategies?.ocr !== undefined) {
+    setOcrStrategy(options.strategies.ocr);
   }
 
   try {
@@ -147,6 +163,7 @@ export async function release(): Promise<void> {
   initState?.extractor.cleanup();
   initState = null;
   setCharsetRegistry({});
+  setOcrStrategy(undefined);
   await cleanupOCR();
 }
 

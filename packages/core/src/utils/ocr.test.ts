@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { ocrTextMatches, normalizeOcrText, charsetForField } from './ocr.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { ocrTextMatches, normalizeOcrText, charsetForField, setOcrStrategy, getOcrStrategy, resolveOcrCharset } from './ocr.js';
 
 // ---------------------------------------------------------------------------
 // ocrTextMatches
@@ -176,5 +176,68 @@ describe('charsetForField', () => {
     expect(charset).toContain('A');
     expect(charset).toContain('0');
     expect(charset).toContain(' ');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// setOcrStrategy / getOcrStrategy / resolveOcrCharset
+// ---------------------------------------------------------------------------
+
+describe('setOcrStrategy / getOcrStrategy', () => {
+  beforeEach(() => setOcrStrategy(undefined));
+  afterEach(() => setOcrStrategy(undefined));
+
+  it('returns undefined when no strategy is set', () => {
+    expect(getOcrStrategy()).toBeUndefined();
+  });
+
+  it('stores and returns the strategy', () => {
+    const strategy = { defaultCharset: 'digits' };
+    setOcrStrategy(strategy);
+    expect(getOcrStrategy()).toBe(strategy);
+  });
+
+  it('clears the strategy when set to undefined', () => {
+    setOcrStrategy({ defaultCharset: 'digits' });
+    setOcrStrategy(undefined);
+    expect(getOcrStrategy()).toBeUndefined();
+  });
+});
+
+describe('resolveOcrCharset', () => {
+  beforeEach(() => setOcrStrategy(undefined));
+  afterEach(() => setOcrStrategy(undefined));
+
+  it('returns undefined when no strategy is set', () => {
+    expect(resolveOcrCharset('phoneNumber')).toBeUndefined();
+  });
+
+  it('returns defaultCharset when no infer map matches', () => {
+    setOcrStrategy({ defaultCharset: 'alnum' });
+    expect(resolveOcrCharset('customerName')).toBe('alnum');
+  });
+
+  it('returns undefined when strategy has neither infer nor defaultCharset', () => {
+    setOcrStrategy({ swaps: { '@': 'Q' } });
+    expect(resolveOcrCharset('email')).toBeUndefined();
+  });
+
+  it('matches infer map by substring (case-insensitive)', () => {
+    setOcrStrategy({ infer: { phone: 'digits', email: 'email' } });
+    expect(resolveOcrCharset('phoneNumber')).toBe('digits');
+    expect(resolveOcrCharset('PHONE')).toBe('digits');
+    expect(resolveOcrCharset('emailAddress')).toBe('email');
+  });
+
+  it('infer match takes priority over defaultCharset', () => {
+    setOcrStrategy({ defaultCharset: 'text', infer: { vin: 'vin' } });
+    expect(resolveOcrCharset('vehicleVin')).toBe('vin');
+    expect(resolveOcrCharset('customerName')).toBe('text');
+  });
+
+  it('returns first matching infer key when multiple keys match', () => {
+    setOcrStrategy({ infer: { phone: 'digits', phoneNumber: 'alnum' } });
+    const result = resolveOcrCharset('phoneNumber');
+    expect(['digits', 'alnum']).toContain(result);
   });
 });
