@@ -7,7 +7,7 @@ import type { ScreenConfig } from './screen-config.js';
 import { loadScreen } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type OcrStrategy } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead, type OcrStrategy } from './utils/ocr.js';
 import { ensureCvReady } from './utils/vision.js';
 
 export interface BindOcrScreenOptions {
@@ -18,6 +18,11 @@ export interface BindOcrScreenOptions {
    * Default inherits global config (true when unset).
    */
   unhover?: boolean;
+  /**
+   * Override `init({ read })` for this screen.
+   * Default inherits the init-level read mode.
+   */
+  read?: FieldRead;
 }
 
 /** Warm OCR + OpenCV (safe to call more than once). */
@@ -41,6 +46,7 @@ export function bindOcrScreen(
   return ScreenResult.bind(page, extractor, config, shotDir, {
     ...(options.overlay !== undefined && { overlay: options.overlay }),
     ...(options.unhover !== undefined && { unhover: options.unhover }),
+    ...(options.read !== undefined && { initRead: options.read }),
   });
 }
 
@@ -68,6 +74,8 @@ interface InitOptions {
   storage?: { root: string };
   devtools?: boolean;
   unhoverBeforeCapture?: boolean;
+  /** Environment-level read override. Wins over index.json; call site wins over this. */
+  read?: FieldRead;
   strategies?: Strategies;
 }
 
@@ -148,6 +156,9 @@ export function screen(
   const mergedOptions: BindOcrScreenOptions = { ...options };
   if (mergedOptions.unhover === undefined && initState.config.unhoverBeforeCapture !== undefined) {
     mergedOptions.unhover = initState.config.unhoverBeforeCapture;
+  }
+  if (mergedOptions.read === undefined && initState.config.read !== undefined) {
+    mergedOptions.read = initState.config.read;
   }
   return bindOcrScreen(
     initState.config.page,
