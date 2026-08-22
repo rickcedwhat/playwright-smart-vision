@@ -11,6 +11,13 @@ export function setUnhoverPoint(point: { x: number; y: number } | undefined): vo
   globalUnhoverPoint = point;
 }
 
+let globalUnhoverPoint: { x: number; y: number } | undefined;
+
+/** Set by `init({ unhoverPoint })`. Pass `undefined` to clear. */
+export function setUnhoverPoint(point: { x: number; y: number } | undefined): void {
+  globalUnhoverPoint = point;
+}
+
 /**
  * Move the mouse off interactive content so template matching is not skewed by
  * hover highlights. Enabled by default; pass `false` or
