@@ -18,6 +18,11 @@ interface GlobalConfig {
    * template matching. Default: true.
    */
   unhoverBeforeCapture?: boolean;
+  /**
+   * Override the default `{ x: 8, y: 8 }` unhover destination.
+   * Useful when the top-left corner overlaps interactive content.
+   */
+  unhoverPoint?: { x: number; y: number };
 }
 
 let globalConfig: GlobalConfig = {};

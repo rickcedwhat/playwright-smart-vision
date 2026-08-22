@@ -4,10 +4,20 @@ import { getGlobalConfig } from './configure.js';
 /** Neutral corner used to clear hover/highlight before OCR screenshots. */
 export const UNHOVER_POINT = { x: 8, y: 8 } as const;
 
+let globalUnhoverPoint: { x: number; y: number } | undefined;
+
+/** Set by `init({ unhoverPoint })`. Pass `undefined` to clear. */
+export function setUnhoverPoint(point: { x: number; y: number } | undefined): void {
+  globalUnhoverPoint = point;
+}
+
 /**
  * Move the mouse off interactive content so template matching is not skewed by
  * hover highlights. Enabled by default; pass `false` or
  * `configure({ unhoverBeforeCapture: false })` to skip.
+ *
+ * The destination defaults to `UNHOVER_POINT` and can be overridden via
+ * `init({ unhoverPoint })` or `configure({ unhoverPoint })`.
  */
 export async function unhoverBeforeCapture(
   page: Page,
@@ -15,5 +25,6 @@ export async function unhoverBeforeCapture(
 ): Promise<void> {
   const enabled = override ?? getGlobalConfig().unhoverBeforeCapture ?? true;
   if (!enabled) return;
-  await page.mouse.move(UNHOVER_POINT.x, UNHOVER_POINT.y);
+  const point = globalUnhoverPoint ?? getGlobalConfig().unhoverPoint ?? UNHOVER_POINT;
+  await page.mouse.move(point.x, point.y);
 }
