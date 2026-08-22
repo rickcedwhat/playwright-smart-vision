@@ -21,6 +21,8 @@ export type { TypedScreenConfig } from './typed-screen.js';
 export { ScreenResult } from './screen-result.js';
 export { ScreenElement, NegatedScreenElement } from './element.js';
 export type { HaveTextOptions, MatchOptions, WaitForOptions } from './element.js';
+export { TextElement, findAllMatches } from './text-element.js';
+export type { TextQuery, TextElementOptions, TextMatch, WordBox } from './text-element.js';
 
 export { ElementType } from './field-extractor.js';
 export type { ElementConfig, ElementResult, ScreenComparison } from './field-extractor.js';
