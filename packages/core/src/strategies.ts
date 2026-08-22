@@ -143,7 +143,7 @@ export const Strategies = {
   Capture: {
     /** Move the mouse to a neutral corner before OCR screenshots. Default behavior. */
     unhover(options?: { point?: { x: number; y: number } }): CaptureStrategy {
-      return { unhover: true, unhoverPoint: options?.point };
+      return { unhover: true, ...(options?.point !== undefined && { unhoverPoint: options.point }) };
     },
 
     /** Skip the unhover mouse move before capture. */
