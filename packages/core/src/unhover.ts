@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { getGlobalConfig } from './configure.js';
 
 /** Neutral corner used to clear hover/highlight before OCR screenshots. */
-export const UNHOVER_POINT = { x: 8, y: 8 } as const;
+export const UNHOVER_POINT = { x: 1, y: 1 } as const;
 
 let globalUnhoverPoint: { x: number; y: number } | undefined;
 
