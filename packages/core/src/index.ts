@@ -34,3 +34,4 @@ export type {
 
 export { ocrTextMatches } from './utils/ocr.js';
 export type { Charset, FieldRead, OcrOverflow, OcrSwaps } from './utils/ocr.js';
+export type { Strategies } from './screen.js';

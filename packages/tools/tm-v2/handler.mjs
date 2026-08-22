@@ -401,6 +401,7 @@ async function handleInternal(req, res, url) {
     }
     fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
+    try { await ensureConfigured(); } catch (_) {}
     send(res, 200, { charsets: incoming });
     return;
   }
