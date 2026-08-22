@@ -21,7 +21,22 @@ export interface Charset {
   swaps?: OcrSwaps;
 }
 
+/** Global OCR strategy set by init(). */
+export interface OcrStrategy {
+  /** Fallback charset when an element has no explicit charset and name-inference finds nothing. */
+  defaultCharset?: string;
+  /** Map from element-name substring (case-insensitive) → charset name. Checked before built-in heuristics. */
+  infer?: Record<string, string>;
+  /** Global swaps applied when no element-level swaps are configured. */
+  swaps?: OcrSwaps;
+  /** Global overflow applied when no element-level overflow is configured. */
+  overflow?: OcrOverflow;
+  /** Global read mode applied when no element-level read is configured. */
+  read?: FieldRead;
+}
+
 let charsetRegistry: Record<string, Charset> = {};
+let globalOcrStrategy: OcrStrategy | undefined;
 
 /**
  * Called by `init()` to register user-defined charsets.
@@ -30,6 +45,30 @@ let charsetRegistry: Record<string, Charset> = {};
  */
 export function setCharsetRegistry(registry: Record<string, Charset>): void {
   charsetRegistry = { ...charsetRegistry, ...registry };
+}
+
+export function setOcrStrategy(strategy: OcrStrategy | undefined): void {
+  globalOcrStrategy = strategy;
+}
+
+export function getOcrStrategy(): OcrStrategy | undefined {
+  return globalOcrStrategy;
+}
+
+/**
+ * Resolve a charset using Strategies.Ocr: checks `infer` map first (substring match),
+ * then falls back to `defaultCharset`. Returns undefined when no strategy is set.
+ */
+export function resolveOcrCharset(elementName: string): string | undefined {
+  if (!globalOcrStrategy) return undefined;
+  const { infer, defaultCharset } = globalOcrStrategy;
+  if (infer) {
+    const lower = elementName.toLowerCase();
+    for (const [substring, charset] of Object.entries(infer)) {
+      if (lower.includes(substring.toLowerCase())) return charset;
+    }
+  }
+  return defaultCharset;
 }
 
 /** Look up a registered charset by name, or return undefined if not found. */
