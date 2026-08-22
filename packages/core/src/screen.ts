@@ -8,6 +8,7 @@ import { loadScreen } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead, type OcrStrategy } from './utils/ocr.js';
+import { setUnhoverPoint } from './unhover.js';
 import { ensureCvReady } from './utils/vision.js';
 
 export interface BindOcrScreenOptions {
@@ -87,6 +88,11 @@ interface InitOptions {
   overlay?: boolean;
   /** Environment-level read override. Wins over index.json; call site wins over this. */
   read?: FieldRead;
+  /**
+   * Override the default `{ x: 8, y: 8 }` unhover destination.
+   * Useful when the top-left corner overlaps interactive content.
+   */
+  unhoverPoint?: { x: number; y: number };
   strategies?: Strategies;
 }
 
@@ -122,6 +128,9 @@ export async function init(options: InitOptions): Promise<void> {
     initState.config = { ...initState.config, ...options };
   }
 
+  if (options.unhoverPoint !== undefined) {
+    setUnhoverPoint(options.unhoverPoint);
+  }
   if (options.strategies?.charsets) {
     setCharsetRegistry(options.strategies.charsets);
   }
@@ -193,6 +202,7 @@ export function screen(
 export async function release(): Promise<void> {
   initState?.extractor.cleanup();
   initState = null;
+  setUnhoverPoint(undefined);
   setCharsetRegistry({});
   setOcrStrategy(undefined);
   await cleanupOCR();
