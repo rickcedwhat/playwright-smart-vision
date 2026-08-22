@@ -28,8 +28,8 @@ export interface BindOcrScreenOptions {
    */
   read?: FieldRead;
   /**
-   * When true, `screen()` returns a Promise that resolves after `waitFor()` completes.
-   * Shorthand for `const s = screen(name); await s.waitFor(); return s`.
+   * When false, returns the ScreenResult synchronously without waiting.
+   * Default is to wait — `await screen(name)` resolves after `waitFor()`.
    */
   wait?: boolean;
 }
@@ -149,14 +149,14 @@ export async function init(options: InitOptions): Promise<void> {
 }
 
 /**
- * Bind a screen to the page set by `init()`.
- * With `{ wait: true }`, waits for the screen to appear before resolving.
+ * Bind a screen to the page set by `init()` and wait for it to appear.
+ * Pass `{ wait: false }` to skip waiting and get the result synchronously.
  *
- *   const customerInfo = screen('customer-info');
- *   const service = await screen('service', { wait: true });
+ *   const customerInfo = await screen('customer-info');
+ *   const s = screen('service', { wait: false }); // already visible
  */
-export function screen(nameOrConfig: string | ScreenConfig, options: BindOcrScreenOptions & { wait: true }): Promise<ScreenResult>;
-export function screen(nameOrConfig: string | ScreenConfig, options?: BindOcrScreenOptions): ScreenResult;
+export function screen(nameOrConfig: string | ScreenConfig, options: BindOcrScreenOptions & { wait: false }): ScreenResult;
+export function screen(nameOrConfig: string | ScreenConfig, options?: BindOcrScreenOptions): Promise<ScreenResult>;
 export function screen(
   nameOrConfig: string | ScreenConfig,
   options: BindOcrScreenOptions = {},
@@ -183,10 +183,10 @@ export function screen(
     options.shotDir ?? initState.shotDir,
     mergedOptions,
   );
-  if (options.wait) {
-    return result.waitFor().then(() => result);
+  if (options.wait === false) {
+    return result;
   }
-  return result;
+  return result.waitFor().then(() => result);
 }
 
 /** Release shared OCR/CV resources. Optional — registered automatically by init(). */
