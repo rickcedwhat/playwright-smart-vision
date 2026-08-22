@@ -1,11 +1,12 @@
 import type { ElementConfig, ElementResult, ScreenComparison } from './types.js';
 import type { ScreenConfig } from './screen-config.js';
 import { ScreenElement, VISIBLE_CONFIDENCE, type MatchOptions, type WaitForOptions } from './element.js';
+import { TextElement, findAllMatches, extractWords, type TextQuery, type TextElementOptions } from './text-element.js';
 import type { Page } from '@playwright/test';
-import { ocrStep } from './ocr-step.js';
+import { ocrStep, expectTimeout } from './ocr-step.js';
 import { hideOcrOverlay, overlayBoxesFromResult, showOcrOverlay } from './ocr-overlay.js';
 import { unhoverBeforeCapture } from './unhover.js';
-import { resolveCharsetSwaps, getOcrStrategy, type FieldRead } from './utils/ocr.js';
+import { resolveCharsetSwaps, getOcrStrategy, getOCRUtil, type FieldRead } from './utils/ocr.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
@@ -312,6 +313,102 @@ export class ScreenResult {
   async hideOverlay(): Promise<void> {
     if (!this.page || !this.host?.overlay) return;
     await hideOcrOverlay(this.page);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Text locators
+  // ---------------------------------------------------------------------------
+
+  private async captureWords(): Promise<{ words: import('./text-element.js').WordBox[] }> {
+    if (!this.host || !this.page) {
+      throw new Error('getByText / toContainText requires ScreenResult.bind(page, ...)');
+    }
+    return extractWords(this.page, this.host.shotDir, this.host.screen.name, this.host.unhover);
+  }
+
+  /**
+   * Find the first occurrence of text on screen via OCR.
+   * Waits until the text is visible (by default).
+   * Use for dynamic / ad-hoc content that is not registered in index.json —
+   * dropdown options, toast messages, menu rows, table cells.
+   *
+   * @param query - Exact string (case-insensitive) or RegExp.
+   * @param options.timeout - How long to wait for the text to appear (ms). Default 15 000.
+   */
+  async getByText(query: TextQuery, options?: TextElementOptions): Promise<TextElement> {
+    return ocrStep(`screen.getByText(${String(query)})`, async () => {
+      if (!this.host || !this.page) {
+        throw new Error('getByText requires ScreenResult.bind(page, ...)');
+      }
+      const timeout = options?.timeout ?? 15_000;
+      const deadline = Date.now() + timeout;
+      while (true) {
+        try {
+          const { words: w } = await this.captureWords();
+          const matches = findAllMatches(w, query);
+          if (matches[0]) {
+            return new TextElement(
+              matches[0],
+              query,
+              this.page,
+              this.host.shotDir,
+              this.host.screen.name,
+              this.host.unhover,
+            );
+          }
+        } catch {
+          // transient screenshot error (navigation, partial load) — retry
+        }
+        if (Date.now() >= deadline) break;
+        await new Promise<void>((r) => setTimeout(r, 150));
+      }
+      throw new Error(`Text ${String(query)} not found within ${timeout}ms`);
+    });
+  }
+
+  /**
+   * Find all occurrences of text on screen via OCR.
+   * Returns immediately with whatever matches are currently visible — no implicit wait.
+   * Use for list rows, repeated badges, or any case where multiple matches are expected.
+   */
+  async getAllByText(query: TextQuery): Promise<TextElement[]> {
+    return ocrStep(`screen.getAllByText(${String(query)})`, async () => {
+      const { words } = await this.captureWords();
+      const matches = findAllMatches(words, query);
+      return matches.map((m) => new TextElement(
+        m,
+        query,
+        this.page,
+        this.host?.shotDir,
+        this.host?.screen.name,
+        this.host?.unhover,
+      ));
+    });
+  }
+
+  /**
+   * Assert that the given text is visible anywhere on screen.
+   * Useful for smoke-checking dynamic feedback without registering an element.
+   *
+   * @param query - Exact string (case-insensitive) or RegExp.
+   * @param options.timeout - How long to poll (ms). Default: expectTimeout().
+   */
+  async toContainText(query: TextQuery, options?: TextElementOptions): Promise<void> {
+    return ocrStep(`screen.toContainText(${String(query)})`, async () => {
+      const timeout = options?.timeout ?? expectTimeout();
+      const deadline = Date.now() + timeout;
+      while (true) {
+        try {
+          const { words } = await this.captureWords();
+          if (findAllMatches(words, query).some((m) => m.confidence >= VISIBLE_CONFIDENCE)) return;
+        } catch {
+          // transient screenshot error (navigation, partial load) — retry
+        }
+        if (Date.now() >= deadline) break;
+        await new Promise<void>((r) => setTimeout(r, 150));
+      }
+      throw new Error(`Screen does not contain text ${String(query)} within ${timeout}ms`);
+    });
   }
 
   /**

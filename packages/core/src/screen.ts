@@ -4,7 +4,7 @@ import path from 'node:path';
 import { test as base } from '@playwright/test';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen } from './configure.js';
+import { loadScreen, clearConfigUnhoverPoint } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
@@ -91,7 +91,7 @@ interface InitOptions {
   /** Environment-level read override. Wins over index.json; call site wins over this. */
   read?: FieldRead;
   /**
-   * Override the default `{ x: 8, y: 8 }` unhover destination.
+   * Override the default unhover destination (top-left corner).
    * Useful when the top-left corner overlaps interactive content.
    */
   unhoverPoint?: { x: number; y: number };
@@ -216,6 +216,7 @@ export async function release(): Promise<void> {
   initState?.extractor.cleanup();
   initState = null;
   setUnhoverPoint(undefined);
+  clearConfigUnhoverPoint();
   setClickStrategy(undefined);
   setFillStrategy(undefined);
   setCharsetRegistry({});

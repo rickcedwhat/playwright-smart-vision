@@ -19,7 +19,7 @@ interface GlobalConfig {
    */
   unhoverBeforeCapture?: boolean;
   /**
-   * Override the default `{ x: 8, y: 8 }` unhover destination.
+   * Override the default unhover destination (top-left corner).
    * Useful when the top-left corner overlaps interactive content.
    */
   unhoverPoint?: { x: number; y: number };
@@ -34,6 +34,11 @@ export function getGlobalConfig(): GlobalConfig {
 /** Reset merged config (unit tests). */
 export function resetGlobalConfig(): void {
   globalConfig = {};
+}
+
+/** Clear only the unhoverPoint from the global config (called by release()). */
+export function clearConfigUnhoverPoint(): void {
+  delete (globalConfig as { unhoverPoint?: unknown }).unhoverPoint;
 }
 
 /**
