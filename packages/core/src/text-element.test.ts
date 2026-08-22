@@ -122,6 +122,13 @@ describe('findAllMatches — line grouping', () => {
     const hits = findAllMatches(words, 'A B');
     expect(hits).toHaveLength(0);
   });
+
+  it('groups a third word within 6px of a non-first group member', () => {
+    // cy: A=8, B=10, C=16 — A and B join (|10-8|=2≤6); C is >6 from A but ≤6 from B
+    const words = [word('A', 0, 0), word('B', 60, 2), word('C', 120, 8)];
+    const hits = findAllMatches(words, 'A B C');
+    expect(hits).toHaveLength(1);
+  });
 });
 
 // ---------------------------------------------------------------------------
