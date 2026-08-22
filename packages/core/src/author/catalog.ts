@@ -101,6 +101,13 @@ export const strategies = ${strategiesBody} satisfies Strategies;
 export const screens = {
 ${screensBody}
 } as const;
+
+type _ScreenKey<S extends ScreenName> = {
+  [K in keyof typeof screens]: (typeof screens)[K]['name'] extends S ? K : never;
+}[keyof typeof screens];
+
+export type ScreenName = (typeof screens)[keyof typeof screens]['name'];
+export type ElementName<S extends ScreenName> = keyof (typeof screens)[_ScreenKey<S>]['elements'] & string;
 `;
 }
 
