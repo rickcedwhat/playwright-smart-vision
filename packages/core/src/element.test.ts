@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ScreenElement } from './element.js';
+import { ScreenElement, NegatedScreenElement } from './element.js';
 import { expectTimeout } from './ocr-step.js';
 import type { ElementResult } from './types.js';
 import type { LiveScreen, WaitForOptions, MatchOptions } from './element.js';
@@ -240,5 +240,154 @@ describe('toBeChecked / toBeUnchecked', () => {
   it('toBeUnchecked throws when value is "checked"', async () => {
     const el = makeElement({ value: 'checked' });
     await expect(el.toBeUnchecked()).rejects.toThrow(/is not unchecked/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toContainText — strict substring (no swap fuzzing)
+// ---------------------------------------------------------------------------
+
+describe('toContainText', () => {
+  it('passes when actual contains expected', async () => {
+    const el = makeElement({ value: 'HELLO WORLD' });
+    await expect(el.toContainText('HELLO')).resolves.toBeUndefined();
+  });
+
+  it('throws when actual does not contain expected', async () => {
+    const el = makeElement({ value: 'WORLD' });
+    await expect(el.toContainText('HELLO')).rejects.toThrow(/does not contain text/);
+  });
+
+  it('throws without swaps when OCR confuses a glyph', async () => {
+    const el = makeElement({ value: 'USER Q EXAMPLE.COM' });
+    await expect(el.toContainText('USER @ EXAMPLE.COM')).rejects.toThrow(/does not contain text/);
+  });
+
+  it('passes with swap substitution', async () => {
+    const el = makeElement({ value: 'USER Q EXAMPLE.COM' });
+    await expect(
+      el.toContainText('USER @ EXAMPLE.COM', { swaps: { '@': 'Q' } }),
+    ).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// toBeEnabled / toBeDisabled — variant shortcuts
+// ---------------------------------------------------------------------------
+
+describe('toBeEnabled / toBeDisabled', () => {
+  it('toBeEnabled passes when variant is "enabled"', async () => {
+    const el = makeElement({ variant: 'enabled' });
+    await expect(el.toBeEnabled()).resolves.toBeUndefined();
+  });
+
+  it('toBeEnabled throws when variant is "disabled"', async () => {
+    const el = makeElement({ variant: 'disabled' });
+    await expect(el.toBeEnabled()).rejects.toThrow(/disabled/);
+  });
+
+  it('toBeDisabled passes when variant is "disabled"', async () => {
+    const el = makeElement({ variant: 'disabled' });
+    await expect(el.toBeDisabled()).resolves.toBeUndefined();
+  });
+
+  it('toBeDisabled throws when variant is "enabled"', async () => {
+    const el = makeElement({ variant: 'enabled' });
+    await expect(el.toBeDisabled()).rejects.toThrow(/enabled/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// .not — NegatedScreenElement
+// ---------------------------------------------------------------------------
+
+describe('.not getter', () => {
+  it('returns a NegatedScreenElement', () => {
+    const el = makeElement({});
+    expect(el.not).toBeInstanceOf(NegatedScreenElement);
+  });
+});
+
+describe('.not assertions — simple inverses', () => {
+  it('not.toBeFilled passes when element is empty', async () => {
+    const el = makeElement({ isEmpty: true });
+    await expect(el.not.toBeFilled()).resolves.toBeUndefined();
+  });
+
+  it('not.toBeFilled throws when element is filled', async () => {
+    const el = makeElement({ isEmpty: false });
+    await expect(el.not.toBeFilled()).rejects.toThrow(/is not empty/);
+  });
+
+  it('not.toBeEmpty passes when element is filled', async () => {
+    const el = makeElement({ isEmpty: false });
+    await expect(el.not.toBeEmpty()).resolves.toBeUndefined();
+  });
+
+  it('not.toBeEmpty throws when element is empty', async () => {
+    const el = makeElement({ isEmpty: true });
+    await expect(el.not.toBeEmpty()).rejects.toThrow(/is not filled/);
+  });
+
+  it('not.toBeChecked passes when unchecked', async () => {
+    const el = makeElement({ value: 'unchecked' });
+    await expect(el.not.toBeChecked()).resolves.toBeUndefined();
+  });
+
+  it('not.toBeChecked throws when checked', async () => {
+    const el = makeElement({ value: 'checked' });
+    await expect(el.not.toBeChecked()).rejects.toThrow(/is not unchecked/);
+  });
+
+  it('not.toBeUnchecked passes when checked', async () => {
+    const el = makeElement({ value: 'checked' });
+    await expect(el.not.toBeUnchecked()).resolves.toBeUndefined();
+  });
+
+  it('not.toBeEnabled passes when variant is disabled', async () => {
+    const el = makeElement({ variant: 'disabled' });
+    await expect(el.not.toBeEnabled()).resolves.toBeUndefined();
+  });
+
+  it('not.toBeDisabled passes when variant is enabled', async () => {
+    const el = makeElement({ variant: 'enabled' });
+    await expect(el.not.toBeDisabled()).resolves.toBeUndefined();
+  });
+});
+
+describe('.not.toHaveVariant', () => {
+  it('passes when variant differs from expected', async () => {
+    const el = makeElement({ variant: 'enabled' });
+    await expect(el.not.toHaveVariant('disabled')).resolves.toBeUndefined();
+  });
+
+  it('throws when variant matches expected', async () => {
+    const el = makeElement({ variant: 'disabled' });
+    await expect(el.not.toHaveVariant('disabled')).rejects.toThrow(/still has variant/);
+  });
+
+  it('retries until variant changes', async () => {
+    vi.useFakeTimers();
+    const live = makeLiveScreen([
+      { variant: 'disabled' },  // first check: still matches — should retry
+      { variant: 'enabled' },   // after retry: different — passes
+    ]);
+    const el = makeElement({ variant: 'disabled' }, live);
+    const p = el.not.toHaveVariant('disabled', { timeout: 1_000 });
+    await vi.runAllTimersAsync();
+    await expect(p).resolves.toBeUndefined();
+    vi.useRealTimers();
+  });
+});
+
+describe('.not.toContainText', () => {
+  it('passes when actual does not contain expected', async () => {
+    const el = makeElement({ value: 'HELLO WORLD' });
+    await expect(el.not.toContainText('FOO')).resolves.toBeUndefined();
+  });
+
+  it('throws when actual contains expected', async () => {
+    const el = makeElement({ value: 'HELLO WORLD' });
+    await expect(el.not.toContainText('HELLO')).rejects.toThrow(/still contains/);
   });
 });

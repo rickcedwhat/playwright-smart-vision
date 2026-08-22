@@ -72,6 +72,31 @@ function formatMatchNote(match: MatchOptions): string {
   return bits.length ? ` (${bits.join('; ')})` : '';
 }
 
+async function retryUntil(
+  live: LiveScreen | undefined,
+  sync: () => void,
+  check: () => string | undefined,
+  timeout: number,
+): Promise<void> {
+  await live?.ensureFresh();
+  sync();
+  const first = check();
+  if (first === undefined) return;
+  if (!live || timeout === 0) throw new Error(first);
+  const deadline = Date.now() + timeout;
+  let lastErr = first;
+  while (Date.now() < deadline) {
+    live.markDirty();
+    await new Promise<void>((r) => setTimeout(r, 150));
+    await live.ensureFresh();
+    sync();
+    const next = check();
+    if (next === undefined) return;
+    lastErr = next;
+  }
+  throw new Error(lastErr);
+}
+
 /**
  * Playwright-style element wrapper with chainable assertions
  * Includes built-in retry logic similar to Playwright's auto-waiting
@@ -190,6 +215,23 @@ export class ScreenElement {
     });
   }
 
+  /** @internal — used by NegatedScreenElement in this module only */
+  _internals() {
+    const self = this;
+    return {
+      live: this.live,
+      get result() { return self.result; },
+      sync: () => this.syncResult(),
+      overlay: (body?: () => Promise<void>) => this.withOverlay(body),
+      label: this.label,
+      resolvedMatch: (options?: HaveTextOptions) => this.resolvedMatch(options),
+    };
+  }
+
+  get not(): NegatedScreenElement {
+    return new NegatedScreenElement(this);
+  }
+
   /**
    * Assert element is visible (found with confidence > threshold).
    * When bound to a live page, waits until the template matches.
@@ -207,6 +249,62 @@ export class ScreenElement {
         throw new Error(
           `Element "${this.label}" is not visible (confidence: ${this.result.confidence})`,
         );
+      }
+    });
+  }
+
+  /**
+   * Assert element is hidden (confidence below visible threshold).
+   * When bound to a live page, waits until the template is no longer visible.
+   */
+  async toBeHidden(options?: { timeout?: number }): Promise<void> {
+    return ocrStep(`element('${this.label}').toBeHidden()`, async () => {
+      if (this.live && this.page) {
+        await this.waitUntil(options?.timeout !== undefined
+          ? { visible: false, timeout: options.timeout }
+          : { visible: false });
+      }
+      this.syncResult();
+      await this.withOverlay();
+      if (this.result.confidence && this.result.confidence >= VISIBLE_CONFIDENCE) {
+        throw new Error(
+          `Element "${this.label}" is not hidden (confidence: ${this.result.confidence})`,
+        );
+      }
+    });
+  }
+
+  /**
+   * Assert element has the "enabled" variant.
+   */
+  async toBeEnabled(options?: { timeout?: number }): Promise<void> {
+    return this.toHaveVariant('enabled', options);
+  }
+
+  /**
+   * Assert element has the "disabled" variant.
+   */
+  async toBeDisabled(options?: { timeout?: number }): Promise<void> {
+    return this.toHaveVariant('disabled', options);
+  }
+
+  /**
+   * Assert element value contains the given text as a substring.
+   * Supports OCR swap substitutions via options or configured Strategies.Ocr.
+   * @throws if actual value does not contain expected after timeout
+   */
+  async toContainText(expected: string, options?: HaveTextOptions): Promise<void> {
+    return ocrStep(`element('${this.label}').toContainText(${formatExpected(expected)})`, async () => {
+      const match = this.resolvedMatch(options);
+      try {
+        await this.retryAssertion(() => {
+          const actual = this.result.value;
+          return ocrTextMatches(actual, expected, { ...(match.swaps && { swaps: match.swaps }) })
+            ? undefined
+            : `Element "${this.label}" does not contain text "${expected}". Actual: "${actual}"`;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await this.withOverlay();
       }
     });
   }
@@ -534,34 +632,8 @@ export class ScreenElement {
     return match;
   }
 
-  /**
-   * Retry a synchronous assertion check until it passes or the deadline is reached.
-   * `check` returns an error message string on failure, or undefined on success.
-   * When timeout is 0 or there is no live screen, the check runs exactly once.
-   */
-  private async retryAssertion(
-    check: () => string | undefined,
-    timeout: number,
-  ): Promise<void> {
-    await this.live?.ensureFresh();
-    this.syncResult();
-    const first = check();
-    if (first === undefined) return;
-    const live = this.live;
-    if (!live || timeout === 0) throw new Error(first);
-
-    const deadline = Date.now() + timeout;
-    let lastErr = first;
-    while (Date.now() < deadline) {
-      live.markDirty();
-      await new Promise<void>((r) => setTimeout(r, 150));
-      await live.ensureFresh();
-      this.syncResult();
-      const next = check();
-      if (next === undefined) return;
-      lastErr = next;
-    }
-    throw new Error(lastErr);
+  private async retryAssertion(check: () => string | undefined, timeout: number): Promise<void> {
+    return retryUntil(this.live, () => this.syncResult(), check, timeout);
   }
 
   private async copyFromField(): Promise<string> {
@@ -574,5 +646,78 @@ export class ScreenElement {
     await this.page.keyboard.press('ControlOrMeta+A');
     await this.page.keyboard.press('ControlOrMeta+C');
     return this.page.evaluate(() => navigator.clipboard.readText());
+  }
+}
+
+/**
+ * Negated assertion façade returned by `ScreenElement.not`.
+ * Each method is the logical inverse of the corresponding `ScreenElement` method.
+ */
+export class NegatedScreenElement {
+  constructor(private readonly el: ScreenElement) {}
+
+  async toBeFilled(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeEmpty(options);
+  }
+
+  async toBeEmpty(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeFilled(options);
+  }
+
+  async toBeVisible(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeHidden(options);
+  }
+
+  async toBeHidden(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeVisible(options);
+  }
+
+  async toBeChecked(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeUnchecked(options);
+  }
+
+  async toBeUnchecked(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeChecked(options);
+  }
+
+  async toBeEnabled(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeDisabled(options);
+  }
+
+  async toBeDisabled(options?: { timeout?: number }): Promise<void> {
+    return this.el.toBeEnabled(options);
+  }
+
+  async toHaveVariant(expected: string, options?: { timeout?: number }): Promise<void> {
+    const i = this.el._internals();
+    return ocrStep(`element('${i.label}').not.toHaveVariant(${JSON.stringify(expected)})`, async () => {
+      try {
+        await retryUntil(i.live, i.sync, () => {
+          const actual = i.result.variant;
+          return actual === expected
+            ? `Element "${i.label}" still has variant "${expected}"`
+            : undefined;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await i.overlay();
+      }
+    });
+  }
+
+  async toContainText(expected: string, options?: HaveTextOptions): Promise<void> {
+    const i = this.el._internals();
+    const match = i.resolvedMatch(options);
+    return ocrStep(`element('${i.label}').not.toContainText(${formatExpected(expected)})`, async () => {
+      try {
+        await retryUntil(i.live, i.sync, () => {
+          const actual = i.result.value;
+          return ocrTextMatches(actual, expected, { ...(match.swaps && { swaps: match.swaps }) })
+            ? `Element "${i.label}" still contains text "${expected}". Actual: "${actual}"`
+            : undefined;
+        }, expectTimeout(options?.timeout));
+      } finally {
+        await i.overlay();
+      }
+    });
   }
 }
