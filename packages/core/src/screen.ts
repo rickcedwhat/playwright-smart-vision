@@ -12,6 +12,10 @@ import { ensureCvReady } from './utils/vision.js';
 
 export interface BindOcrScreenOptions {
   shotDir?: string;
+  /**
+   * Show live match outlines while waiting/asserting.
+   * Default inherits `init({ overlay })`.
+   */
   overlay?: boolean;
   /**
    * Override `init({ unhoverBeforeCapture })` for this screen.
@@ -23,6 +27,11 @@ export interface BindOcrScreenOptions {
    * Default inherits the init-level read mode.
    */
   read?: FieldRead;
+  /**
+   * When true, `screen()` returns a Promise that resolves after `waitFor()` completes.
+   * Shorthand for `const s = screen(name); await s.waitFor(); return s`.
+   */
+  wait?: boolean;
 }
 
 /** Warm OCR + OpenCV (safe to call more than once). */
@@ -74,6 +83,8 @@ interface InitOptions {
   storage?: { root: string };
   devtools?: boolean;
   unhoverBeforeCapture?: boolean;
+  /** Global overlay default. Per-screen `{ overlay }` still wins. */
+  overlay?: boolean;
   /** Environment-level read override. Wins over index.json; call site wins over this. */
   read?: FieldRead;
   strategies?: Strategies;
@@ -139,15 +150,17 @@ export async function init(options: InitOptions): Promise<void> {
 
 /**
  * Bind a screen to the page set by `init()`.
- * Sync after `init()` has been called.
+ * With `{ wait: true }`, waits for the screen to appear before resolving.
  *
  *   const customerInfo = screen('customer-info');
- *   await customerInfo.element('customerNumber').toHaveValue('SEA314535');
+ *   const service = await screen('service', { wait: true });
  */
+export function screen(nameOrConfig: string | ScreenConfig, options: BindOcrScreenOptions & { wait: true }): Promise<ScreenResult>;
+export function screen(nameOrConfig: string | ScreenConfig, options?: BindOcrScreenOptions): ScreenResult;
 export function screen(
   nameOrConfig: string | ScreenConfig,
   options: BindOcrScreenOptions = {},
-): ScreenResult {
+): ScreenResult | Promise<ScreenResult> {
   if (!initState) {
     const name = typeof nameOrConfig === 'string' ? nameOrConfig : nameOrConfig.name;
     throw new Error(`screen('${name}'): call await init({ page, storage: { root } }) first`);
@@ -157,16 +170,23 @@ export function screen(
   if (mergedOptions.unhover === undefined && initState.config.unhoverBeforeCapture !== undefined) {
     mergedOptions.unhover = initState.config.unhoverBeforeCapture;
   }
+  if (mergedOptions.overlay === undefined && initState.config.overlay !== undefined) {
+    mergedOptions.overlay = initState.config.overlay;
+  }
   if (mergedOptions.read === undefined && initState.config.read !== undefined) {
     mergedOptions.read = initState.config.read;
   }
-  return bindOcrScreen(
+  const result = bindOcrScreen(
     initState.config.page,
     config,
     initState.extractor,
     options.shotDir ?? initState.shotDir,
     mergedOptions,
   );
+  if (options.wait) {
+    return result.waitFor().then(() => result);
+  }
+  return result;
 }
 
 /** Release shared OCR/CV resources. Optional — registered automatically by init(). */
