@@ -88,8 +88,12 @@ export function labelsAndValuesFromOcr(
     if (label.width > 420) return false;
     const insideBox = boxes.find((box) => containedRatio(label, box) >= 0.55 || centerInside(label, box));
     if (insideBox) {
-      const prev = boxValues.get(insideBox.id);
-      boxValues.set(insideBox.id, prev ? `${prev} ${text}` : text);
+      // Only capture value when: the box is tall enough to be a real control, and the phrase
+      // is not wider than the box (which would indicate a neighbouring label bleeding in).
+      if (insideBox.height >= 18 && label.width <= insideBox.width * 1.5) {
+        const prev = boxValues.get(insideBox.id);
+        boxValues.set(insideBox.id, prev ? `${prev} ${text}` : text);
+      }
       return false;
     }
     // Checkboxes often sit inside the caption bbox; only drop if a field/button is inside.
@@ -107,6 +111,16 @@ export function labelsAndValuesFromOcr(
       text: cleanText(label.text),
       confidence: label.confidence,
     }));
+  // Post-process accumulated values: drop noise and strip leading icon glyphs.
+  for (const [id, text] of boxValues) {
+    if (letterCount(text) < 3) { boxValues.delete(id); continue; }
+    // Strip leading tokens that look like icon glyph misreads: ≤3 chars with no lowercase letters.
+    const tokens = text.split(' ');
+    while (tokens.length > 1 && tokens[0]!.length <= 3 && !/[a-z]/.test(tokens[0]!)) tokens.shift();
+    const cleaned = tokens.join(' ');
+    if (letterCount(cleaned) < 3) { boxValues.delete(id); continue; }
+    boxValues.set(id, cleaned);
+  }
   return { labels, boxValues };
 }
 
