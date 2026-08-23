@@ -1,4 +1,6 @@
 export { saveScreen } from './configure.js';
+export { addScreenHandler, removeScreenHandler } from './screen-handler.js';
+export type { ScreenHandlerOptions } from './screen-handler.js';
 export {
   bindOcrScreen,
   createFixture,
