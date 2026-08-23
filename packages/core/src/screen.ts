@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { test as base } from '@playwright/test';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
 import { loadScreen, clearConfigUnhoverPoint } from './configure.js';
@@ -257,6 +256,10 @@ interface ScreenWorkerFixtures {
  *   test.use({ ocrOverlay: true });
  */
 export function createFixture(): TestType<ScreenFixtures, ScreenWorkerFixtures> {
+  // Dynamic import so @playwright/test is not required at module load time
+  // (it is an optional peer — QA Wolf flows use init()/screen() without fixtures)
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { test: base } = require('@playwright/test') as typeof import('@playwright/test');
   return base.extend<ScreenFixtures, ScreenWorkerFixtures>({
     _ocrReady: [
       async ({}, use) => {
