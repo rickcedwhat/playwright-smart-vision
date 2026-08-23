@@ -50,7 +50,7 @@ Return **only** JSON:
 
    **Button values**: A box `value` shows what OCR read inside the box on the blank screenshot. Use it to name buttons and tabs. If a button wraps its label onto two lines, the value lists words top-to-bottom (display order), which may differ from the conventional name — use your knowledge of the application to pick the right camelCase name (e.g. `"Orders Repair"` → `repairOrders`). Values are not present for plain input fields (those are empty on the blank).
 
-   **Clusters**: Adjacent box IDs in a cluster belong to the same multi-cell control. Match them against known field patterns: a cluster of three boxes is likely a date (mm/dd/yy) or phone (area/prefix/number) triplet; a cluster of two may be a state+zip or name MI pair. Prefer cluster grouping over guessing from labels alone.
+   **Clusters**: A cluster lists box IDs that are spatially adjacent on the same visual row. Use them as a hint that those boxes may form a single logical control (a multi-cell field, a button group, a tab bar — whatever fits the screen). They're geometric, not semantic: interpret each cluster in context.
 
 2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{row}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply crops the section as that union and uses it as each member’s match template so the small box is not a tiny needle.
 
