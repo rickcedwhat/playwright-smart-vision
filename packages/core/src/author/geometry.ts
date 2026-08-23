@@ -2,6 +2,13 @@ import type { Rect } from '../utils/vision.js';
 
 export interface DetectedBox extends Rect {
   id: number;
+  /** Text found inside the box on the blank screenshot (buttons, dropdowns, tabs). Absent when empty. */
+  value?: string;
+}
+
+export interface BoxCluster {
+  /** Box IDs that are spatially adjacent on the same visual row. */
+  boxIds: number[];
 }
 
 export function kebab(name: string): string {
