@@ -9,6 +9,7 @@ import { unhoverBeforeCapture } from './unhover.js';
 import { resolveCharsetSwaps, getOcrStrategy, getOCRUtil, type FieldRead } from './utils/ocr.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { runHandlers } from './screen-handler.js';
 
 export type ScreenExtractor = {
   loadForms(blankFormPath: string, filledFormPath: string): Promise<void>;
@@ -68,6 +69,16 @@ export class ScreenResult {
     private page?: Page,
     private host?: ScreenHost,
   ) {}
+
+  /**
+   * Construct a ScreenResult pre-populated from an already-taken screenshot.
+   * Used by screen handler dispatch — avoids an extra screenshot round-trip.
+   */
+  static async fromShot(shot: string, page: Page, host: ScreenHost): Promise<ScreenResult> {
+    await host.extractor.loadForms(host.screen.blankScreenPath, shot);
+    const comparison = await extractComparison(host.extractor, host.screen.elementConfigs);
+    return new ScreenResult(comparison, page, host);
+  }
 
   /**
    * Bind a screen to a live page so element().waitFor / fill / click can screenshot and match.
@@ -295,6 +306,7 @@ export class ScreenResult {
   private async captureLive(shot: string): Promise<void> {
     await unhoverBeforeCapture(this.page!, this.host?.unhover);
     await this.page!.screenshot({ path: shot, timeout: 2_000 });
+    if (this.host) await runHandlers(shot, this.host, this.page!);
   }
 
   private async loadExtracted(shot: string): Promise<void> {

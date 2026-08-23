@@ -5,6 +5,7 @@ import { test as base } from '@playwright/test';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
 import { loadScreen, clearConfigUnhoverPoint } from './configure.js';
+import { clearScreenHandlers } from './screen-handler.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
 import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
@@ -217,6 +218,7 @@ export async function release(): Promise<void> {
   initState = null;
   setUnhoverPoint(undefined);
   clearConfigUnhoverPoint();
+  clearScreenHandlers();
   setClickStrategy(undefined);
   setFillStrategy(undefined);
   setCharsetRegistry({});
