@@ -293,7 +293,7 @@ export function groupBoxClusters(boxes: DetectedBox[]): BoxCluster[] {
         run = [byX[i]!];
       }
     }
-    if (run.length >= 2) clusters.push({ boxIds: run.map((b) => b.id) });
+    if (run.length >= 2 && run.length <= 4) clusters.push({ boxIds: run.map((b) => b.id) });
   }
   return clusters;
 }

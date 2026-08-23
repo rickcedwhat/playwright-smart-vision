@@ -80,7 +80,10 @@ export function labelsAndValuesFromOcr(
     return letters >= 4 && word.width >= 24;
   });
   const clustered = clusterOcrWords(usable);
-  const boxValues = new Map<number, string>();
+  // Track phrase count per box: a value assembled from multiple separate OCR clusters
+  // may have wrong word order (stacked button labels read top-to-bottom) — kept only when
+  // all text came from a single cluster so left-to-right order is guaranteed.
+  const boxPhrases = new Map<number, { text: string; count: number }>();
   const kept = clustered.filter((label) => {
     const text = cleanText(label.text);
     if (letterCount(text) < 2 || text.length > 80) return false;
@@ -91,8 +94,8 @@ export function labelsAndValuesFromOcr(
       // Only capture value when: the box is tall enough to be a real control, and the phrase
       // is not wider than the box (which would indicate a neighbouring label bleeding in).
       if (insideBox.height >= 18 && label.width <= insideBox.width * 1.5) {
-        const prev = boxValues.get(insideBox.id);
-        boxValues.set(insideBox.id, prev ? `${prev} ${text}` : text);
+        const prev = boxPhrases.get(insideBox.id);
+        boxPhrases.set(insideBox.id, prev ? { text: `${prev.text} ${text}`, count: prev.count + 1 } : { text, count: 1 });
       }
       return false;
     }
@@ -111,14 +114,17 @@ export function labelsAndValuesFromOcr(
       text: cleanText(label.text),
       confidence: label.confidence,
     }));
-  // Post-process accumulated values: drop noise and strip leading icon glyphs.
-  for (const [id, text] of boxValues) {
-    if (letterCount(text) < 3) { boxValues.delete(id); continue; }
+  // Build final box values: drop multi-phrase values (stacked labels with unreliable word order),
+  // drop noise, and strip leading icon glyph tokens.
+  const boxValues = new Map<number, string>();
+  for (const [id, { text, count }] of boxPhrases) {
+    if (count > 1) continue;
+    if (letterCount(text) < 3) continue;
     // Strip leading tokens that look like icon glyph misreads: ≤3 chars with no lowercase letters.
     const tokens = text.split(' ');
     while (tokens.length > 1 && tokens[0]!.length <= 3 && !/[a-z]/.test(tokens[0]!)) tokens.shift();
     const cleaned = tokens.join(' ');
-    if (letterCount(cleaned) < 3) { boxValues.delete(id); continue; }
+    if (letterCount(cleaned) < 3) continue;
     boxValues.set(id, cleaned);
   }
   return { labels, boxValues };
