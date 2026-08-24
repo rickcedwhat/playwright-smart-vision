@@ -909,6 +909,12 @@ async function handle(req, res) {
     return;
   }
 
+  if (req.method === 'GET' && url.pathname === '/') {
+    res.writeHead(302, { Location: '/template-manager' });
+    res.end();
+    return;
+  }
+
   if (await handleTmV2Request(req, res, url)) return;
 
   if (req.method === 'GET' && url.pathname === '/api/status') {
@@ -1051,7 +1057,7 @@ function listen(port) {
 
   server.listen(port, () => {
     const dest = destinations(loadSettings());
-    const url = `http://localhost:${port}/`;
+    const url = `http://localhost:${port}/template-manager`;
     console.log(`Hub:              ${url}`);
     for (const line of tmV2StartupLines(port)) console.log(line);
     console.log(`config.ts → ${dest.configRoot}`);
