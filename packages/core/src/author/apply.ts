@@ -288,10 +288,39 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   fs.rmSync(tmplDir, { recursive: true, force: true });
   fs.mkdirSync(tmplDir, { recursive: true });
 
+  // Sections whose members should be merged into a single parent element with named parts.
+  // A section is absorbed when it has at least one member element; the parent name is the
+  // section name with the trailing "Section" suffix stripped.
+  const membersBySection = new Map<string, FirstPassElement[]>();
+  for (const el of pass.elements || []) {
+    if (el.section) {
+      const group = membersBySection.get(el.section) ?? [];
+      group.push(el);
+      membersBySection.set(el.section, group);
+    }
+  }
+  const absorbedSections = new Set<string>();
+  const syntheticElements: FirstPassElement[] = [];
+  for (const sec of pass.sections || []) {
+    const members = membersBySection.get(sec.name);
+    if (!members?.length) continue;
+    absorbedSections.add(sec.name);
+    const parentName = sec.name.replace(/Section$/, '') || sec.name;
+    const allLabelIds = [...new Set(members.flatMap((m) => m.labelIds ?? []))];
+    syntheticElements.push({
+      name: parentName,
+      type: 'other',
+      boxIds: sec.boxIds,
+      labelIds: allLabelIds,
+      parts: members.map((m) => ({ name: m.name, ...(m.boxIds[0] != null ? { boxId: m.boxIds[0] } : {}) })),
+    });
+  }
+
   const indexSections: AppliedSection[] = [];
   const sectionFile = new Map<string, string>();
   const sectionBoxesByName = new Map<string, DetectedBox[]>();
   for (const sec of pass.sections || []) {
+    if (absorbedSections.has(sec.name)) continue;
     const secBoxes = (sec.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
     if (!sec.name || !secBoxes.length) continue;
     const memberLabels = (pass.elements || [])
@@ -306,8 +335,13 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     sectionBoxesByName.set(sec.name, secBoxes);
   }
 
+  const allElements = [
+    ...syntheticElements,
+    ...(pass.elements || []).filter((el) => !el.section || !absorbedSections.has(el.section)),
+  ];
+
   const elements: AppliedElement[] = [];
-  for (const el of pass.elements || []) {
+  for (const el of allElements) {
     const fieldBoxes = (el.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
     const labelRects = (el.labelIds || []).map((id) => byLabel.get(id)).filter((l): l is DetectedLabel => Boolean(l));
     const extraBoxes = el.section ? (sectionBoxesByName.get(el.section) || []) : [];
