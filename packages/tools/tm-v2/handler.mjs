@@ -8,7 +8,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
-import { configure } from '@rickcedwhat/playwright-smart-vision';
+import { configure } from '@rickcedwhat/playwright-smart-vision/configure';
 import { applyScreen, detectScreen, writeBoxes, writeScreenCatalog, patchElementOptions, patchPartOptions } from '@rickcedwhat/playwright-smart-vision/author';
 
 export const TM_V2_BASE = '/template-manager';
