@@ -282,6 +282,7 @@ let hoverKey = '';
 let pinnedKey = '';
 let selectedPartName = null;
 let selectedPartElement = null;
+let stageZoom = 1;
 let draw = null;
 let savingBoxes = false;
 let detectTool = 'draw';
@@ -616,7 +617,7 @@ function inspectInfo(key) {
   return null;
 }
 
-function drawSourceRect(canvas, rect, maxW, overlays) {
+function drawSourceRect(canvas, rect, maxW, overlays, activePart) {
   if (!canvas || !rect || !blank.naturalWidth) return;
   const pad = 6;
   const sx = Math.max(0, rect.x - pad);
@@ -633,10 +634,24 @@ function drawSourceRect(canvas, rect, maxW, overlays) {
   ctx.lineWidth = 1;
   ctx.strokeRect((rect.x - sx) * scale, (rect.y - sy) * scale, rect.width * scale, rect.height * scale);
   if (overlays && overlays.length) {
-    ctx.strokeStyle = '#6af';
     for (const part of overlays) {
-      ctx.strokeRect((part.x - sx) * scale, (part.y - sy) * scale, part.width * scale, part.height * scale);
+      const isActive = activePart && part.name === activePart;
+      const px = (part.x - sx) * scale;
+      const py = (part.y - sy) * scale;
+      const pw = part.width * scale;
+      const ph = part.height * scale;
+      if (isActive) {
+        ctx.fillStyle = 'rgba(100,170,255,0.25)';
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeStyle = '#6af';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.strokeStyle = activePart ? 'rgba(100,170,255,0.35)' : '#6af';
+        ctx.lineWidth = 1;
+      }
+      ctx.strokeRect(px, py, pw, ph);
     }
+    ctx.lineWidth = 1;
   }
 }
 
@@ -873,7 +888,7 @@ function updatePartFocus(partsEl, info, parent, el) {
   const screenPart = selectedPartName ? info.parts.find((p) => p.name === selectedPartName) : null;
   const rawPart = selectedPartName ? (el && el.parts || []).find((p) => p.name === selectedPartName) : null;
   if (screenPart) {
-    drawSourceRect(mainCanvas, screenPart, 280, []);
+    drawSourceRect(mainCanvas, parent, 280, info.parts, selectedPartName);
     focusLabel.textContent = selectedPartName;
     focusSizeEl.textContent = rawPart ? `${rawPart.width} x ${rawPart.height}` : '';
     focusDiv.hidden = false;
@@ -1484,6 +1499,47 @@ Promise.all([loadSettings(), loadCharsets()])
   .catch(handleApiError);
 
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
+
+// Stage zoom via ctrl+wheel / trackpad pinch
+(function () {
+  const mainEl = document.getElementById('main');
+  const stageEl = document.getElementById('stage');
+  if (!mainEl || !stageEl) return;
+  function applyZoom(cx, cy) {
+    // cx/cy are client coords of the zoom center relative to mainEl
+    const rect = mainEl.getBoundingClientRect();
+    const ox = cx - rect.left + mainEl.scrollLeft;
+    const oy = cy - rect.top + mainEl.scrollTop;
+    // After scaling, keep the point under cursor in the same viewport position
+    stageEl.style.transformOrigin = '0 0';
+    stageEl.style.transform = `scale(${stageZoom})`;
+    // Adjust scroll to keep focal point fixed
+    mainEl.scrollLeft = ox * stageZoom - (cx - rect.left);
+    mainEl.scrollTop  = oy * stageZoom - (cy - rect.top);
+    // Expand the scroll area so the browser lets us scroll into the zoomed content
+    const img = stageEl.querySelector('img');
+    const baseW = img ? img.naturalWidth  : stageEl.scrollWidth / stageZoom;
+    const baseH = img ? img.naturalHeight : stageEl.scrollHeight / stageZoom;
+    stageEl.style.width  = Math.round(baseW * stageZoom) + 'px';
+    stageEl.style.height = Math.round(baseH * stageZoom) + 'px';
+  }
+  mainEl.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const delta = e.deltaY !== 0 ? e.deltaY : -e.deltaX;
+    const factor = delta < 0 ? 1.1 : 1 / 1.1;
+    stageZoom = Math.max(0.25, Math.min(8, stageZoom * factor));
+    applyZoom(e.clientX, e.clientY);
+  }, { passive: false });
+  // Double-click to reset
+  mainEl.addEventListener('dblclick', (e) => {
+    if (e.target !== mainEl && !stageEl.contains(e.target)) return;
+    stageZoom = 1;
+    stageEl.style.transform = '';
+    stageEl.style.width = '';
+    stageEl.style.height = '';
+  });
+})();
 </script>
 </body>
 </html>
