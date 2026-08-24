@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen, clearConfigUnhoverPoint } from './configure.js';
+import { loadScreen, clearConfigUnhoverPoint, configure } from './configure.js';
 import { clearScreenHandlers } from './screen-handler.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
@@ -155,6 +155,10 @@ export async function init(options: InitOptions): Promise<void> {
     await options.page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   } catch {
     // clipboard is optional until a field sets read: 'clipboard'
+  }
+
+  if (options.storage) {
+    await configure({ storage: options.storage });
   }
 
   if (options.devtools) {
