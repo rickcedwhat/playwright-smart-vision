@@ -102,9 +102,14 @@
   .stage.erase-mode.drawing { cursor: cell; }
   .box.erase { border-color: #fa6; background: rgba(255,100,40,.22); }
   .inspect-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-  .inspect-part { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .inspect-part { display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; border: 1px solid transparent; border-radius: 3px; padding: 2px; }
+  .inspect-part:hover { border-color: #444; }
+  .inspect-part.active { border-color: #6af; background: rgba(100,170,255,.08); }
   .inspect-part canvas { max-width: 100%; }
   .inspect-part span { color: #aaa; font-size: 11px; }
+  #popPartFocus { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 0; padding: 4px 6px; background: rgba(100,170,255,.07); border-left: 2px solid #6af; border-radius: 0 3px 3px 0; font-size: 11px; }
+  #popPartFocusLabel { color: #6af; font-weight: 500; }
+  #popPartFocusSize { color: #666; }
   #pop dl { margin: 8px 0 0; display: grid; grid-template-columns: 52px 1fr; gap: 4px 8px; }
   #pop dt { color: #888; }
   #pop dd { margin: 0; word-break: break-word; }
@@ -201,6 +206,10 @@
   <div id="detailPlaceholder">Click an element to inspect</div>
   <div id="pop" hidden>
     <canvas id="popCanvas"></canvas>
+    <div id="popPartFocus" hidden>
+      <span id="popPartFocusLabel"></span>
+      <span id="popPartFocusSize"></span>
+    </div>
     <div class="inspect-parts" id="popParts"></div>
     <dl>
       <dt>name</dt><dd id="popName"></dd>
@@ -261,6 +270,8 @@ let selectedScreen = '';
 let selectedFile = '';
 let hoverKey = '';
 let pinnedKey = '';
+let selectedPartName = null;
+let selectedPartElement = null;
 let draw = null;
 let savingBoxes = false;
 let detectTool = 'draw';
@@ -840,6 +851,28 @@ function syncOverflowVisibility() {
   document.getElementById('overflowLabel').hidden = isClipboard;
 }
 
+function updatePartFocus(partsEl, info, parent, el) {
+  const focusDiv = document.getElementById('popPartFocus');
+  const focusLabel = document.getElementById('popPartFocusLabel');
+  const focusSizeEl = document.getElementById('popPartFocusSize');
+  const mainCanvas = document.getElementById('popCanvas');
+  for (const wrap of partsEl.children) {
+    const lbl = wrap.querySelector('span');
+    wrap.classList.toggle('active', lbl && lbl.textContent === selectedPartName);
+  }
+  const screenPart = selectedPartName ? info.parts.find((p) => p.name === selectedPartName) : null;
+  if (screenPart) {
+    drawSourceRect(mainCanvas, screenPart, 280, []);
+    focusLabel.textContent = selectedPartName;
+    const rawPart = el && (el.parts || []).find((p) => p.name === selectedPartName);
+    focusSizeEl.textContent = rawPart ? `${rawPart.width} × ${rawPart.height}` : '';
+    focusDiv.hidden = false;
+  } else {
+    drawSourceRect(mainCanvas, parent, 280, info.parts);
+    focusDiv.hidden = true;
+  }
+}
+
 function renderPop() {
   if (view !== 'catalog') {
     hidePop();
@@ -867,9 +900,12 @@ function renderPop() {
   renderSwapRows(document.getElementById('popSwaps'), el.swaps);
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
-  drawSourceRect(document.getElementById('popCanvas'), parent, 280, info.parts);
   const partsEl = document.getElementById('popParts');
   partsEl.innerHTML = '';
+  if (el.name !== selectedPartElement) {
+    selectedPartName = null;
+    selectedPartElement = el.name;
+  }
   for (const part of info.parts) {
     const wrap = document.createElement('div');
     wrap.className = 'inspect-part';
@@ -880,7 +916,12 @@ function renderPop() {
     wrap.appendChild(label);
     partsEl.appendChild(wrap);
     drawSourceRect(canvas, part, 140, []);
+    wrap.addEventListener('click', () => {
+      selectedPartName = selectedPartName === part.name ? null : part.name;
+      updatePartFocus(partsEl, info, parent, el);
+    });
   }
+  updatePartFocus(partsEl, info, parent, el);
 }
 
 wireSwapContainer(document.getElementById('popSwaps'));
