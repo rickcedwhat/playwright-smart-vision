@@ -5,6 +5,7 @@ import { writeScreenCatalog } from './catalog.js';
 import { screenDir } from './storage.js';
 
 export interface ElementOptionsPatch {
+  type?: string | null;
   charset?: string | null;
   swaps?: Record<string, string | string[]> | null;
   overflow?: string | null;
@@ -31,6 +32,13 @@ function applyPatchToRecord(
   target: Record<string, unknown>,
   patch: ElementOptionsPatch,
 ): void {
+  if ('type' in patch) {
+    if (patch.type == null || patch.type === '') {
+      delete target.type;
+    } else {
+      target.type = patch.type;
+    }
+  }
   if ('charset' in patch) {
     if (patch.charset == null || patch.charset === '' || patch.charset === 'auto') {
       delete target.charset;

@@ -213,11 +213,21 @@
     <div class="inspect-parts" id="popParts"></div>
     <dl>
       <dt>name</dt><dd id="popName"></dd>
-      <dt>type</dt><dd id="popType"></dd>
       <dt>section</dt><dd id="popSection"></dd>
       <dt>parts</dt><dd id="popPartNames"></dd>
     </dl>
     <div id="popOpts">
+      <label>Type
+        <select id="popType">
+          <option value="field">field</option>
+          <option value="dropdown">dropdown</option>
+          <option value="button">button</option>
+          <option value="checkbox">checkbox</option>
+          <option value="tab">tab</option>
+          <option value="icon">icon</option>
+          <option value="other">other</option>
+        </select>
+      </label>
       <label>Charset
         <select id="popCharset"></select>
       </label>
@@ -870,7 +880,8 @@ function updatePartFocus(partsEl, info, parent, el) {
     // Part-level metadata
     document.getElementById('popName').textContent = selectedPartName;
     const fpEl = (state.firstPass && state.firstPass.elements || []).find((e) => e.name === selectedPartName);
-    document.getElementById('popType').textContent = fpEl ? (fpEl.type || '—') : '—';
+    const partType = rawPart && rawPart.type || (fpEl && fpEl.type) || el.type || 'field';
+    document.getElementById('popType').value = partType;
     document.getElementById('popSection').textContent = '—';
     document.getElementById('popPartNames').textContent = '—';
     // Part-level options
@@ -885,7 +896,7 @@ function updatePartFocus(partsEl, info, parent, el) {
     focusDiv.hidden = true;
     // Restore parent metadata
     document.getElementById('popName').textContent = info.name || 'unnamed';
-    document.getElementById('popType').textContent = info.type || '—';
+    document.getElementById('popType').value = el.type || 'field';
     document.getElementById('popSection').textContent = info.section || '—';
     document.getElementById('popPartNames').textContent = info.partNames || '—';
     // Restore parent options
@@ -914,10 +925,10 @@ function renderPop() {
   document.getElementById('detailPlaceholder').hidden = true;
   popEl.hidden = false;
   document.getElementById('popName').textContent = info.name || 'unnamed';
-  document.getElementById('popType').textContent = info.type || '—';
   document.getElementById('popSection').textContent = info.section || '—';
   document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
+  document.getElementById('popType').value = el.type || 'field';
   fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
   document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
@@ -969,6 +980,7 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
       body: JSON.stringify({
         element,
         ...(part ? { part } : {}),
+        type: document.getElementById('popType').value,
         charset,
         read,
         overflow: overflow || null,

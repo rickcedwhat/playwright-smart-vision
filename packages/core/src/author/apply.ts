@@ -21,6 +21,7 @@ import { writeScreenCatalog } from './catalog.js';
 
 export interface FirstPassPart {
   name: string;
+  type?: string;
   /** Detected box. Omit to split the parent field box left-to-right. */
   boxId?: number;
   /** Optional 0–1 span of the parent field union when boxId is omitted. */
@@ -91,6 +92,7 @@ export interface AppliedElement {
   ocrRect?: { x: number; y: number; width: number; height: number };
   parts?: Array<{
     name: string;
+    type?: string;
     x: number;
     y: number;
     width: number;
@@ -225,10 +227,12 @@ function resolveParts(
       name: part.name,
       ...relativeToCrop(rect, crop),
     };
+    const type = part.type ?? prev?.type;
     const charset = part.charset ?? prev?.charset;
     const swaps = part.swaps ?? prev?.swaps;
     const overflow = part.overflow ?? prev?.overflow;
     const read = part.read ?? prev?.read;
+    if (type) row.type = type;
     if (charset) row.charset = charset;
     if (swaps) row.swaps = swaps;
     if (overflow) row.overflow = overflow;
