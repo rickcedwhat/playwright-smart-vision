@@ -305,18 +305,21 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   }
   const absorbedSections = new Set<string>();
   const syntheticElements: FirstPassElement[] = [];
+  const usedParentNames = new Set<string>();
   for (const sec of pass.sections || []) {
     const members = membersBySection.get(sec.name);
     if (!members?.length) continue;
     absorbedSections.add(sec.name);
     const parentName = sec.name.replace(/Section$/, '') || sec.name;
+    if (usedParentNames.has(parentName)) continue; // skip duplicates silently
+    usedParentNames.add(parentName);
     const allLabelIds = [...new Set(members.flatMap((m) => m.labelIds ?? []))];
     syntheticElements.push({
       name: parentName,
       type: 'other',
       boxIds: sec.boxIds,
       labelIds: allLabelIds,
-      parts: members.map((m) => ({ name: m.name, ...(m.boxIds[0] != null ? { boxId: m.boxIds[0] } : {}) })),
+      parts: members.map((m) => ({ name: m.name, ...((m.boxIds ?? [])[0] != null ? { boxId: (m.boxIds ?? [])[0] } : {}) })),
     });
   }
 
@@ -379,7 +382,7 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     if (read) applied.read = read;
     if (el.options?.length) applied.options = el.options;
     if (el.section) applied.section = sectionFile.get(el.section) || el.section;
-    if (fieldBoxes.length) applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
+    if (fieldBoxes.length && el.type !== 'other') applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
     if (parts.length) applied.parts = parts;
     elements.push(applied);
   }
