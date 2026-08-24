@@ -1510,22 +1510,22 @@ Promise.all([loadSettings(), loadCharsets()])
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 
 // Stage zoom via ctrl+wheel / trackpad pinch.
-// Sets stage width explicitly: img has max-width:100% so it fills the stage,
-// and blank.clientWidth then reflects the zoomed size for paint() overlays.
+// stageZoom is relative to the initial viewport-fit width (not natural width),
+// captured on first zoom so the first pinch step is always a small increment.
 (function () {
   const mainEl = document.getElementById('main');
   const stageEl = document.getElementById('stage');
   if (!mainEl || !stageEl) return;
+  let baseW = 0; // viewport-fit width captured on first zoom
   function applyZoom(cx, cy) {
+    if (!baseW) baseW = blank.clientWidth || blank.naturalWidth;
+    const prevW = stageEl.style.width ? parseInt(stageEl.style.width) : baseW;
+    const newW = Math.round(baseW * stageZoom);
     const rect = mainEl.getBoundingClientRect();
-    const prevW = stageEl.clientWidth || blank.naturalWidth;
-    const newW = Math.round(blank.naturalWidth * stageZoom);
-    // Point in stage coords under cursor (before resize)
     const ox = cx - rect.left + mainEl.scrollLeft;
     const oy = cy - rect.top  + mainEl.scrollTop;
     stageEl.style.width = newW + 'px';
     stageEl.style.minWidth = newW + 'px';
-    // Keep focal point fixed
     const ratio = newW / prevW;
     mainEl.scrollLeft = ox * ratio - (cx - rect.left);
     mainEl.scrollTop  = oy * ratio - (cy - rect.top);
@@ -1534,12 +1534,13 @@ document.getElementById('authBannerClose').addEventListener('click', () => showA
   mainEl.addEventListener('wheel', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    stageZoom = Math.max(0.5, Math.min(3, stageZoom * Math.pow(0.998, e.deltaY)));
+    stageZoom = Math.max(0.5, Math.min(3, stageZoom * Math.pow(0.996, e.deltaY)));
     applyZoom(e.clientX, e.clientY);
   }, { passive: false });
-  // Double-click resets
+  // Double-click resets to fit
   mainEl.addEventListener('dblclick', () => {
     stageZoom = 1;
+    baseW = 0;
     stageEl.style.width = '';
     stageEl.style.minWidth = '';
     paint();
