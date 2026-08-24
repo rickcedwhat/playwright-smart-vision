@@ -52,15 +52,17 @@ Return **only** JSON:
 
    **Clusters**: A cluster lists box IDs that are spatially adjacent on the same visual row. Use them as a hint that those boxes may form a single logical control (a multi-cell field, a button group, a tab bar — whatever fits the screen). They're geometric, not semantic: interpret each cluster in context.
 
-2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{row}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply crops the section as that union and uses it as each member’s match template so the small box is not a tiny needle.
+2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{groupName}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply merges the members into one parent element (named `{groupName}`, stripping "Section") with named parts, so each small sub-element gets a correct relative position within the template.
+
+   **Naming:** the section name (`{groupName}Section`) determines the parent element name. Member element names must be **short descriptive suffixes only** — do NOT prefix them with the group name. The suffix becomes the part name in the final API (`screen.{groupName}.{suffix}`).
 
    ```json
    { "name": "primaryContactSection", "boxIds": [34, 35] }
-   { "name": "primaryContactMethod", "type": "dropdown", "section": "primaryContactSection", "boxIds": [34], "labelIds": [23] }
-   { "name": "primaryContactField", "type": "field", "section": "primaryContactSection", "boxIds": [35] }
+   { "name": "method", "type": "dropdown", "section": "primaryContactSection", "boxIds": [34], "labelIds": [23] }
+   { "name": "flag", "type": "other", "section": "primaryContactSection", "boxIds": [35] }
    { "name": "warrantyRepairSection", "boxIds": [57, 58] }
-   { "name": "warrantyRepair", "type": "dropdown", "section": "warrantyRepairSection", "boxIds": [57] }
-   { "name": "warrantyCode", "type": "field", "section": "warrantyRepairSection", "boxIds": [58] }
+   { "name": "type", "type": "dropdown", "section": "warrantyRepairSection", "boxIds": [57] }
+   { "name": "code", "type": "field", "section": "warrantyRepairSection", "boxIds": [58] }
    ```
 
 3. **Parts are only same-kind cells of one control.** Detect may emit one box per cell (mm / dd / yy, first / MI / last, phone segments). That is one element, several `boxIds`, `parts` with a `boxId` for each cell. Do not invent coordinates. Do not use parts for a dropdown+field pair.
