@@ -102,9 +102,14 @@
   .stage.erase-mode.drawing { cursor: cell; }
   .box.erase { border-color: #fa6; background: rgba(255,100,40,.22); }
   .inspect-parts { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-  .inspect-part { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .inspect-part { display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; border: 1px solid transparent; border-radius: 3px; padding: 2px; }
+  .inspect-part:hover { border-color: #444; }
+  .inspect-part.active { border-color: #6af; background: rgba(100,170,255,.08); }
   .inspect-part canvas { max-width: 100%; }
   .inspect-part span { color: #aaa; font-size: 11px; }
+  #popPartFocus { display: flex; align-items: baseline; gap: 8px; margin: 4px 0 0; padding: 4px 6px; background: rgba(100,170,255,.07); border-left: 2px solid #6af; border-radius: 0 3px 3px 0; font-size: 11px; }
+  #popPartFocusLabel { color: #6af; font-weight: 500; }
+  #popPartFocusSize { color: #666; }
   #pop dl { margin: 8px 0 0; display: grid; grid-template-columns: 52px 1fr; gap: 4px 8px; }
   #pop dt { color: #888; }
   #pop dd { margin: 0; word-break: break-word; }
@@ -201,14 +206,28 @@
   <div id="detailPlaceholder">Click an element to inspect</div>
   <div id="pop" hidden>
     <canvas id="popCanvas"></canvas>
+    <div id="popPartFocus" hidden>
+      <span id="popPartFocusLabel"></span>
+      <span id="popPartFocusSize"></span>
+    </div>
     <div class="inspect-parts" id="popParts"></div>
     <dl>
       <dt>name</dt><dd id="popName"></dd>
-      <dt>type</dt><dd id="popType"></dd>
-      <dt>section</dt><dd id="popSection"></dd>
-      <dt>parts</dt><dd id="popPartNames"></dd>
+      <dt id="popSectionDt">section</dt><dd id="popSection"></dd>
+      <dt id="popPartNamesDt">parts</dt><dd id="popPartNames"></dd>
     </dl>
     <div id="popOpts">
+      <label>Type
+        <select id="popType">
+          <option value="field">field</option>
+          <option value="dropdown">dropdown</option>
+          <option value="button">button</option>
+          <option value="checkbox">checkbox</option>
+          <option value="tab">tab</option>
+          <option value="icon">icon</option>
+          <option value="other">other</option>
+        </select>
+      </label>
       <label>Charset
         <select id="popCharset"></select>
       </label>
@@ -261,6 +280,10 @@ let selectedScreen = '';
 let selectedFile = '';
 let hoverKey = '';
 let pinnedKey = '';
+let selectedPartName = null;
+let selectedPartElement = null;
+let stageZoom = 1;
+let stageBaseW = 0; // viewport-fit width; reset on screen navigation
 let draw = null;
 let savingBoxes = false;
 let detectTool = 'draw';
@@ -595,7 +618,7 @@ function inspectInfo(key) {
   return null;
 }
 
-function drawSourceRect(canvas, rect, maxW, overlays) {
+function drawSourceRect(canvas, rect, maxW, overlays, activePart) {
   if (!canvas || !rect || !blank.naturalWidth) return;
   const pad = 6;
   const sx = Math.max(0, rect.x - pad);
@@ -612,10 +635,24 @@ function drawSourceRect(canvas, rect, maxW, overlays) {
   ctx.lineWidth = 1;
   ctx.strokeRect((rect.x - sx) * scale, (rect.y - sy) * scale, rect.width * scale, rect.height * scale);
   if (overlays && overlays.length) {
-    ctx.strokeStyle = '#6af';
     for (const part of overlays) {
-      ctx.strokeRect((part.x - sx) * scale, (part.y - sy) * scale, part.width * scale, part.height * scale);
+      const isActive = activePart && part.name === activePart;
+      const px = (part.x - sx) * scale;
+      const py = (part.y - sy) * scale;
+      const pw = part.width * scale;
+      const ph = part.height * scale;
+      if (isActive) {
+        ctx.fillStyle = 'rgba(100,170,255,0.25)';
+        ctx.fillRect(px, py, pw, ph);
+        ctx.strokeStyle = '#6af';
+        ctx.lineWidth = 2;
+      } else {
+        ctx.strokeStyle = activePart ? 'rgba(100,170,255,0.35)' : '#6af';
+        ctx.lineWidth = 1;
+      }
+      ctx.strokeRect(px, py, pw, ph);
     }
+    ctx.lineWidth = 1;
   }
 }
 
@@ -835,9 +872,66 @@ function catalogElement(key) {
 }
 
 
+function setMetaRow(dtId, ddId, value) {
+  const dd = document.getElementById(ddId);
+  const dt = document.getElementById(dtId);
+  const show = value && value !== '—';
+  dd.textContent = show ? value : '';
+  if (dt) dt.hidden = !show;
+  dd.hidden = !show;
+}
+
 function syncOverflowVisibility() {
   const isClipboard = document.getElementById('popRead').value === 'clipboard';
   document.getElementById('overflowLabel').hidden = isClipboard;
+}
+
+function updatePartFocus(partsEl, info, parent, el) {
+  const focusDiv = document.getElementById('popPartFocus');
+  const focusLabel = document.getElementById('popPartFocusLabel');
+  const focusSizeEl = document.getElementById('popPartFocusSize');
+  const mainCanvas = document.getElementById('popCanvas');
+  for (const wrap of partsEl.children) {
+    const lbl = wrap.querySelector('span');
+    wrap.classList.toggle('active', lbl && lbl.textContent === selectedPartName);
+  }
+  const screenPart = selectedPartName ? info.parts.find((p) => p.name === selectedPartName) : null;
+  const rawPart = selectedPartName ? (el && el.parts || []).find((p) => p.name === selectedPartName) : null;
+  if (screenPart) {
+    drawSourceRect(mainCanvas, parent, 280, info.parts, selectedPartName);
+    focusLabel.textContent = selectedPartName;
+    focusSizeEl.textContent = rawPart ? `${rawPart.width} x ${rawPart.height}` : '';
+    focusDiv.hidden = false;
+    // Part-level metadata
+    document.getElementById('popName').textContent = selectedPartName;
+    const fpEl = (state.firstPass && state.firstPass.elements || []).find((e) => e.name === selectedPartName);
+    const partType = (rawPart?.type ?? (fpEl?.type ?? (el.type ?? 'field')));
+    document.getElementById('popType').value = partType;
+    setMetaRow('popSectionDt', 'popSection', null);
+    setMetaRow('popPartNamesDt', 'popPartNames', null);
+    // Part-level options
+    fillCharsetSelect(document.getElementById('popCharset'), (rawPart && rawPart.charset) || 'text');
+    document.getElementById('popRead').value = rawPart && rawPart.read != null ? rawPart.read : 'ocr';
+    document.getElementById('popOverflow').value = (rawPart && rawPart.overflow) || '';
+    syncOverflowVisibility();
+    renderSwapRows(document.getElementById('popSwaps'), rawPart && rawPart.swaps);
+    popEl.dataset.part = selectedPartName;
+  } else {
+    drawSourceRect(mainCanvas, parent, 280, info.parts);
+    focusDiv.hidden = true;
+    // Restore parent metadata
+    document.getElementById('popName').textContent = info.name || 'unnamed';
+    document.getElementById('popType').value = el.type || 'field';
+    setMetaRow('popSectionDt', 'popSection', info.section);
+    setMetaRow('popPartNamesDt', 'popPartNames', info.partNames);
+    // Restore parent options
+    fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
+    document.getElementById('popRead').value = el.read != null ? el.read : (el.type === 'field' ? 'clipboard' : 'ocr');
+    document.getElementById('popOverflow').value = el.overflow || '';
+    syncOverflowVisibility();
+    renderSwapRows(document.getElementById('popSwaps'), el.swaps);
+    delete popEl.dataset.part;
+  }
 }
 
 function renderPop() {
@@ -855,10 +949,6 @@ function renderPop() {
   }
   document.getElementById('detailPlaceholder').hidden = true;
   popEl.hidden = false;
-  document.getElementById('popName').textContent = info.name || 'unnamed';
-  document.getElementById('popType').textContent = info.type || '—';
-  document.getElementById('popSection').textContent = info.section || '—';
-  document.getElementById('popPartNames').textContent = info.partNames || '—';
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
   fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
   document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
@@ -867,9 +957,12 @@ function renderPop() {
   renderSwapRows(document.getElementById('popSwaps'), el.swaps);
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
-  drawSourceRect(document.getElementById('popCanvas'), parent, 280, info.parts);
   const partsEl = document.getElementById('popParts');
   partsEl.innerHTML = '';
+  if (el.name !== selectedPartElement) {
+    selectedPartName = null;
+    selectedPartElement = el.name;
+  }
   for (const part of info.parts) {
     const wrap = document.createElement('div');
     wrap.className = 'inspect-part';
@@ -880,7 +973,12 @@ function renderPop() {
     wrap.appendChild(label);
     partsEl.appendChild(wrap);
     drawSourceRect(canvas, part, 140, []);
+    wrap.addEventListener('click', () => {
+      selectedPartName = selectedPartName === part.name ? null : part.name;
+      updatePartFocus(partsEl, info, parent, el);
+    });
   }
+  updatePartFocus(partsEl, info, parent, el);
 }
 
 wireSwapContainer(document.getElementById('popSwaps'));
@@ -896,11 +994,14 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
     const read = document.getElementById('popRead').value;
     const overflow = document.getElementById('popOverflow').value;
     const swaps = rowsToSwaps(document.getElementById('popSwaps'));
+    const part = popEl.dataset.part || '';
     const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         element,
+        ...(part ? { part } : {}),
+        type: document.getElementById('popType').value,
         charset,
         read,
         overflow: overflow || null,
@@ -908,9 +1009,20 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
       }),
     });
     const idx = state.elements.findIndex((item) => item.name === element);
-    // Replace wholesale so cleared charset/read/swaps do not linger from prior state.
-    if (idx >= 0) state.elements[idx] = out.index;
-    setStatus('Saved options for ' + element);
+    if (idx >= 0) {
+      if (part) {
+        // out.index is a part record; update only the matching part to avoid clobbering the element.
+        const elParts = state.elements[idx].parts || [];
+        const pIdx = elParts.findIndex((p) => p.name === part);
+        if (pIdx >= 0) elParts[pIdx] = out.index;
+        else elParts.push(out.index);
+        state.elements[idx].parts = elParts;
+      } else {
+        // Replace wholesale so cleared charset/read/swaps do not linger from prior state.
+        state.elements[idx] = out.index;
+      }
+    }
+    setStatus('Saved options for ' + (part ? element + '.' + part : element));
     renderPop();
   } catch (err) {
     toast(err.message || String(err));
@@ -928,6 +1040,10 @@ async function loadScreen(name, opts = {}) {
   if (!opts.keepFile) selectedFile = '';
   pinnedKey = '';
   hoverKey = '';
+  stageZoom = 1;
+  stageBaseW = 0;
+  const _stEl = document.getElementById('stage');
+  if (_stEl) { _stEl.style.width = ''; _stEl.style.minWidth = ''; }
   const data = await api('/api/screen?name=' + encodeURIComponent(name));
   state = {
     name,
@@ -1404,6 +1520,49 @@ Promise.all([loadSettings(), loadCharsets()])
   .catch(handleApiError);
 
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
+
+// Stage zoom via ctrl+wheel / trackpad pinch.
+// stageZoom and stageBaseW are module-level globals so loadScreen can reset them.
+let _paintPending = false;
+function deferPaint() {
+  if (_paintPending) return;
+  _paintPending = true;
+  requestAnimationFrame(() => { _paintPending = false; paint(); });
+}
+(function () {
+  const mainEl = document.getElementById('main');
+  const stageEl = document.getElementById('stage');
+  if (!mainEl || !stageEl) return;
+  function applyZoom(cx, cy) {
+    if (!stageBaseW) stageBaseW = blank.clientWidth || blank.naturalWidth;
+    if (!stageBaseW) return; // no screen loaded yet
+    const prevW = stageEl.style.width ? parseInt(stageEl.style.width) : stageBaseW;
+    const newW = Math.round(stageBaseW * stageZoom);
+    const rect = mainEl.getBoundingClientRect();
+    const ox = cx - rect.left + mainEl.scrollLeft;
+    const oy = cy - rect.top  + mainEl.scrollTop;
+    stageEl.style.width = newW + 'px';
+    stageEl.style.minWidth = newW + 'px';
+    const ratio = newW / prevW;
+    mainEl.scrollLeft = ox * ratio - (cx - rect.left);
+    mainEl.scrollTop  = oy * ratio - (cy - rect.top);
+    deferPaint();
+  }
+  mainEl.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    stageZoom = Math.max(0.5, Math.min(3, stageZoom * Math.pow(0.996, e.deltaY)));
+    applyZoom(e.clientX, e.clientY);
+  }, { passive: false });
+  // Double-click resets to fit
+  mainEl.addEventListener('dblclick', () => {
+    stageZoom = 1;
+    stageBaseW = 0;
+    stageEl.style.width = '';
+    stageEl.style.minWidth = '';
+    paint();
+  });
+})();
 </script>
 </body>
 </html>

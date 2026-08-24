@@ -532,6 +532,7 @@ async function handleInternal(req, res, url) {
       return;
     }
     const patch = {
+      ...('type' in body && { type: body.type }),
       ...('charset' in body && { charset: body.charset }),
       ...('swaps' in body && { swaps: body.swaps }),
       ...('overflow' in body && { overflow: body.overflow }),

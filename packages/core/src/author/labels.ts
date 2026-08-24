@@ -62,8 +62,14 @@ export function clusterOcrWords(words: OcrWord[], maxGap = 16): OcrWord[] {
   });
 }
 
-/** Turn OCR words into label boxes the AI can join to controls. Drops chrome inside fields/buttons. */
-export function labelsFromOcr(words: OcrWord[], boxes: DetectedBox[]): DetectedLabel[] {
+/**
+ * Turn OCR words into label boxes the AI can join to controls, and collect any
+ * text found inside control boxes (button/dropdown/tab labels on the blank form).
+ */
+export function labelsAndValuesFromOcr(
+  words: OcrWord[],
+  boxes: DetectedBox[],
+): { labels: DetectedLabel[]; boxValues: Map<number, string> } {
   const usable = words.filter((word) => {
     if (word.width < 4 || word.height < 5 || word.height > 48) return false;
     const letters = letterCount(word.text);
@@ -74,17 +80,30 @@ export function labelsFromOcr(words: OcrWord[], boxes: DetectedBox[]): DetectedL
     return letters >= 4 && word.width >= 24;
   });
   const clustered = clusterOcrWords(usable);
+  // Track phrase count per box: a value assembled from multiple separate OCR clusters
+  // may have wrong word order (stacked button labels read top-to-bottom) — kept only when
+  // all text came from a single cluster so left-to-right order is guaranteed.
+  const boxPhrases = new Map<number, { text: string; count: number }>();
   const kept = clustered.filter((label) => {
     const text = cleanText(label.text);
     if (letterCount(text) < 2 || text.length > 80) return false;
     if (/^\/?[A-Za-z]{1,2}\/?$/.test(text)) return false;
     if (label.width > 420) return false;
-    if (boxes.some((box) => containedRatio(label, box) >= 0.55 || centerInside(label, box))) return false;
+    const insideBox = boxes.find((box) => containedRatio(label, box) >= 0.55 || centerInside(label, box));
+    if (insideBox) {
+      // Only capture value when: the box is tall enough to be a real control, and the phrase
+      // is not wider than the box (which would indicate a neighbouring label bleeding in).
+      if (insideBox.height >= 18 && label.width <= insideBox.width * 1.5) {
+        const prev = boxPhrases.get(insideBox.id);
+        boxPhrases.set(insideBox.id, prev ? { text: `${prev.text} ${text}`, count: prev.count + 1 } : { text, count: 1 });
+      }
+      return false;
+    }
     // Checkboxes often sit inside the caption bbox; only drop if a field/button is inside.
     if (boxes.some((box) => box.width >= 40 && containedRatio(box, label) >= 0.45)) return false;
     return true;
   });
-  return kept
+  const labels = kept
     .sort((a, b) => a.y - b.y || a.x - b.x)
     .map((label, i) => ({
       id: i + 1,
@@ -95,6 +114,25 @@ export function labelsFromOcr(words: OcrWord[], boxes: DetectedBox[]): DetectedL
       text: cleanText(label.text),
       confidence: label.confidence,
     }));
+  // Build final box values: drop multi-phrase values (stacked labels with unreliable word order),
+  // drop noise, and strip leading icon glyph tokens.
+  const boxValues = new Map<number, string>();
+  for (const [id, { text, count }] of boxPhrases) {
+    if (count > 1) continue;
+    if (letterCount(text) < 3) continue;
+    // Strip leading tokens that look like icon glyph misreads: ≤3 chars with no lowercase letters.
+    const tokens = text.split(' ');
+    while (tokens.length > 1 && tokens[0]!.length <= 3 && !/[a-z]/.test(tokens[0]!)) tokens.shift();
+    const cleaned = tokens.join(' ');
+    if (letterCount(cleaned) < 3) continue;
+    boxValues.set(id, cleaned);
+  }
+  return { labels, boxValues };
+}
+
+/** Turn OCR words into label boxes the AI can join to controls. Drops chrome inside fields/buttons. */
+export function labelsFromOcr(words: OcrWord[], boxes: DetectedBox[]): DetectedLabel[] {
+  return labelsAndValuesFromOcr(words, boxes).labels;
 }
 
 export function tessBBox(bbox: { x0?: number; y0?: number; x1?: number; y1?: number; x?: number; y?: number; width?: number; height?: number } | undefined): OcrWord | null {

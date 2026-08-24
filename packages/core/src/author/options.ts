@@ -5,6 +5,7 @@ import { writeScreenCatalog } from './catalog.js';
 import { screenDir } from './storage.js';
 
 export interface ElementOptionsPatch {
+  type?: string | null;
   charset?: string | null;
   swaps?: Record<string, string | string[]> | null;
   overflow?: string | null;
@@ -31,6 +32,13 @@ function applyPatchToRecord(
   target: Record<string, unknown>,
   patch: ElementOptionsPatch,
 ): void {
+  if ('type' in patch) {
+    if (patch.type == null || patch.type === '') {
+      delete target.type;
+    } else {
+      target.type = patch.type;
+    }
+  }
   if ('charset' in patch) {
     if (patch.charset == null || patch.charset === '' || patch.charset === 'auto') {
       delete target.charset;
@@ -110,7 +118,7 @@ export function patchPartOptions(
   elementName: string,
   partName: string,
   patch: ElementOptionsPatch,
-): { firstPass: FirstPassPart; index: NonNullable<AppliedElement['parts']>[number] } {
+): { firstPass: FirstPassPart | undefined; index: NonNullable<AppliedElement['parts']>[number] } {
   const dir = screenDir(screenName);
   const firstPassPath = path.join(dir, 'first-pass.json');
   const indexPath = path.join(dir, 'index.json');
@@ -119,16 +127,38 @@ export function patchPartOptions(
   }
 
   const firstPass = JSON.parse(fs.readFileSync(firstPassPath, 'utf8')) as FirstPass;
+  let fpPart: FirstPassPart | undefined;
   const fpEl = (firstPass.elements || []).find((el) => el.name === elementName);
-  if (!fpEl) throw new Error(`element "${elementName}" not in first-pass.json`);
-  if (!fpEl.parts) fpEl.parts = [];
-  let fpPart = fpEl.parts.find((part) => part.name === partName);
-  if (!fpPart) {
-    fpPart = { name: partName };
-    fpEl.parts.push(fpPart);
+  if (fpEl) {
+    // Standard element: update the named part in its parts array.
+    if (!fpEl.parts) fpEl.parts = [];
+    fpPart = fpEl.parts.find((part) => part.name === partName);
+    if (!fpPart) {
+      fpPart = { name: partName };
+      fpEl.parts.push(fpPart);
+    }
+    applyPatchToRecord(fpPart as unknown as Record<string, unknown>, patch);
+    fs.writeFileSync(firstPassPath, `${JSON.stringify(firstPass, null, 2)}\n`);
+  } else {
+    // Section-derived synthetic element: the member element itself is the part.
+    const sections = firstPass.sections || [];
+    const memberEl = (firstPass.elements || []).find(
+      (el) =>
+        el.section &&
+        el.name === partName &&
+        sections.some(
+          (sec) =>
+            (sec.name.replace(/Section$/, '') || sec.name) === elementName &&
+            sec.name === el.section,
+        ),
+    );
+    if (memberEl) {
+      applyPatchToRecord(memberEl as unknown as Record<string, unknown>, patch);
+      fs.writeFileSync(firstPassPath, `${JSON.stringify(firstPass, null, 2)}\n`);
+      fpPart = memberEl as unknown as FirstPassPart;
+    }
+    // If member not found, only index.json is updated below (best-effort for synthetic elements).
   }
-  applyPatchToRecord(fpPart as unknown as Record<string, unknown>, patch);
-  fs.writeFileSync(firstPassPath, `${JSON.stringify(firstPass, null, 2)}\n`);
 
   const index = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as {
     elements: AppliedElement[];

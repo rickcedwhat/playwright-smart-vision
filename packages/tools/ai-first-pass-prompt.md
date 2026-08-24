@@ -7,7 +7,7 @@ This is authoring only. Do not invent runtime matchers or API calls.
 ## Inputs
 
 1. **blank** and one or more **filled** shots (same width and height)
-2. **boxes.json** — `boxes` (controls) and `labels` (OCR captions). Each has `id, x, y, width, height`. Labels also have `text`.
+2. **boxes.json** — `boxes` (controls), `labels` (OCR captions), and optionally `clusters` (adjacent same-row box groups) and box `value` fields. Each box/label has `id, x, y, width, height`. Labels also have `text`. Box `value` is the text OCR found **inside** that box on the blank screenshot (button labels, tab titles, dropdown text). A `cluster` is a list of box IDs that are spatially adjacent on the same visual row — use them to identify multi-cell fields (phone triplets, date triplets, name cells) without relying solely on labels.
 3. **boxes-annotated.png** — red box IDs and gold `L{id}` label IDs on the blank
 4. Optional **focus** — only assign these controls
 
@@ -46,17 +46,23 @@ Return **only** JSON:
 
 ## Rules
 
-1. **Assign, do not draw.** Join existing rectangles. Apply crops the **union** of `boxIds` plus `labelIds`. Labels may sit left, above, right, or below the control — pick the gold `L{id}` that captions it. Buttons with text inside the red box usually need no `labelIds`. Do **not** assume the caption is to the left. Prefer `labelIds` over `"includeLabel": true` (legacy left-grow when Detect missed the caption).
+1. **Assign, do not draw.** Join existing rectangles. Apply crops the **union** of `boxIds` plus `labelIds`. Labels may sit left, above, right, or below the control — pick the gold `L{id}` that captions it. Buttons with text inside the red box (shown in box `value`) usually need no `labelIds`. Do **not** assume the caption is to the left. Prefer `labelIds` over `"includeLabel": true` (legacy left-grow when Detect missed the caption).
 
-2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{row}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply crops the section as that union and uses it as each member’s match template so the small box is not a tiny needle.
+   **Button values**: A box `value` shows what OCR read inside the box on the blank screenshot. Use it to name buttons and tabs. If a button wraps its label onto two lines, the value lists words top-to-bottom (display order), which may differ from the conventional name — use your knowledge of the application to pick the right camelCase name (e.g. `"Orders Repair"` → `repairOrders`). Values are not present for plain input fields (those are empty on the blank).
+
+   **Clusters**: A cluster lists box IDs that are spatially adjacent on the same visual row. Use them as a hint that those boxes may form a single logical control (a multi-cell field, a button group, a tab bar — whatever fits the screen). They're geometric, not semantic: interpret each cluster in context.
+
+2. **Dropdown glued to a field → section, not parts.** Two different controls (a list/combo and a value box) that sit on one row need a shared match region so the small one is not ambiguous. Emit a section named `{groupName}Section` with **both** `boxIds`, then **two elements** that share `"section": "thatName"`. No `parts`. Type each box from the screenshot: combo/list vs value cell. Do not assume wider = field or left = dropdown. Apply merges the members into one parent element (named `{groupName}`, stripping "Section") with named parts, so each small sub-element gets a correct relative position within the template.
+
+   **Naming:** the section name (`{groupName}Section`) determines the parent element name. Member element names must be **short descriptive suffixes only** — do NOT prefix them with the group name. The suffix becomes the part name in the final API (`screen.{groupName}.{suffix}`).
 
    ```json
    { "name": "primaryContactSection", "boxIds": [34, 35] }
-   { "name": "primaryContactMethod", "type": "dropdown", "section": "primaryContactSection", "boxIds": [34], "labelIds": [23] }
-   { "name": "primaryContactField", "type": "field", "section": "primaryContactSection", "boxIds": [35] }
+   { "name": "method", "type": "dropdown", "section": "primaryContactSection", "boxIds": [34], "labelIds": [23] }
+   { "name": "flag", "type": "other", "section": "primaryContactSection", "boxIds": [35] }
    { "name": "warrantyRepairSection", "boxIds": [57, 58] }
-   { "name": "warrantyRepair", "type": "dropdown", "section": "warrantyRepairSection", "boxIds": [57] }
-   { "name": "warrantyCode", "type": "field", "section": "warrantyRepairSection", "boxIds": [58] }
+   { "name": "type", "type": "dropdown", "section": "warrantyRepairSection", "boxIds": [57] }
+   { "name": "code", "type": "field", "section": "warrantyRepairSection", "boxIds": [58] }
    ```
 
 3. **Parts are only same-kind cells of one control.** Detect may emit one box per cell (mm / dd / yy, first / MI / last, phone segments). That is one element, several `boxIds`, `parts` with a `boxId` for each cell. Do not invent coordinates. Do not use parts for a dropdown+field pair.

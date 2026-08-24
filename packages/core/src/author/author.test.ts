@@ -88,7 +88,7 @@ describe('author apply + catalog', () => {
     expect(username).toMatchObject({ x: 590, y: 147, width: 204, height: 22 });
   });
 
-  it('applyScreen unions section boxes into the match crop and keeps overlay on the element', () => {
+  it('applyScreen absorbs section members into a synthetic parent element with parts', () => {
     const result = applyScreen(name, {
       screen: { name },
       sections: [{ name: 'pairSection', boxIds: [1, 2] }],
@@ -97,24 +97,21 @@ describe('author apply + catalog', () => {
         { name: 'narrow', type: 'field', section: 'pairSection', boxIds: [2] },
       ],
     });
-    const wide = result.elements.find((el) => el.name === 'wide')!;
-    const narrow = result.elements.find((el) => el.name === 'narrow')!;
-    expect(wide).toMatchObject({ x: 590, y: 147, width: 204, height: 22 });
-    expect(narrow).toMatchObject({ x: 590, y: 174, width: 204, height: 22 });
-    expect(wide.section).toBe('section-pair-section.png');
-    expect(narrow.section).toBe('section-pair-section.png');
-    expect(wide.ocrRect!.y).toBeLessThan(10);
-    expect(narrow.ocrRect!.y).toBeGreaterThan(20);
-    const index = JSON.parse(fs.readFileSync(result.indexPath, 'utf8')) as {
-      sections: Array<{ name: string; filename: string; x: number; y: number; width: number; height: number }>;
-    };
-    expect(index.sections[0]).toMatchObject({
-      name: 'pairSection',
-      filename: 'section-pair-section.png',
-      x: 588,
-      y: 145,
-    });
-    expect(index.sections[0]!.height).toBeGreaterThan(48);
+    // Absorbed members do not appear as top-level elements.
+    expect(result.elements.find((el) => el.name === 'wide')).toBeUndefined();
+    expect(result.elements.find((el) => el.name === 'narrow')).toBeUndefined();
+    // A synthetic parent element is created from the section name minus the 'Section' suffix.
+    const pair = result.elements.find((el) => el.name === 'pair')!;
+    expect(pair).toBeDefined();
+    expect(pair.type).toBe('other');
+    expect(pair.parts).toHaveLength(2);
+    expect(pair.parts![0]).toMatchObject({ name: 'wide' });
+    expect(pair.parts![1]).toMatchObject({ name: 'narrow' });
+    // Synthetic elements of type 'other' do not get an ocrRect (no single field to OCR).
+    expect(pair.ocrRect).toBeUndefined();
+    // Absorbed sections are not emitted into index.sections.
+    const index = JSON.parse(fs.readFileSync(result.indexPath, 'utf8')) as { sections: unknown[] };
+    expect(index.sections).toHaveLength(0);
   });
 
   it('applyScreen unions assigned labelIds into the crop', () => {

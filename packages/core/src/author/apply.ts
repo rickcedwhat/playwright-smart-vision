@@ -21,6 +21,7 @@ import { writeScreenCatalog } from './catalog.js';
 
 export interface FirstPassPart {
   name: string;
+  type?: string;
   /** Detected box. Omit to split the parent field box left-to-right. */
   boxId?: number;
   /** Optional 0–1 span of the parent field union when boxId is omitted. */
@@ -91,6 +92,7 @@ export interface AppliedElement {
   ocrRect?: { x: number; y: number; width: number; height: number };
   parts?: Array<{
     name: string;
+    type?: string;
     x: number;
     y: number;
     width: number;
@@ -225,10 +227,12 @@ function resolveParts(
       name: part.name,
       ...relativeToCrop(rect, crop),
     };
+    const type = part.type ?? prev?.type;
     const charset = part.charset ?? prev?.charset;
     const swaps = part.swaps ?? prev?.swaps;
     const overflow = part.overflow ?? prev?.overflow;
     const read = part.read ?? prev?.read;
+    if (type) row.type = type;
     if (charset) row.charset = charset;
     if (swaps) row.swaps = swaps;
     if (overflow) row.overflow = overflow;
@@ -288,10 +292,42 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
   fs.rmSync(tmplDir, { recursive: true, force: true });
   fs.mkdirSync(tmplDir, { recursive: true });
 
+  // Sections whose members should be merged into a single parent element with named parts.
+  // A section is absorbed when it has at least one member element; the parent name is the
+  // section name with the trailing "Section" suffix stripped.
+  const membersBySection = new Map<string, FirstPassElement[]>();
+  for (const el of pass.elements || []) {
+    if (el.section) {
+      const group = membersBySection.get(el.section) ?? [];
+      group.push(el);
+      membersBySection.set(el.section, group);
+    }
+  }
+  const absorbedSections = new Set<string>();
+  const syntheticElements: FirstPassElement[] = [];
+  const usedParentNames = new Set<string>();
+  for (const sec of pass.sections || []) {
+    const members = membersBySection.get(sec.name);
+    if (!members?.length) continue;
+    absorbedSections.add(sec.name);
+    const parentName = sec.name.replace(/Section$/, '') || sec.name;
+    if (usedParentNames.has(parentName)) continue; // skip duplicates silently
+    usedParentNames.add(parentName);
+    const allLabelIds = [...new Set(members.flatMap((m) => m.labelIds ?? []))];
+    syntheticElements.push({
+      name: parentName,
+      type: 'other',
+      boxIds: sec.boxIds,
+      labelIds: allLabelIds,
+      parts: members.map((m) => ({ name: m.name, ...((m.boxIds ?? [])[0] != null ? { boxId: (m.boxIds ?? [])[0] } : {}) })),
+    });
+  }
+
   const indexSections: AppliedSection[] = [];
   const sectionFile = new Map<string, string>();
   const sectionBoxesByName = new Map<string, DetectedBox[]>();
   for (const sec of pass.sections || []) {
+    if (absorbedSections.has(sec.name)) continue;
     const secBoxes = (sec.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
     if (!sec.name || !secBoxes.length) continue;
     const memberLabels = (pass.elements || [])
@@ -306,8 +342,13 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     sectionBoxesByName.set(sec.name, secBoxes);
   }
 
+  const allElements = [
+    ...syntheticElements,
+    ...(pass.elements || []).filter((el) => !el.section || !absorbedSections.has(el.section)),
+  ];
+
   const elements: AppliedElement[] = [];
-  for (const el of pass.elements || []) {
+  for (const el of allElements) {
     const fieldBoxes = (el.boxIds || []).map((id) => byId.get(id)).filter((b): b is DetectedBox => Boolean(b));
     const labelRects = (el.labelIds || []).map((id) => byLabel.get(id)).filter((l): l is DetectedLabel => Boolean(l));
     const extraBoxes = el.section ? (sectionBoxesByName.get(el.section) || []) : [];
@@ -341,7 +382,7 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     if (read) applied.read = read;
     if (el.options?.length) applied.options = el.options;
     if (el.section) applied.section = sectionFile.get(el.section) || el.section;
-    if (fieldBoxes.length) applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
+    if (fieldBoxes.length && el.type !== 'other') applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
     if (parts.length) applied.parts = parts;
     elements.push(applied);
   }

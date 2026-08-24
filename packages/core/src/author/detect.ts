@@ -10,9 +10,10 @@ import {
   splitBoxGutters,
   splitMergedFields,
   unionRects,
+  type BoxCluster,
   type DetectedBox,
 } from './geometry.js';
-import { labelsFromOcr, type DetectedLabel } from './labels.js';
+import { labelsAndValuesFromOcr, type DetectedLabel } from './labels.js';
 import { getOCRUtil } from '../utils/ocr.js';
 import { screenDir } from './storage.js';
 
@@ -28,6 +29,7 @@ export interface BoxesFile {
   height: number;
   boxes: DetectedBox[];
   labels?: DetectedLabel[];
+  clusters?: BoxCluster[];
 }
 
 export interface DetectScreenResult {
@@ -239,7 +241,10 @@ function scaleGrayPng(pngBuffer: Buffer, scale: number): Buffer {
   return buf;
 }
 
-async function detectLabels(pngBuffer: Buffer, boxes: DetectedBox[]): Promise<DetectedLabel[]> {
+async function detectLabelsAndValues(
+  pngBuffer: Buffer,
+  boxes: DetectedBox[],
+): Promise<{ labels: DetectedLabel[]; boxValues: Map<number, string> }> {
   const png = PNG.sync.read(pngBuffer);
   const roi = labelRoi(boxes, png.width, png.height);
   const cropped = cropPngBuffer(pngBuffer, roi.x, roi.y, roi.width, roi.height);
@@ -253,7 +258,44 @@ async function detectLabels(pngBuffer: Buffer, boxes: DetectedBox[]): Promise<De
     width: word.width / LABEL_SCALE,
     height: word.height / LABEL_SCALE,
   }));
-  return labelsFromOcr(mapped, boxes);
+  return labelsAndValuesFromOcr(mapped, boxes);
+}
+
+/** Group boxes that share the same visual row and are closely adjacent (gap ≤ 8px). */
+export function groupBoxClusters(boxes: DetectedBox[]): BoxCluster[] {
+  const ROW_TOL = 10;
+  const GAP_MAX = 8;
+  const sorted = [...boxes].sort((a, b) => {
+    const cy = (b: DetectedBox) => b.y + b.height / 2;
+    return cy(a) - cy(b) || a.x - b.x;
+  });
+  const rows: DetectedBox[][] = [];
+  for (const box of sorted) {
+    const cy = box.y + box.height / 2;
+    const row = rows.find((r) => {
+      const rcy = r[0]!.y + r[0]!.height / 2;
+      return Math.abs(cy - rcy) <= ROW_TOL;
+    });
+    if (row) row.push(box);
+    else rows.push([box]);
+  }
+  const clusters: BoxCluster[] = [];
+  for (const row of rows) {
+    const byX = [...row].sort((a, b) => a.x - b.x);
+    let run: DetectedBox[] = [byX[0]!];
+    for (let i = 1; i < byX.length; i++) {
+      const prev = run[run.length - 1]!;
+      const gap = byX[i]!.x - (prev.x + prev.width);
+      if (gap <= GAP_MAX) {
+        run.push(byX[i]!);
+      } else {
+        if (run.length >= 2) clusters.push({ boxIds: run.map((b) => b.id) });
+        run = [byX[i]!];
+      }
+    }
+    if (run.length >= 2) clusters.push({ boxIds: run.map((b) => b.id) });
+  }
+  return clusters;
 }
 
 function writeDetectFiles(
@@ -262,10 +304,12 @@ function writeDetectFiles(
   meta: { width: number; height: number },
   boxes: DetectedBox[],
   labels: DetectedLabel[],
+  clusters?: BoxCluster[],
 ): { boxesPath: string; annotatedPath: string } {
   const boxesPath = path.join(dir, 'boxes.json');
   const annotatedPath = path.join(dir, 'boxes-annotated.png');
   const payload: BoxesFile = { width: meta.width, height: meta.height, boxes, labels };
+  if (clusters && clusters.length > 0) payload.clusters = clusters;
   fs.writeFileSync(boxesPath, `${JSON.stringify(payload, null, 2)}\n`);
   fs.writeFileSync(annotatedPath, annotateBoxes(blank, boxes, labels));
   return { boxesPath, annotatedPath };
@@ -285,8 +329,13 @@ export async function detectScreen(name: string): Promise<DetectScreenResult> {
   const blank = fs.readFileSync(blankPath);
   const meta = PNG.sync.read(blank);
   const boxes = detectBoxes(blank);
-  const labels = await detectLabels(blank, boxes);
-  const { boxesPath, annotatedPath } = writeDetectFiles(dir, blank, meta, boxes, labels);
+  const { labels, boxValues } = await detectLabelsAndValues(blank, boxes);
+  for (const box of boxes) {
+    const val = boxValues.get(box.id);
+    if (val) box.value = val;
+  }
+  const clusters = groupBoxClusters(boxes);
+  const { boxesPath, annotatedPath } = writeDetectFiles(dir, blank, meta, boxes, labels, clusters);
   return { dir, boxesPath, annotatedPath, width: meta.width, height: meta.height, boxes, labels };
 }
 
