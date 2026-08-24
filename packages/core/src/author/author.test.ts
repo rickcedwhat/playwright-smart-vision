@@ -231,7 +231,9 @@ describe('author apply + catalog', () => {
     expect(src).toContain('export type ScreenName');
     expect(src).toContain('keyof typeof screens extends never');
     expect(src).toContain('export type ElementName');
-    expect(src).not.toContain('type: "field"');
+    expect(src).toContain('export type PartName');
+    expect(src).toContain('export type PartType');
+    expect(src).toContain('type: "field"');
     expect(src).not.toContain('export type Screens');
     expect(fs.readFileSync(dest, 'utf8')).toBe(src);
     expect(fs.readFileSync(path.join(root, 'generated.ts'), 'utf8')).toContain('"html-login"');

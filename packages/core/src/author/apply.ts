@@ -319,7 +319,11 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
       type: 'other',
       boxIds: sec.boxIds,
       labelIds: allLabelIds,
-      parts: members.map((m) => ({ name: m.name, ...((m.boxIds ?? [])[0] != null ? { boxId: (m.boxIds ?? [])[0] } : {}) })),
+      parts: members.map((m) => ({
+        name: m.name,
+        ...(m.type ? { type: m.type } : {}),
+        ...((m.boxIds ?? [])[0] != null ? { boxId: (m.boxIds ?? [])[0] } : {}),
+      })),
     });
   }
 
