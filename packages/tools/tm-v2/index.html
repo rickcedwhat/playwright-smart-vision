@@ -213,8 +213,8 @@
     <div class="inspect-parts" id="popParts"></div>
     <dl>
       <dt>name</dt><dd id="popName"></dd>
-      <dt>section</dt><dd id="popSection"></dd>
-      <dt>parts</dt><dd id="popPartNames"></dd>
+      <dt id="popSectionDt">section</dt><dd id="popSection"></dd>
+      <dt id="popPartNamesDt">parts</dt><dd id="popPartNames"></dd>
     </dl>
     <div id="popOpts">
       <label>Type
@@ -871,6 +871,15 @@ function catalogElement(key) {
 }
 
 
+function setMetaRow(dtId, ddId, value) {
+  const dd = document.getElementById(ddId);
+  const dt = document.getElementById(dtId);
+  const show = value && value !== '—';
+  dd.textContent = show ? value : '';
+  if (dt) dt.hidden = !show;
+  dd.hidden = !show;
+}
+
 function syncOverflowVisibility() {
   const isClipboard = document.getElementById('popRead').value === 'clipboard';
   document.getElementById('overflowLabel').hidden = isClipboard;
@@ -897,8 +906,8 @@ function updatePartFocus(partsEl, info, parent, el) {
     const fpEl = (state.firstPass && state.firstPass.elements || []).find((e) => e.name === selectedPartName);
     const partType = rawPart && rawPart.type || (fpEl && fpEl.type) || el.type || 'field';
     document.getElementById('popType').value = partType;
-    document.getElementById('popSection').textContent = '—';
-    document.getElementById('popPartNames').textContent = '—';
+    setMetaRow('popSectionDt', 'popSection', null);
+    setMetaRow('popPartNamesDt', 'popPartNames', null);
     // Part-level options
     fillCharsetSelect(document.getElementById('popCharset'), (rawPart && rawPart.charset) || 'text');
     document.getElementById('popRead').value = rawPart && rawPart.read != null ? rawPart.read : 'ocr';
@@ -912,8 +921,8 @@ function updatePartFocus(partsEl, info, parent, el) {
     // Restore parent metadata
     document.getElementById('popName').textContent = info.name || 'unnamed';
     document.getElementById('popType').value = el.type || 'field';
-    document.getElementById('popSection').textContent = info.section || '—';
-    document.getElementById('popPartNames').textContent = info.partNames || '—';
+    setMetaRow('popSectionDt', 'popSection', info.section);
+    setMetaRow('popPartNamesDt', 'popPartNames', info.partNames);
     // Restore parent options
     fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
     document.getElementById('popRead').value = el.read != null ? el.read : (el.type === 'field' ? 'clipboard' : 'ocr');
@@ -1501,22 +1510,25 @@ Promise.all([loadSettings(), loadCharsets()])
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 
 // Stage zoom via ctrl+wheel / trackpad pinch.
-// Uses CSS `zoom` property on the stage — unlike transform, zoom updates layout
-// so blank.clientWidth reflects the scaled size and paint() overlays stay aligned.
+// Sets stage width explicitly: img has max-width:100% so it fills the stage,
+// and blank.clientWidth then reflects the zoomed size for paint() overlays.
 (function () {
   const mainEl = document.getElementById('main');
   const stageEl = document.getElementById('stage');
   if (!mainEl || !stageEl) return;
   function applyZoom(cx, cy) {
     const rect = mainEl.getBoundingClientRect();
-    const prevZoom = parseFloat(stageEl.style.zoom) || 1;
-    // Point in un-zoomed stage coords under the cursor
-    const ox = (cx - rect.left + mainEl.scrollLeft) / prevZoom;
-    const oy = (cy - rect.top  + mainEl.scrollTop)  / prevZoom;
-    stageEl.style.zoom = stageZoom;
-    // Restore the point under the cursor
-    mainEl.scrollLeft = ox * stageZoom - (cx - rect.left);
-    mainEl.scrollTop  = oy * stageZoom - (cy - rect.top);
+    const prevW = stageEl.clientWidth || blank.naturalWidth;
+    const newW = Math.round(blank.naturalWidth * stageZoom);
+    // Point in stage coords under cursor (before resize)
+    const ox = cx - rect.left + mainEl.scrollLeft;
+    const oy = cy - rect.top  + mainEl.scrollTop;
+    stageEl.style.width = newW + 'px';
+    stageEl.style.minWidth = newW + 'px';
+    // Keep focal point fixed
+    const ratio = newW / prevW;
+    mainEl.scrollLeft = ox * ratio - (cx - rect.left);
+    mainEl.scrollTop  = oy * ratio - (cy - rect.top);
     paint();
   }
   mainEl.addEventListener('wheel', (e) => {
@@ -1528,7 +1540,8 @@ document.getElementById('authBannerClose').addEventListener('click', () => showA
   // Double-click resets
   mainEl.addEventListener('dblclick', () => {
     stageZoom = 1;
-    stageEl.style.zoom = '';
+    stageEl.style.width = '';
+    stageEl.style.minWidth = '';
     paint();
   });
 })();
