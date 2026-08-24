@@ -1500,44 +1500,43 @@ Promise.all([loadSettings(), loadCharsets()])
 
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 
-// Stage zoom via ctrl+wheel / trackpad pinch
+// Stage zoom via ctrl+wheel / trackpad pinch.
+// Sets img.style.width directly so blank.clientWidth stays accurate and
+// paint() overlay positions remain correct without any transform math.
 (function () {
   const mainEl = document.getElementById('main');
   const stageEl = document.getElementById('stage');
   if (!mainEl || !stageEl) return;
   function applyZoom(cx, cy) {
-    // cx/cy are client coords of the zoom center relative to mainEl
+    const img = stageEl.querySelector('img');
+    if (!img || !img.naturalWidth) return;
     const rect = mainEl.getBoundingClientRect();
+    // Document point under the cursor before resize
     const ox = cx - rect.left + mainEl.scrollLeft;
     const oy = cy - rect.top + mainEl.scrollTop;
-    // After scaling, keep the point under cursor in the same viewport position
-    stageEl.style.transformOrigin = '0 0';
-    stageEl.style.transform = `scale(${stageZoom})`;
-    // Adjust scroll to keep focal point fixed
-    mainEl.scrollLeft = ox * stageZoom - (cx - rect.left);
-    mainEl.scrollTop  = oy * stageZoom - (cy - rect.top);
-    // Expand the scroll area so the browser lets us scroll into the zoomed content
-    const img = stageEl.querySelector('img');
-    const baseW = img ? img.naturalWidth  : stageEl.scrollWidth / stageZoom;
-    const baseH = img ? img.naturalHeight : stageEl.scrollHeight / stageZoom;
-    stageEl.style.width  = Math.round(baseW * stageZoom) + 'px';
-    stageEl.style.height = Math.round(baseH * stageZoom) + 'px';
+    const prevW = img.clientWidth || img.naturalWidth;
+    img.style.width = Math.round(img.naturalWidth * stageZoom) + 'px';
+    img.style.height = 'auto';
+    // Re-center scroll so the point under the cursor stays fixed
+    const newW = img.clientWidth;
+    const ratio = newW / prevW;
+    mainEl.scrollLeft = ox * ratio - (cx - rect.left);
+    mainEl.scrollTop  = oy * ratio - (cy - rect.top);
+    paint();
   }
   mainEl.addEventListener('wheel', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    const delta = e.deltaY !== 0 ? e.deltaY : -e.deltaX;
-    const factor = delta < 0 ? 1.1 : 1 / 1.1;
-    stageZoom = Math.max(0.25, Math.min(8, stageZoom * factor));
+    // Math.pow(0.998, deltaY) gives ~0.2% per pixel — smooth on trackpad, sane on wheel
+    stageZoom = Math.max(0.5, Math.min(3, stageZoom * Math.pow(0.998, e.deltaY)));
     applyZoom(e.clientX, e.clientY);
   }, { passive: false });
-  // Double-click to reset
-  mainEl.addEventListener('dblclick', (e) => {
-    if (e.target !== mainEl && !stageEl.contains(e.target)) return;
+  // Double-click resets to fit
+  mainEl.addEventListener('dblclick', () => {
     stageZoom = 1;
-    stageEl.style.transform = '';
-    stageEl.style.width = '';
-    stageEl.style.height = '';
+    const img = stageEl.querySelector('img');
+    if (img) { img.style.width = ''; img.style.height = ''; }
+    paint();
   });
 })();
 </script>
