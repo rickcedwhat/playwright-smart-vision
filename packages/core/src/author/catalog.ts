@@ -29,8 +29,15 @@ export interface ScreenCatalog {
   [screen: string]: readonly string[];
 }
 
+export interface CatalogPart {
+  name: string;
+  type?: string;
+}
+
 export interface CatalogElement {
   name: string;
+  type?: string;
+  parts?: CatalogPart[];
 }
 
 interface CatalogScreen {
@@ -47,11 +54,23 @@ function listScreens(root: string): CatalogScreen[] {
     if (!fs.existsSync(indexPath)) continue;
     try {
       const raw = JSON.parse(fs.readFileSync(indexPath, 'utf8')) as {
-        elements?: Array<{ name?: string }>;
+        elements?: Array<{ name?: string; type?: string; parts?: Array<{ name?: string; type?: string }> }>;
       };
       const elements = (raw.elements ?? [])
-        .filter((el): el is { name: string } => Boolean(el.name))
-        .map((el) => ({ name: el.name }));
+        .filter((el) => Boolean(el.name))
+        .map((el) => {
+          const entry: CatalogElement = { name: el.name! };
+          if (el.type) entry.type = el.type;
+          const parts = (el.parts ?? []).filter((p) => Boolean(p.name));
+          if (parts.length) {
+            entry.parts = parts.map((p) => {
+              const part: CatalogPart = { name: p.name! };
+              if (p.type) part.type = p.type;
+              return part;
+            });
+          }
+          return entry;
+        });
       out.push({ name: ent.name, elements });
     } catch {
       // skip unreadable index.json
@@ -86,7 +105,13 @@ export function screenCatalogSource(charsets?: Record<string, unknown>): string 
       const key = toCamelCase(s.name);
       const elementsBody = s.elements.length
         ? s.elements
-            .map((el) => `      ${JSON.stringify(el.name)}: ${JSON.stringify(el.name)},`)
+            .map((el) => {
+              const typeStr = el.type ? `, type: ${JSON.stringify(el.type)}` : '';
+              const partsStr = el.parts?.length
+                ? `, parts: {${el.parts.map((p) => `${JSON.stringify(p.name)}: ${JSON.stringify(p.type ?? 'field')}`).join(', ')}}`
+                : '';
+              return `      ${JSON.stringify(el.name)}: { name: ${JSON.stringify(el.name)}${typeStr}${partsStr} },`;
+            })
             .join('\n')
         : '';
       return `  ${key}: {\n    name: ${JSON.stringify(s.name)},\n    elements: {\n${elementsBody}\n    },\n  },`;
@@ -110,7 +135,21 @@ type _ScreenKey<S extends ScreenName> = {
   [K in keyof typeof screens]: (typeof screens)[K]['name'] extends S ? K : never;
 }[keyof typeof screens];
 
-export type ElementName<S extends ScreenName> = keyof (typeof screens)[_ScreenKey<S>]['elements'] & string;
+type _Screen<S extends ScreenName> = (typeof screens)[_ScreenKey<S>];
+
+export type ElementName<S extends ScreenName> = keyof _Screen<S>['elements'] & string;
+
+export type PartName<S extends ScreenName, E extends ElementName<S>> =
+  _Screen<S>['elements'][E] extends { parts: infer P } ? keyof P & string : never;
+
+export type PartType<S extends ScreenName, E extends ElementName<S>, P extends PartName<S, E>> =
+  _Screen<S>['elements'][E] extends { parts: infer Parts }
+    ? Parts extends Record<string, string>
+      ? P extends keyof Parts
+        ? Parts[P]
+        : never
+      : never
+    : never;
 `;
 }
 
