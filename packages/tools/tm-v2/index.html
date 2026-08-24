@@ -861,15 +861,40 @@ function updatePartFocus(partsEl, info, parent, el) {
     wrap.classList.toggle('active', lbl && lbl.textContent === selectedPartName);
   }
   const screenPart = selectedPartName ? info.parts.find((p) => p.name === selectedPartName) : null;
+  const rawPart = selectedPartName ? (el && el.parts || []).find((p) => p.name === selectedPartName) : null;
   if (screenPart) {
     drawSourceRect(mainCanvas, screenPart, 280, []);
     focusLabel.textContent = selectedPartName;
-    const rawPart = el && (el.parts || []).find((p) => p.name === selectedPartName);
-    focusSizeEl.textContent = rawPart ? `${rawPart.width} × ${rawPart.height}` : '';
+    focusSizeEl.textContent = rawPart ? `${rawPart.width} x ${rawPart.height}` : '';
     focusDiv.hidden = false;
+    // Part-level metadata
+    document.getElementById('popName').textContent = selectedPartName;
+    const fpEl = (state.firstPass && state.firstPass.elements || []).find((e) => e.name === selectedPartName);
+    document.getElementById('popType').textContent = fpEl ? (fpEl.type || '—') : '—';
+    document.getElementById('popSection').textContent = '—';
+    document.getElementById('popPartNames').textContent = '—';
+    // Part-level options
+    fillCharsetSelect(document.getElementById('popCharset'), (rawPart && rawPart.charset) || 'text');
+    document.getElementById('popRead').value = rawPart && rawPart.read != null ? rawPart.read : 'ocr';
+    document.getElementById('popOverflow').value = (rawPart && rawPart.overflow) || '';
+    syncOverflowVisibility();
+    renderSwapRows(document.getElementById('popSwaps'), rawPart && rawPart.swaps);
+    popEl.dataset.part = selectedPartName;
   } else {
     drawSourceRect(mainCanvas, parent, 280, info.parts);
     focusDiv.hidden = true;
+    // Restore parent metadata
+    document.getElementById('popName').textContent = info.name || 'unnamed';
+    document.getElementById('popType').textContent = info.type || '—';
+    document.getElementById('popSection').textContent = info.section || '—';
+    document.getElementById('popPartNames').textContent = info.partNames || '—';
+    // Restore parent options
+    fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
+    document.getElementById('popRead').value = el.read != null ? el.read : (el.type === 'field' ? 'clipboard' : 'ocr');
+    document.getElementById('popOverflow').value = el.overflow || '';
+    syncOverflowVisibility();
+    renderSwapRows(document.getElementById('popSwaps'), el.swaps);
+    delete popEl.dataset.part;
   }
 }
 
@@ -937,11 +962,13 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
     const read = document.getElementById('popRead').value;
     const overflow = document.getElementById('popOverflow').value;
     const swaps = rowsToSwaps(document.getElementById('popSwaps'));
+    const part = popEl.dataset.part || '';
     const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         element,
+        ...(part ? { part } : {}),
         charset,
         read,
         overflow: overflow || null,
@@ -951,7 +978,7 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
     const idx = state.elements.findIndex((item) => item.name === element);
     // Replace wholesale so cleared charset/read/swaps do not linger from prior state.
     if (idx >= 0) state.elements[idx] = out.index;
-    setStatus('Saved options for ' + element);
+    setStatus('Saved options for ' + (part ? element + '.' + part : element));
     renderPop();
   } catch (err) {
     toast(err.message || String(err));
