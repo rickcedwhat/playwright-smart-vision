@@ -1501,41 +1501,34 @@ Promise.all([loadSettings(), loadCharsets()])
 document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 
 // Stage zoom via ctrl+wheel / trackpad pinch.
-// Sets img.style.width directly so blank.clientWidth stays accurate and
-// paint() overlay positions remain correct without any transform math.
+// Uses CSS `zoom` property on the stage — unlike transform, zoom updates layout
+// so blank.clientWidth reflects the scaled size and paint() overlays stay aligned.
 (function () {
   const mainEl = document.getElementById('main');
   const stageEl = document.getElementById('stage');
   if (!mainEl || !stageEl) return;
   function applyZoom(cx, cy) {
-    const img = stageEl.querySelector('img');
-    if (!img || !img.naturalWidth) return;
     const rect = mainEl.getBoundingClientRect();
-    // Document point under the cursor before resize
-    const ox = cx - rect.left + mainEl.scrollLeft;
-    const oy = cy - rect.top + mainEl.scrollTop;
-    const prevW = img.clientWidth || img.naturalWidth;
-    img.style.width = Math.round(img.naturalWidth * stageZoom) + 'px';
-    img.style.height = 'auto';
-    // Re-center scroll so the point under the cursor stays fixed
-    const newW = img.clientWidth;
-    const ratio = newW / prevW;
-    mainEl.scrollLeft = ox * ratio - (cx - rect.left);
-    mainEl.scrollTop  = oy * ratio - (cy - rect.top);
+    const prevZoom = parseFloat(stageEl.style.zoom) || 1;
+    // Point in un-zoomed stage coords under the cursor
+    const ox = (cx - rect.left + mainEl.scrollLeft) / prevZoom;
+    const oy = (cy - rect.top  + mainEl.scrollTop)  / prevZoom;
+    stageEl.style.zoom = stageZoom;
+    // Restore the point under the cursor
+    mainEl.scrollLeft = ox * stageZoom - (cx - rect.left);
+    mainEl.scrollTop  = oy * stageZoom - (cy - rect.top);
     paint();
   }
   mainEl.addEventListener('wheel', (e) => {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
-    // Math.pow(0.998, deltaY) gives ~0.2% per pixel — smooth on trackpad, sane on wheel
     stageZoom = Math.max(0.5, Math.min(3, stageZoom * Math.pow(0.998, e.deltaY)));
     applyZoom(e.clientX, e.clientY);
   }, { passive: false });
-  // Double-click resets to fit
+  // Double-click resets
   mainEl.addEventListener('dblclick', () => {
     stageZoom = 1;
-    const img = stageEl.querySelector('img');
-    if (img) { img.style.width = ''; img.style.height = ''; }
+    stageEl.style.zoom = '';
     paint();
   });
 })();
