@@ -3,19 +3,23 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen, clearConfigUnhoverPoint, configure, resetGlobalConfig } from './configure.js';
+import { loadScreen, clearConfigUnhoverPoint, configure } from './configure.js';
 import { clearScreenHandlers } from './screen-handler.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil, setCharsetRegistry, setOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setOcrStrategy, getOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
 import { setUnhoverPoint } from './unhover.js';
 import { ensureCvReady } from './utils/vision.js';
 import {
   Strategies,
   setClickStrategy,
   setFillStrategy,
+  setHoverStrategy,
+  setDblClickStrategy,
   type ClickStrategy,
   type FillStrategy,
+  type HoverStrategy,
+  type DblClickStrategy,
   type CaptureStrategy,
   type OcrStrategy,
 } from './strategies.js';
@@ -71,15 +75,20 @@ export function bindOcrScreen(
 
 // ─── init() state ────────────────────────────────────────────────────────────
 
-export interface Strategies {
-  charsets?: Record<string, Charset>;
+export interface InitStrategies {
+  /** OCR configuration: charsets, inference map, global swaps, default charset, read mode. */
   ocr?: OcrStrategy;
-  click?: ClickStrategy;
-  fill?: FillStrategy;
+  /** Interaction strategies for click, fill, hover, and double-click. */
+  actions?: {
+    click?: ClickStrategy;
+    fill?: FillStrategy;
+    hover?: HoverStrategy;
+    dblclick?: DblClickStrategy;
+  };
   capture?: CaptureStrategy;
 }
 
-export { Strategies, type OcrStrategy, type ClickStrategy, type FillStrategy, type CaptureStrategy };
+export { Strategies, type OcrStrategy, type ClickStrategy, type FillStrategy, type HoverStrategy, type DblClickStrategy, type CaptureStrategy };
 
 interface InitOptions {
   page: Page;
@@ -95,7 +104,7 @@ interface InitOptions {
    * Useful when the top-left corner overlaps interactive content.
    */
   unhoverPoint?: { x: number; y: number };
-  strategies?: Strategies;
+  strategies?: InitStrategies;
 }
 
 interface InitState {
@@ -138,17 +147,31 @@ export async function init(options: InitOptions): Promise<void> {
     initState.config.unhoverBeforeCapture = cap.unhover;
     if (cap.unhoverPoint !== undefined) setUnhoverPoint(cap.unhoverPoint);
   }
-  if (options.strategies?.click !== undefined) {
-    setClickStrategy(options.strategies.click);
+  if (options.strategies?.actions?.click !== undefined) {
+    setClickStrategy(options.strategies.actions.click);
   }
-  if (options.strategies?.fill !== undefined) {
-    setFillStrategy(options.strategies.fill);
+  if (options.strategies?.actions?.fill !== undefined) {
+    setFillStrategy(options.strategies.actions.fill);
   }
-  if (options.strategies?.charsets) {
-    setCharsetRegistry(options.strategies.charsets);
+  if (options.strategies?.actions?.hover !== undefined) {
+    setHoverStrategy(options.strategies.actions.hover);
+  }
+  if (options.strategies?.actions?.dblclick !== undefined) {
+    setDblClickStrategy(options.strategies.actions.dblclick);
   }
   if (options.strategies?.ocr !== undefined) {
-    setOcrStrategy(options.strategies.ocr);
+    const existing = getOcrStrategy();
+    const next = options.strategies.ocr;
+    const merged = existing
+      ? {
+          ...existing,
+          ...next,
+          ...(next.charsets && existing.charsets
+            ? { charsets: { ...existing.charsets, ...next.charsets } }
+            : {}),
+        }
+      : next;
+    setOcrStrategy(merged);
   }
 
   try {
@@ -224,9 +247,9 @@ export async function release(): Promise<void> {
   clearScreenHandlers();
   setClickStrategy(undefined);
   setFillStrategy(undefined);
-  setCharsetRegistry({});
+  setHoverStrategy(undefined);
+  setDblClickStrategy(undefined);
   setOcrStrategy(undefined);
-  resetGlobalConfig();
   await cleanupOCR();
 }
 

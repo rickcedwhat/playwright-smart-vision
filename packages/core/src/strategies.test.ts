@@ -197,17 +197,17 @@ describe('presets', () => {
   beforeEach(() => { setFillStrategy(undefined); });
   afterEach(() => { setFillStrategy(undefined); });
 
-  it('presets.guacamole.strategies.fill uses tripleClickType', async () => {
+  it('presets.guacamole.strategies.actions.fill uses tripleClickType', async () => {
     const { presets } = await import('./presets.js');
     const page = mockPage();
-    await presets.guacamole.strategies.fill.fill(page, rect, 'val');
+    await presets.guacamole.strategies.actions.fill.fill(page, rect, 'val');
     expect(page.mouse.click).toHaveBeenCalledWith(140, 220, { clickCount: 3 });
   });
 
-  it('presets.rdp.strategies.fill uses charByChar with delay 30', async () => {
+  it('presets.rdp.strategies.actions.fill uses charByChar with delay 30', async () => {
     const { presets } = await import('./presets.js');
     const page = mockPage();
-    await presets.rdp.strategies.fill.fill(page, rect, 'val');
+    await presets.rdp.strategies.actions.fill.fill(page, rect, 'val');
     expect(page.keyboard.type).toHaveBeenCalledWith('val', { delay: 30 });
   });
 });
