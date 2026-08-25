@@ -58,7 +58,7 @@ function formatExpected(expected: string | RegExp): string {
 
 function formatSwaps(swaps: OcrSwaps): string {
   return Object.entries(swaps).map(([from, to]) => {
-    const targets = (typeof to === 'string' ? [to] : [...to]).join('|');
+    const targets = (typeof to === 'string' ? [to] : to).join('|');
     return `[${from}]→[${targets}]`;
   }).join(', ');
 }
