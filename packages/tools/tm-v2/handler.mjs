@@ -141,14 +141,29 @@ function parseLs(stdout, gcsPrefix) {
   return { dirs: [...dirs].sort(), files: [...files].sort() };
 }
 
+const _gcsCache = new Map();
+const GCS_CACHE_TTL = 30_000;
+
+function invalidateGcsCache() {
+  _gcsCache.clear();
+}
+
 async function listGcsPrefix(gcsUri, relPath) {
   const base = relPath ? `${gcsUri}/${relPath}` : gcsUri;
+  const cached = _gcsCache.get(base);
+  if (cached && Date.now() - cached.ts < GCS_CACHE_TTL) return cached.result;
   try {
     const stdout = await runGcloud(['storage', 'ls', `${base}/`]);
-    return parseLs(stdout, base);
+    const result = parseLs(stdout, base);
+    _gcsCache.set(base, { ts: Date.now(), result });
+    return result;
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
-    if (/matched no objects/i.test(msg)) return { dirs: [], files: [] };
+    if (/matched no objects/i.test(msg)) {
+      const result = { dirs: [], files: [] };
+      _gcsCache.set(base, { ts: Date.now(), result });
+      return result;
+    }
     throw err;
   }
 }
@@ -297,10 +312,13 @@ async function pushRuntimeScreens({ names, dryRun }) {
   };
 }
 
+let _configured = false;
 async function ensureConfigured() {
+  if (_configured) return;
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   await configure({ storage: { root: CACHE_DIR } });
   writeScreenCatalog();
+  _configured = true;
 }
 
 function resetScreenDir(name) {
@@ -428,6 +446,7 @@ async function handleInternal(req, res, url) {
     const screen = body.name ? assertScreenName(body.name) : '';
     if (screen) await rsync(`${gcsUri}/${screen}`, screenDir(screen));
     else await rsync(gcsUri, CACHE_DIR);
+    invalidateGcsCache();
     send(res, 200, { ok: true, localScreens: listLocalScreens() });
     return;
   }
@@ -447,6 +466,7 @@ async function handleInternal(req, res, url) {
     const dryRun = body.dryRun === true;
     const names = body.name ? [assertScreenName(body.name)] : undefined;
     const result = await pushRuntimeScreens({ names, dryRun });
+    if (!dryRun) invalidateGcsCache();
     send(res, 200, result);
     return;
   }
@@ -554,7 +574,8 @@ async function handleInternal(req, res, url) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'first-pass.json'), `${JSON.stringify(firstPass, null, 2)}\n`);
     await ensureConfigured();
-    applyIfFirstPassNewer(assertScreenName(name));
+    const applied = applyIfFirstPassNewer(assertScreenName(name));
+    if (applied) writeScreenCatalog();
     send(res, 200, { saved: name });
     return;
   }
@@ -584,6 +605,7 @@ async function handleInternal(req, res, url) {
       return;
     }
     const result = applyScreen(assertScreenName(name));
+    writeScreenCatalog();
     send(res, 200, {
       name,
       elements: result.elements.map((el) => el.name),

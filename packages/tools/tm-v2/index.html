@@ -1447,7 +1447,6 @@ document.getElementById('reloadScreen').onclick = async () => {
     const name = currentScreen();
     if (!name) throw new Error('select a screen first');
     await loadScreen(name);
-    await renderTree();
   } catch (err) { setStatus(err.message, true); }
 };
 document.getElementById('copyRevise').onclick = async () => {
