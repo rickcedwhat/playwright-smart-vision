@@ -232,7 +232,7 @@
       <label>Charset
         <div style="display:flex;gap:4px;align-items:center">
           <select id="popCharset" style="flex:1"></select>
-          <button type="button" id="popSuggestCharset" title="Suggest charset based on element name">Suggest</button>
+          <button type="button" id="popSuggestCharset" title="Reset charset to text">Reset</button>
         </div>
       </label>
       <label>Read
@@ -845,15 +845,6 @@ function fillCharsetSelect(select, selected) {
   select.innerHTML = html;
 }
 
-function suggestCharset(name, type) {
-  if (type === 'checkbox') return null;
-  const key = (name + ' ' + type).toLowerCase();
-  if (key.includes('email')) return 'email';
-  if (key.includes('vin')) return 'vin';
-  if (key.includes('phone') || key.includes('odometer') || key.includes('year') || key.includes('zip')) return 'digits';
-  return 'text';
-}
-
 function swapsToRows(swaps) {
   const rows = [];
   if (!swaps || typeof swaps !== 'object') return rows;
@@ -1015,10 +1006,7 @@ document.getElementById('popAddSwap').addEventListener('click', () => {
 });
 
 document.getElementById('popSuggestCharset').addEventListener('click', () => {
-  const name = popEl.dataset.element || '';
-  const type = document.getElementById('popType').value;
-  const suggestion = suggestCharset(name, type);
-  if (suggestion) document.getElementById('popCharset').value = suggestion;
+  document.getElementById('popCharset').value = 'text';
 });
 
 document.getElementById('popSaveOpts').addEventListener('click', async () => {
