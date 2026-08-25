@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen, clearConfigUnhoverPoint, configure } from './configure.js';
+import { loadScreen, clearConfigUnhoverPoint, configure, resetGlobalConfig } from './configure.js';
 import { clearScreenHandlers } from './screen-handler.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
