@@ -90,13 +90,14 @@ export interface OcrStrategy {
 }
 
 let globalOcrStrategy: OcrStrategy | undefined;
+let pendingLanguageChange: Promise<void> | null = null;
 
 export function setOcrStrategy(strategy: OcrStrategy | undefined): void {
   const prevLanguage = globalOcrStrategy?.language ?? 'eng';
   const nextLanguage = strategy?.language ?? 'eng';
   globalOcrStrategy = strategy;
   if (sharedOCRUtil && prevLanguage !== nextLanguage) {
-    void sharedOCRUtil.initialize(nextLanguage);
+    pendingLanguageChange = sharedOCRUtil.initialize(nextLanguage);
   }
 }
 
@@ -447,6 +448,10 @@ let sharedOCRUtil: OCRUtil | null = null;
  * Uses `strategies.ocr.language` when set; falls back to 'eng'.
  */
 export async function getOCRUtil(language?: string): Promise<OCRUtil> {
+  if (pendingLanguageChange) {
+    await pendingLanguageChange;
+    pendingLanguageChange = null;
+  }
   const lang = language ?? globalOcrStrategy?.language ?? 'eng';
   if (!sharedOCRUtil) {
     sharedOCRUtil = new OCRUtil();
@@ -459,6 +464,7 @@ export async function getOCRUtil(language?: string): Promise<OCRUtil> {
  * Clean up the shared OCR utility
  */
 export async function cleanupOCR(): Promise<void> {
+  pendingLanguageChange = null;
   if (sharedOCRUtil) {
     await sharedOCRUtil.terminate();
     sharedOCRUtil = null;
