@@ -13,7 +13,9 @@ export const presets = {
    */
   guacamole: {
     strategies: {
-      fill: Strategies.Fill.tripleClickType(),
+      actions: {
+        fill: Strategies.Fill.tripleClickType(),
+      },
       ocr: Strategies.Ocr.default({
         read: 'clipboard' as const,
         swaps: {
@@ -30,7 +32,9 @@ export const presets = {
    */
   rdp: {
     strategies: {
-      fill: Strategies.Fill.charByChar({ delay: 30 }),
+      actions: {
+        fill: Strategies.Fill.charByChar({ delay: 30 }),
+      },
     },
   },
 
@@ -40,7 +44,9 @@ export const presets = {
    */
   webview: {
     strategies: {
-      fill: Strategies.Fill.selectAllType(),
+      actions: {
+        fill: Strategies.Fill.selectAllType(),
+      },
     },
   },
 } as const;

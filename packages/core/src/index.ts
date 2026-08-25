@@ -36,10 +36,10 @@ export type {
   CustomMatcherFunction,
 } from './types.js';
 
-export { ocrTextMatches } from './utils/ocr.js';
+export { ocrTextMatches, charsetToWhitelist } from './utils/ocr.js';
 export type { Charset, FieldRead, OcrOverflow, OcrSwaps } from './utils/ocr.js';
 export { Strategies } from './screen.js';
-export type { OcrStrategy, ClickStrategy, FillStrategy, CaptureStrategy } from './screen.js';
+export type { OcrStrategy, ClickStrategy, FillStrategy, HoverStrategy, DblClickStrategy, CaptureStrategy, InitStrategies } from './screen.js';
 export { presets, mergeInitOptions } from './presets.js';
 export { createScreen } from './screen-api.js';
 export type { TypedResult } from './screen-api.js';

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ocrTextMatches, normalizeOcrText, charsetForField, setOcrStrategy, getOcrStrategy, resolveOcrCharset } from './ocr.js';
+import { ocrTextMatches, normalizeOcrText, charsetForField, charsetToWhitelist, setOcrStrategy, getOcrStrategy, resolveOcrCharset } from './ocr.js';
 
 // ---------------------------------------------------------------------------
 // ocrTextMatches
@@ -239,5 +239,57 @@ describe('resolveOcrCharset', () => {
     setOcrStrategy({ infer: { phone: 'digits', phoneNumber: 'alnum' } });
     const result = resolveOcrCharset('phoneNumber');
     expect(['digits', 'alnum']).toContain(result);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// charsetToWhitelist
+// ---------------------------------------------------------------------------
+
+describe('charsetToWhitelist', () => {
+  it('expands a single uppercase range', () => {
+    const wl = charsetToWhitelist({ only: ['A-Z'] });
+    expect(wl).toBe('ABCDEFGHIJKLMNOPQRSTUVWXYZ');
+  });
+
+  it('expands a digit range', () => {
+    const wl = charsetToWhitelist({ only: ['0-9'] });
+    expect(wl).toBe('0123456789');
+  });
+
+  it('includes literal single chars', () => {
+    const wl = charsetToWhitelist({ only: ['@', '.', '_'] });
+    expect([...wl].sort().join('')).toBe('.@_');
+  });
+
+  it('combines ranges and literals', () => {
+    const wl = charsetToWhitelist({ only: ['A-C', '0', '@'] });
+    expect([...wl].sort().join('')).toBe('0@ABC');
+  });
+
+  it('removes excluded chars from only', () => {
+    const wl = charsetToWhitelist({ only: ['A-Z'], exclude: ['I', 'O', 'Q'] });
+    expect(wl).not.toContain('I');
+    expect(wl).not.toContain('O');
+    expect(wl).not.toContain('Q');
+    expect(wl.length).toBe(23);
+  });
+
+  it('exclude of a char not in only is a no-op', () => {
+    const wl = charsetToWhitelist({ only: ['A-C'], exclude: ['Z'] });
+    expect([...wl].sort().join('')).toBe('ABC');
+  });
+
+  it('expands a Unicode range (Latin-1 Supplement)', () => {
+    const wl = charsetToWhitelist({ only: ['À-Â'] });
+    expect(wl).toBe('ÀÁÂ');
+  });
+
+  it('throws when only is empty', () => {
+    expect(() => charsetToWhitelist({ only: [] })).toThrow();
+  });
+
+  it('throws on invalid range where start > end', () => {
+    expect(() => charsetToWhitelist({ only: ['Z-A'] })).toThrow();
   });
 });

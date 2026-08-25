@@ -13,16 +13,64 @@ export const CHARSET_PRESETS: Record<string, string> = {
   vin: `${UPPER}${LOWER}${DIGITS}`,
 };
 
-/** A named charset bundling a Tesseract whitelist with expected OCR confusions. */
+/**
+ * Expand a single range spec to a string of characters.
+ * A three-character spec like 'A-Z' or 'À-ÿ' expands by Unicode codepoint.
+ * Any other string is returned as-is (single char or multi-char literal).
+ */
+function expandRangeSpec(spec: string): string {
+  if (spec.length === 3 && spec[1] === '-') {
+    const start = spec.charCodeAt(0);
+    const end = spec.charCodeAt(2);
+    if (start > end) throw new Error(`Invalid charset range '${spec}': start must be ≤ end`);
+    let out = '';
+    for (let i = start; i <= end; i++) out += String.fromCharCode(i);
+    return out;
+  }
+  return spec;
+}
+
+/**
+ * Expand a Charset's only/exclude arrays into the flat string passed to
+ * `tessedit_char_whitelist`. Throws if only is empty or exclude is provided
+ * without only.
+ */
+export function charsetToWhitelist(charset: Charset): string {
+  if (!charset.only || charset.only.length === 0) {
+    throw new Error('Charset must include at least one entry in `only`');
+  }
+  const chars = new Set<string>();
+  for (const spec of charset.only) {
+    for (const ch of expandRangeSpec(spec)) chars.add(ch);
+  }
+  if (charset.exclude) {
+    for (const spec of charset.exclude) {
+      for (const ch of expandRangeSpec(spec)) chars.delete(ch);
+    }
+  }
+  return [...chars].join('');
+}
+
+/** A named charset bundling a Tesseract character allowlist with expected OCR confusions. */
 export interface Charset {
-  /** Tesseract character whitelist passed directly to `tessedit_char_whitelist`. */
-  chars: string;
+  /**
+   * Characters to allow. Each entry is either a single character, a multi-character
+   * literal, or a Unicode range like 'A-Z', '0-9', 'À-ÿ'.
+   */
+  only: string[];
+  /**
+   * Characters to remove from the only set. Same range notation as only.
+   * Requires only — error if used alone.
+   */
+  exclude?: string[];
   /** Expected glyph → OCR glyphs that are acceptable in its place. */
   swaps?: OcrSwaps;
 }
 
 /** Global OCR strategy set by init(). */
 export interface OcrStrategy {
+  /** Named charsets available for use via element `charset` field or `infer` map. */
+  charsets?: Record<string, Charset>;
   /** Fallback charset when an element has no explicit charset and name-inference finds nothing. */
   defaultCharset?: string;
   /** Map from element-name substring (case-insensitive) → charset name. Checked before built-in heuristics. */
@@ -35,17 +83,7 @@ export interface OcrStrategy {
   read?: FieldRead;
 }
 
-let charsetRegistry: Record<string, Charset> = {};
 let globalOcrStrategy: OcrStrategy | undefined;
-
-/**
- * Called by `init()` to register user-defined charsets.
- * Merges into the existing registry — subsequent calls accumulate charsets rather than replacing them.
- * Call `setCharsetRegistry({})` (or `release()`) to clear.
- */
-export function setCharsetRegistry(registry: Record<string, Charset>): void {
-  charsetRegistry = { ...charsetRegistry, ...registry };
-}
 
 export function setOcrStrategy(strategy: OcrStrategy | undefined): void {
   globalOcrStrategy = strategy;
@@ -71,9 +109,9 @@ export function resolveOcrCharset(elementName: string): string | undefined {
   return defaultCharset;
 }
 
-/** Look up a registered charset by name, or return undefined if not found. */
+/** Look up a named charset from the active OcrStrategy, or return undefined if not found. */
 export function lookupCharset(name: string): Charset | undefined {
-  return charsetRegistry[name];
+  return globalOcrStrategy?.charsets?.[name];
 }
 
 /**
@@ -89,9 +127,8 @@ export function resolveCharsetSwaps(charset: string | Charset | undefined): OcrS
 export function charsetForField(name = '', type = '', preset = 'auto'): string | undefined {
   if (type === 'checkbox') return undefined;
   if (preset && preset !== 'auto') {
-    // User-registered charsets take priority over built-in presets.
     const custom = lookupCharset(preset);
-    if (custom) return custom.chars;
+    if (custom) return charsetToWhitelist(custom);
     if (CHARSET_PRESETS[preset]) return CHARSET_PRESETS[preset];
   }
   const key = `${name} ${type}`.toLowerCase();
