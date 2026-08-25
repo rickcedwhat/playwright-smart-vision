@@ -96,6 +96,7 @@
   .el-box { border: 2px solid #6af; background: rgba(80,160,255,.12); }
   .section-box { border: 2px solid #a6f; background: rgba(170,100,255,.1); pointer-events: none; }
   .box:hover, .el-box:hover, .box.on, .el-box.on { outline: 2px solid #ffe08a; outline-offset: 0; z-index: 4; }
+  .box.on::after, .el-box.on::after { content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 8px; height: 8px; border-radius: 50%; background: #f44; border: 1.5px solid rgba(255,255,255,0.85); pointer-events: none; }
   .stage.draw-mode { cursor: crosshair; }
   .stage.erase-mode { cursor: cell; }
   .stage.drawing { cursor: crosshair; user-select: none; }
@@ -618,7 +619,7 @@ function inspectInfo(key) {
   return null;
 }
 
-function drawSourceRect(canvas, rect, maxW, overlays, activePart) {
+function drawSourceRect(canvas, rect, maxW, overlays, activePart, showClickDot = false) {
   if (!canvas || !rect || !blank.naturalWidth) return;
   const pad = 6;
   const sx = Math.max(0, rect.x - pad);
@@ -634,6 +635,19 @@ function drawSourceRect(canvas, rect, maxW, overlays, activePart) {
   ctx.strokeStyle = '#f44';
   ctx.lineWidth = 1;
   ctx.strokeRect((rect.x - sx) * scale, (rect.y - sy) * scale, rect.width * scale, rect.height * scale);
+  if (showClickDot) {
+    const cx = ((rect.x - sx) + rect.width / 2) * scale;
+    const cy = ((rect.y - sy) + rect.height / 2) * scale;
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#f44';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = '#f44';
+  }
   if (overlays && overlays.length) {
     for (const part of overlays) {
       const isActive = activePart && part.name === activePart;
@@ -898,7 +912,7 @@ function updatePartFocus(partsEl, info, parent, el) {
   const screenPart = selectedPartName ? info.parts.find((p) => p.name === selectedPartName) : null;
   const rawPart = selectedPartName ? (el && el.parts || []).find((p) => p.name === selectedPartName) : null;
   if (screenPart) {
-    drawSourceRect(mainCanvas, parent, 280, info.parts, selectedPartName);
+    drawSourceRect(mainCanvas, parent, 280, info.parts, selectedPartName, true);
     focusLabel.textContent = selectedPartName;
     focusSizeEl.textContent = rawPart ? `${rawPart.width} x ${rawPart.height}` : '';
     focusDiv.hidden = false;
@@ -917,7 +931,7 @@ function updatePartFocus(partsEl, info, parent, el) {
     renderSwapRows(document.getElementById('popSwaps'), rawPart && rawPart.swaps);
     popEl.dataset.part = selectedPartName;
   } else {
-    drawSourceRect(mainCanvas, parent, 280, info.parts);
+    drawSourceRect(mainCanvas, parent, 280, info.parts, undefined, true);
     focusDiv.hidden = true;
     // Restore parent metadata
     document.getElementById('popName').textContent = info.name || 'unnamed';
