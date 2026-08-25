@@ -1460,6 +1460,7 @@ document.getElementById('saveSettings').onclick = async () => {
   } catch (err) { handleApiError(err); }
 };
 document.getElementById('pullAll').onclick = async () => {
+  if (!confirm('Pull from GCS? This will overwrite local screens (blank.png, index.json, boxes, templates) with whatever is in GCS.')) return;
   try {
     setStatus('pulling…');
     const out = await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
@@ -1470,6 +1471,7 @@ document.getElementById('pullAll').onclick = async () => {
   } catch (err) { handleApiError(err); }
 };
 document.getElementById('pushAll').onclick = async () => {
+  if (!confirm('Push to GCS? This will overwrite the remote GCS path with your local screens.')) return;
   const modal = document.getElementById('pushModal');
   try {
     setStatus('pushing to GCS…');
