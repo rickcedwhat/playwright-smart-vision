@@ -230,7 +230,10 @@
         </select>
       </label>
       <label>Charset
-        <select id="popCharset"></select>
+        <div style="display:flex;gap:4px;align-items:center">
+          <select id="popCharset" style="flex:1"></select>
+          <button type="button" id="popSuggestCharset" title="Suggest charset based on element name">Suggest</button>
+        </div>
       </label>
       <label>Read
         <select id="popRead">
@@ -683,6 +686,8 @@ const CHARSET_OPTIONS = [
   { value: 'text', label: 'Text' },
   { value: 'digits', label: 'Digits' },
   { value: 'alnum', label: 'Letters + digits' },
+  { value: 'email', label: 'Email' },
+  { value: 'vin', label: 'VIN' },
 ];
 
 async function loadCharsets() {
@@ -838,6 +843,15 @@ function fillCharsetSelect(select, selected) {
     }
   }
   select.innerHTML = html;
+}
+
+function suggestCharset(name, type) {
+  if (type === 'checkbox') return null;
+  const key = (name + ' ' + type).toLowerCase();
+  if (key.includes('email')) return 'email';
+  if (key.includes('vin')) return 'vin';
+  if (key.includes('phone') || key.includes('odometer') || key.includes('year') || key.includes('zip')) return 'digits';
+  return 'text';
 }
 
 function swapsToRows(swaps) {
@@ -998,6 +1012,13 @@ function renderPop() {
 wireSwapContainer(document.getElementById('popSwaps'));
 document.getElementById('popAddSwap').addEventListener('click', () => {
   addSwapRow(document.getElementById('popSwaps'));
+});
+
+document.getElementById('popSuggestCharset').addEventListener('click', () => {
+  const name = popEl.dataset.element || '';
+  const type = document.getElementById('popType').value;
+  const suggestion = suggestCharset(name, type);
+  if (suggestion) document.getElementById('popCharset').value = suggestion;
 });
 
 document.getElementById('popSaveOpts').addEventListener('click', async () => {
