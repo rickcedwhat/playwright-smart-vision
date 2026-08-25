@@ -69,6 +69,12 @@ export interface Charset {
 
 /** Global OCR strategy set by init(). */
 export interface OcrStrategy {
+  /**
+   * Tesseract language pack to use for recognition. Default: 'eng'.
+   * Use 'fra', 'deu', 'spa', etc. for apps with language-specific text patterns.
+   * Changing this re-initializes the Tesseract worker.
+   */
+  language?: string;
   /** Named charsets available for use via element `charset` field or `infer` map. */
   charsets?: Record<string, Charset>;
   /** Fallback charset when an element has no explicit charset and name-inference finds nothing. */
@@ -86,7 +92,12 @@ export interface OcrStrategy {
 let globalOcrStrategy: OcrStrategy | undefined;
 
 export function setOcrStrategy(strategy: OcrStrategy | undefined): void {
+  const prevLanguage = globalOcrStrategy?.language ?? 'eng';
+  const nextLanguage = strategy?.language ?? 'eng';
   globalOcrStrategy = strategy;
+  if (sharedOCRUtil && prevLanguage !== nextLanguage) {
+    void sharedOCRUtil.initialize(nextLanguage);
+  }
 }
 
 export function getOcrStrategy(): OcrStrategy | undefined {
@@ -432,12 +443,14 @@ export class OCRUtil {
 let sharedOCRUtil: OCRUtil | null = null;
 
 /**
- * Get or create a shared OCR utility instance
+ * Get or create a shared OCR utility instance.
+ * Uses `strategies.ocr.language` when set; falls back to 'eng'.
  */
-export async function getOCRUtil(language = 'eng'): Promise<OCRUtil> {
+export async function getOCRUtil(language?: string): Promise<OCRUtil> {
+  const lang = language ?? globalOcrStrategy?.language ?? 'eng';
   if (!sharedOCRUtil) {
     sharedOCRUtil = new OCRUtil();
-    await sharedOCRUtil.initialize(language);
+    await sharedOCRUtil.initialize(lang);
   }
   return sharedOCRUtil;
 }
