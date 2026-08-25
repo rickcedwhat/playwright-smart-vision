@@ -6,19 +6,38 @@
 <style>
   * { box-sizing: border-box; }
   body { margin: 0; font: 13px/1.4 system-ui, sans-serif; background: #111; color: #eee; display: grid; grid-template-rows: auto 1fr; height: 100vh; }
-  header { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; background: #1b1b1b; border-bottom: 1px solid #333; }
-  header h1 { font-size: 14px; margin: 0 8px 0 0; white-space: nowrap; }
-  #draftTools, #catalogTools { display: flex; gap: 6px; align-items: center; }
-  #draftTools[hidden], #catalogTools[hidden] { display: none; }
+  header { display: flex; align-items: center; height: 36px; background: #1b1b1b; border-bottom: 1px solid #2c2c2c; padding: 0 6px; user-select: none; position: relative; z-index: 50; }
+  #appName { font-size: 12px; font-weight: 600; color: #777; padding: 0 6px 0 2px; white-space: nowrap; flex-shrink: 0; }
+  .menu-trigger { position: relative; height: 100%; display: flex; align-items: center; }
+  .menu-trigger > .mt-btn { background: none; border: none; color: #bbb; font: 13px/1 system-ui, sans-serif; padding: 0 9px; height: 100%; cursor: pointer; border-radius: 0; white-space: nowrap; }
+  .menu-trigger > .mt-btn:hover, .menu-trigger.open > .mt-btn { background: #262626; color: #eee; }
+  .dropdown { display: none; position: absolute; top: 100%; left: 0; background: #222; border: 1px solid #383838; border-top: none; border-radius: 0 0 5px 5px; min-width: 200px; padding: 4px 0; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,.65); }
+  .menu-trigger.open .dropdown { display: block; }
+  .dd-item { display: flex; align-items: center; gap: 0; padding: 5px 14px 5px 28px; font: 12px/1 system-ui, sans-serif; color: #ccc; cursor: pointer; background: none; border: none; width: 100%; text-align: left; position: relative; box-sizing: border-box; }
+  .dd-item:hover:not(:disabled) { background: #2b4f2b; color: #eee; }
+  .dd-item:disabled { opacity: 0.38; cursor: default; }
+  .dd-check { position: absolute; left: 10px; color: #5a9; font-size: 11px; line-height: 1; }
+  .dd-kbd { color: #555; font: 11px/1 ui-monospace, monospace; margin-left: auto; padding-left: 20px; }
+  .dd-sep { height: 1px; background: #2d2d2d; margin: 4px 0; }
+  #envDisplay { margin-left: auto; display: flex; align-items: center; gap: 6px; padding: 0 8px; min-width: 0; }
+  #envDot { width: 6px; height: 6px; border-radius: 50%; background: #4a8; flex-shrink: 0; }
+  #envName { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 280px; }
+  #status { color: #6b8; font-size: 11px; padding: 0 8px; white-space: nowrap; flex-shrink: 0; }
+  #status.err { color: #f88; }
   input[type=text], input[type=number], select, button { font: inherit; }
   input[type=text], select { background: #222; color: #eee; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; }
-  #gcs { width: min(420px, 32vw); }
   button { background: #333; color: #eee; border: 1px solid #555; padding: 6px 10px; border-radius: 4px; cursor: pointer; }
   button.primary, button.current { background: #3d6d3d; border-color: #5a9; }
   button:hover { filter: brightness(1.12); }
   button:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
-  #status { color: #8c8; flex: 1; min-width: 120px; }
-  #status.err { color: #f88; }
+  #configModal { position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.7); display: flex; align-items: center; justify-content: center; padding: 24px; }
+  #configModal[hidden] { display: none; }
+  .config-card { background: #1c1c1c; border: 1px solid #444; border-radius: 8px; padding: 18px 20px; width: min(400px, 90vw); display: flex; flex-direction: column; gap: 12px; }
+  .config-card h3 { margin: 0; font-size: 14px; color: #ddd; }
+  .config-field { display: flex; flex-direction: column; gap: 4px; }
+  .config-field label { font-size: 11px; color: #888; }
+  .config-field input { background: #222; color: #eee; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; font: 13px system-ui,sans-serif; }
+  .config-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
   #toast { position: fixed; right: 16px; bottom: 16px; max-width: 360px; background: #4a2020; color: #fcc; border: 1px solid #c66; padding: 10px 12px; border-radius: 6px; display: none; z-index: 20; }
   .layout { display: grid; grid-template-columns: 280px 1fr min(320px, 25vw); min-height: 0; }
   aside { overflow: hidden; padding: 10px 8px 12px; border-right: 1px solid #333; background: #181818; display: flex; flex-direction: column; min-height: 0; }
@@ -147,31 +166,73 @@
 </head>
 <body>
 <header>
-  <div id="draftTools" hidden>
-    <button id="detect" class="primary" type="button">Detect</button>
-    <button id="toolDraw" type="button">Draw</button>
-    <button id="toolErase" type="button">Erase</button>
-  </div>
-  <div id="catalogTools" hidden>
-    <button id="copyPrompt" class="primary" type="button">Copy prompt</button>
-    <button id="reloadScreen" type="button">Reload</button>
-    <button id="copyRevise" type="button">Copy revision</button>
-  </div>
-  <h1>TM v2</h1>
-  <input id="gcs" type="text" spellcheck="false">
-  <button id="saveSettings" type="button">Save URI</button>
-  <button id="pullAll" type="button">Pull GCS</button>
-  <button id="pushAll" type="button" title="Copy blank.png, index.json, and templates/ — does not delete">Push GCS</button>
-  <div class="reset-wrap">
-    <button id="resetOne" type="button">Reset</button>
-    <button id="resetMenuBtn" type="button" aria-label="reset options">▾</button>
-    <div class="reset-menu" id="resetMenu">
-      <button id="resetAll" type="button">Reset all screens</button>
+  <span id="appName">TM</span>
+
+  <div class="menu-trigger" id="mtFile">
+    <button type="button" class="mt-btn">File</button>
+    <div class="dropdown">
+      <button type="button" class="dd-item" id="menuConfigure">Configure…</button>
+      <div class="dd-sep"></div>
+      <button type="button" class="dd-item" id="pullAll">Pull GCS</button>
+      <button type="button" class="dd-item" id="pushAll">Push GCS</button>
+      <div class="dd-sep"></div>
+      <button type="button" class="dd-item" id="resetOne">Reset Screen</button>
+      <button type="button" class="dd-item" id="resetAll">Reset All Screens</button>
     </div>
   </div>
+
+  <div class="menu-trigger" id="mtEdit">
+    <button type="button" class="mt-btn">Edit</button>
+    <div class="dropdown">
+      <button type="button" class="dd-item" id="detect">Detect</button>
+      <button type="button" class="dd-item" id="toolDraw">Draw</button>
+      <button type="button" class="dd-item" id="toolErase">Erase</button>
+      <div class="dd-sep"></div>
+      <button type="button" class="dd-item" id="copyPrompt">Copy Prompt</button>
+      <button type="button" class="dd-item" id="reloadScreen">Reload</button>
+      <button type="button" class="dd-item" id="copyRevise">Copy Revision</button>
+    </div>
+  </div>
+
+  <div class="menu-trigger" id="mtView">
+    <button type="button" class="mt-btn">View</button>
+    <div class="dropdown">
+      <button type="button" class="dd-item view-menu-opt" data-view="source"><span class="dd-check" id="vchkSource"></span>Blank</button>
+      <button type="button" class="dd-item view-menu-opt" data-view="draft"><span class="dd-check" id="vchkDraft"></span>Boxes</button>
+      <button type="button" class="dd-item view-menu-opt" data-view="catalog"><span class="dd-check" id="vchkCatalog"></span>Elements</button>
+    </div>
+  </div>
+
+  <div id="envDisplay">
+    <span id="envDot"></span>
+    <span id="envName"></span>
+  </div>
   <span id="status"></span>
+
+  <!-- Preserved for JS compatibility -->
+  <input id="gcs" type="text" spellcheck="false" hidden aria-hidden="true">
+  <button type="button" id="saveSettings" hidden aria-hidden="true"></button>
+  <button type="button" id="resetMenuBtn" hidden aria-hidden="true"></button>
+  <div id="resetMenu" hidden></div>
 </header>
 <div id="toast"></div>
+<div id="configModal" hidden>
+  <div class="config-card">
+    <h3>Configure Environment</h3>
+    <div class="config-field">
+      <label for="configEnvName">Name</label>
+      <input type="text" id="configEnvName" placeholder="e.g. Production — QAWolf" spellcheck="false">
+    </div>
+    <div class="config-field">
+      <label for="configGcsUri">GCS URI</label>
+      <input type="text" id="configGcsUri" spellcheck="false" placeholder="gs://bucket/path/screens">
+    </div>
+    <div class="config-actions">
+      <button type="button" class="primary" id="configSave">Save</button>
+      <button type="button" id="configCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div id="pushModal" hidden>
   <div class="push-card">
     <h3 id="pushTitle">GCS push</h3>
@@ -426,8 +487,9 @@ function setView(next) {
     renderImage();
   }
   syncDetectTool();
-  document.getElementById('draftTools').hidden = view !== 'draft';
-  document.getElementById('catalogTools').hidden = view !== 'catalog';
+  document.getElementById('vchkSource').textContent = view === 'source' ? '✓' : '';
+  document.getElementById('vchkDraft').textContent = view === 'draft' ? '✓' : '';
+  document.getElementById('vchkCatalog').textContent = view === 'catalog' ? '✓' : '';
   const detectLabel = state.boxes.length ? 'Re-detect' : 'Detect';
   document.getElementById('detect').textContent = detectLabel;
   document.getElementById('detect').disabled = !currentScreen();
@@ -464,6 +526,7 @@ async function loadSettings() {
   const s = await api('/api/settings');
   gcs.value = s.gcsUri;
   cacheDir = s.cacheDir || '';
+  if (typeof updateEnvDisplay === 'function') updateEnvDisplay();
 }
 
 function screenRoot(name) {
@@ -1576,6 +1639,79 @@ function deferPaint() {
     paint();
   });
 })();
+
+// ── Menu bar ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.menu-trigger').forEach(trigger => {
+  trigger.querySelector('.mt-btn').addEventListener('click', e => {
+    e.stopPropagation();
+    const wasOpen = trigger.classList.contains('open');
+    document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
+    if (!wasOpen) trigger.classList.add('open');
+  });
+});
+document.addEventListener('click', () => {
+  document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
+});
+document.querySelectorAll('.menu-trigger .dropdown').forEach(d => {
+  d.addEventListener('click', e => e.stopPropagation());
+});
+
+// View menu wiring
+document.querySelectorAll('.view-menu-opt').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setView(btn.dataset.view);
+    document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
+  });
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if ((e.metaKey || e.ctrlKey) && e.key === 'd') { e.preventDefault(); document.getElementById('detect').click(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'b') { e.preventDefault(); document.getElementById('toolDraw').click(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'e') { e.preventDefault(); document.getElementById('toolErase').click(); }
+  if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'C') { e.preventDefault(); document.getElementById('copyPrompt').click(); }
+  if ((e.metaKey || e.ctrlKey) && e.key === 'r') { e.preventDefault(); document.getElementById('reloadScreen').click(); }
+}, true);
+
+// ── Configure modal ────────────────────────────────────────────────────────────
+function openConfigure() {
+  document.getElementById('configGcsUri').value = gcs.value;
+  document.getElementById('configEnvName').value = localStorage.getItem('tm-env-name') || '';
+  document.getElementById('configModal').hidden = false;
+  document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
+  document.getElementById('configEnvName').focus();
+}
+function closeConfigure() {
+  document.getElementById('configModal').hidden = true;
+}
+function updateEnvDisplay() {
+  const name = localStorage.getItem('tm-env-name') || '';
+  document.getElementById('envName').textContent = name || gcs.value;
+}
+
+document.getElementById('menuConfigure').addEventListener('click', openConfigure);
+document.getElementById('configCancel').addEventListener('click', closeConfigure);
+document.getElementById('configModal').addEventListener('click', e => {
+  if (e.target.id === 'configModal') closeConfigure();
+});
+document.getElementById('configSave').addEventListener('click', async () => {
+  const name = document.getElementById('configEnvName').value.trim();
+  gcs.value = document.getElementById('configGcsUri').value.trim();
+  localStorage.setItem('tm-env-name', name);
+  updateEnvDisplay();
+  closeConfigure();
+  document.getElementById('saveSettings').click();
+});
+document.getElementById('configEnvName').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('configGcsUri').focus();
+});
+document.getElementById('configGcsUri').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('configSave').click();
+  if (e.key === 'Escape') closeConfigure();
+});
+
+updateEnvDisplay();
 </script>
 </body>
 </html>
