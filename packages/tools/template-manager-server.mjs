@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { exec } from 'node:child_process';
-import { handleTmV2Request, initTmV2, tmV2StartupLines } from './tm-v2/handler.mjs';
+import { handleTmV2Request, initTmV2, tmV2StartupLines, TM_V2_BASE } from './tm-v2/handler.mjs';
 import { PNG } from 'pngjs';
 import { VisionUtil } from '@rickcedwhat/playwright-smart-vision/utils/vision';
 import { OCRUtil, charsetForField, pickFromOptions } from '@rickcedwhat/playwright-smart-vision/utils/ocr';
@@ -910,7 +910,7 @@ async function handle(req, res) {
   }
 
   if (req.method === 'GET' && url.pathname === '/') {
-    res.writeHead(302, { Location: '/template-manager' });
+    res.writeHead(302, { Location: TM_V2_BASE });
     res.end();
     return;
   }
