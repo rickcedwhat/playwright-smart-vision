@@ -9,7 +9,7 @@ import {
   type OcrSwaps,
 } from './utils/ocr.js';
 import { ocrStep, expectTimeout } from './ocr-step.js';
-import { getClickStrategy, getFillStrategy } from './strategies.js';
+import { getClickStrategy, getFillStrategy, getHoverStrategy, getDblClickStrategy } from './strategies.js';
 
 export const VISIBLE_CONFIDENCE = 0.7;
 
@@ -529,8 +529,13 @@ export class ScreenElement {
       await this.withOverlay(async () => {
         const rect = this.result.ocrLocation ?? this.result.location;
         if (!this.page) throw new Error('Page not provided. Cannot double-click element.');
-        const { x, y } = getClickStrategy().getPoint(rect);
-        await this.page.mouse.dblclick(x, y);
+        const strategy = getDblClickStrategy();
+        if (strategy) {
+          await strategy.dblclick(this.page, rect);
+        } else {
+          const { x, y } = getClickStrategy().getPoint(rect);
+          await this.page.mouse.dblclick(x, y);
+        }
         this.live?.markDirty();
       });
     });
@@ -541,7 +546,12 @@ export class ScreenElement {
       await this.ensureLocated(options?.timeout);
       const rect = this.result.ocrLocation ?? this.result.location;
       if (!this.page) throw new Error('Page not provided. Cannot hover element.');
-      await this.page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      const strategy = getHoverStrategy();
+      if (strategy) {
+        await strategy.hover(this.page, this.page.locator('body'), rect);
+      } else {
+        await this.page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+      }
     });
   }
 
