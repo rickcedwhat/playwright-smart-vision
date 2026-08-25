@@ -548,7 +548,7 @@ export class ScreenElement {
       if (!this.page) throw new Error('Page not provided. Cannot hover element.');
       const strategy = getHoverStrategy();
       if (strategy) {
-        await strategy.hover(this.page, this.page.locator('body'), rect);
+        await strategy.hover(this.page, rect);
       } else {
         await this.page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
       }
