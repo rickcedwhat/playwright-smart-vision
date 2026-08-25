@@ -1057,7 +1057,7 @@ function listen(port) {
 
   server.listen(port, () => {
     const dest = destinations(loadSettings());
-    const url = `http://localhost:${port}/template-manager`;
+    const url = `http://localhost:${port}${TM_V2_BASE}`;
     console.log(`Hub:              ${url}`);
     for (const line of tmV2StartupLines(port)) console.log(line);
     console.log(`config.ts → ${dest.configRoot}`);

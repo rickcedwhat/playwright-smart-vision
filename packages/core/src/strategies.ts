@@ -1,4 +1,4 @@
-import type { Locator, Page } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import type { Rect } from './types.js';
 import type { OcrStrategy } from './utils/ocr.js';
 export type { OcrStrategy };
@@ -17,7 +17,7 @@ export interface FillStrategy {
 
 export interface HoverStrategy {
   /** Full hover lifetime: move to the element, wait, done. */
-  hover(page: Page, locator: Locator, rect: Rect): Promise<void>;
+  hover(page: Page, rect: Rect): Promise<void>;
 }
 
 export interface DblClickStrategy {
@@ -172,8 +172,9 @@ export const Strategies = {
      */
     withDelay(ms: number): HoverStrategy {
       return {
-        async hover(page, locator, rect) {
-          await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        async hover(page, rect) {
+          const { x, y } = getClickStrategy().getPoint(rect);
+          await page.mouse.move(x, y);
           await page.waitForTimeout(ms);
         },
       };
@@ -182,8 +183,9 @@ export const Strategies = {
     /** Hover over the element with no additional delay. */
     default(): HoverStrategy {
       return {
-        async hover(page, _locator, rect) {
-          await page.mouse.move(rect.x + rect.width / 2, rect.y + rect.height / 2);
+        async hover(page, rect) {
+          const { x, y } = getClickStrategy().getPoint(rect);
+          await page.mouse.move(x, y);
         },
       };
     },
@@ -194,7 +196,8 @@ export const Strategies = {
     default(): DblClickStrategy {
       return {
         async dblclick(page, rect) {
-          await page.mouse.dblclick(rect.x + rect.width / 2, rect.y + rect.height / 2);
+          const { x, y } = getClickStrategy().getPoint(rect);
+          await page.mouse.dblclick(x, y);
         },
       };
     },
@@ -206,7 +209,8 @@ export const Strategies = {
     withDelay(ms: number): DblClickStrategy {
       return {
         async dblclick(page, rect) {
-          await page.mouse.dblclick(rect.x + rect.width / 2, rect.y + rect.height / 2, { delay: ms });
+          const { x, y } = getClickStrategy().getPoint(rect);
+          await page.mouse.dblclick(x, y, { delay: ms });
         },
       };
     },

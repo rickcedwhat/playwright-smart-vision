@@ -3,11 +3,11 @@ import os from 'node:os';
 import path from 'node:path';
 import type { Page, TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
-import { loadScreen, clearConfigUnhoverPoint, configure, resetGlobalConfig } from './configure.js';
+import { loadScreen, clearConfigUnhoverPoint, configure } from './configure.js';
 import { clearScreenHandlers } from './screen-handler.js';
 import { FieldExtractor } from './field-extractor.js';
 import { ScreenResult } from './screen-result.js';
-import { cleanupOCR, getOCRUtil, setOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
+import { cleanupOCR, getOCRUtil, setOcrStrategy, getOcrStrategy, type Charset, type FieldRead } from './utils/ocr.js';
 import { setUnhoverPoint } from './unhover.js';
 import { ensureCvReady } from './utils/vision.js';
 import {
@@ -160,7 +160,18 @@ export async function init(options: InitOptions): Promise<void> {
     setDblClickStrategy(options.strategies.actions.dblclick);
   }
   if (options.strategies?.ocr !== undefined) {
-    setOcrStrategy(options.strategies.ocr);
+    const existing = getOcrStrategy();
+    const next = options.strategies.ocr;
+    const merged = existing
+      ? {
+          ...existing,
+          ...next,
+          ...(next.charsets && existing.charsets
+            ? { charsets: { ...existing.charsets, ...next.charsets } }
+            : {}),
+        }
+      : next;
+    setOcrStrategy(merged);
   }
 
   try {
@@ -239,7 +250,6 @@ export async function release(): Promise<void> {
   setHoverStrategy(undefined);
   setDblClickStrategy(undefined);
   setOcrStrategy(undefined);
-  resetGlobalConfig();
   await cleanupOCR();
 }
 
