@@ -274,7 +274,31 @@
   </div>
 </main>
 <div id="detail">
-  <div id="detailPlaceholder">Click an element to inspect</div>
+  <div id="projectDefaults">
+    <div style="padding:10px 10px 0;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em">Project Defaults</div>
+    <div id="popOpts" style="padding:10px">
+      <label>Read
+        <select id="defaultRead">
+          <option value="ocr">ocr (Tesseract)</option>
+          <option value="clipboard">clipboard (select-all + copy)</option>
+        </select>
+      </label>
+      <label id="defaultCharsetLabel">Default Charset
+        <select id="defaultCharset"></select>
+      </label>
+      <label id="defaultOverflowLabel">Overflow
+        <select id="defaultOverflow">
+          <option value="">none</option>
+          <option value="right">right (trailing garbage)</option>
+          <option value="left">left (leading prefix)</option>
+          <option value="both">both</option>
+        </select>
+      </label>
+      <div class="row-actions">
+        <button type="button" id="saveDefaults" class="primary">Save defaults</button>
+      </div>
+    </div>
+  </div>
   <div id="pop" hidden>
     <canvas id="popCanvas"></canvas>
     <div id="popPartFocus" hidden>
@@ -290,6 +314,7 @@
     <div id="popOpts">
       <label>Read
         <select id="popRead">
+          <option value="">default</option>
           <option value="ocr">ocr (Tesseract)</option>
           <option value="clipboard">clipboard (select-all + copy)</option>
         </select>
@@ -299,7 +324,8 @@
       </label>
       <label id="overflowLabel">Overflow
         <select id="popOverflow">
-          <option value="">none</option>
+          <option value="">default</option>
+          <option value="none">none</option>
           <option value="right">right (trailing garbage)</option>
           <option value="left">left (leading prefix)</option>
           <option value="both">both</option>
@@ -340,6 +366,7 @@ const overlays = document.getElementById('overlays');
 const mainEl = document.getElementById('main');
 const popEl = document.getElementById('pop');
 let cacheDir = '';
+let projectDefaults = {};
 let view = 'source';
 let state = { name: '', elements: [], sections: [], boxes: [], labels: [], width: 0, height: 0, names: {}, firstPass: null };
 let selectedScreen = '';
@@ -524,6 +551,45 @@ async function loadSettings() {
   gcs.value = s.gcsUri;
   cacheDir = s.cacheDir || '';
   if (typeof updateEnvDisplay === 'function') updateEnvDisplay();
+}
+
+async function loadDefaults() {
+  const data = await api('/api/defaults');
+  projectDefaults = data.defaults || {};
+  applyDefaultsToUI();
+}
+
+function applyDefaultsToUI() {
+  document.getElementById('defaultRead').value = projectDefaults.read || 'ocr';
+  document.getElementById('defaultOverflow').value = projectDefaults.overflow || '';
+  fillDefaultCharsetSelect();
+  // Update element-panel "default" option labels
+  const d = projectDefaults;
+  const readDefault = d.read || 'ocr';
+  const overflowDefault = d.overflow || 'none';
+  document.getElementById('popRead').options[0].textContent = 'default (' + readDefault + ')';
+  document.getElementById('popOverflow').options[0].textContent = 'default (' + overflowDefault + ')';
+  // Hide/show default charset and overflow in defaults panel based on default read
+  const isClipboardDefault = (d.read || 'ocr') === 'clipboard';
+  document.getElementById('defaultCharsetLabel').hidden = isClipboardDefault;
+  document.getElementById('defaultOverflowLabel').hidden = isClipboardDefault;
+}
+
+function fillDefaultCharsetSelect() {
+  const sel = document.getElementById('defaultCharset');
+  const current = projectDefaults.defaultCharset || '';
+  let html = '<option value="">(none — built-in heuristics)</option>';
+  html += CHARSET_OPTIONS.map((opt) =>
+    `<option value="${opt.value}"${opt.value === current ? ' selected' : ''}>${opt.label}</option>`
+  ).join('');
+  const customNames = Object.keys(charsets);
+  if (customNames.length) {
+    html += '<option disabled>── custom ──</option>';
+    for (const name of customNames) {
+      html += `<option value="${esc(name)}"${name === current ? ' selected' : ''}>${esc(name)}</option>`;
+    }
+  }
+  sel.innerHTML = html;
 }
 
 function screenRoot(name) {
@@ -732,7 +798,7 @@ function drawSourceRect(canvas, rect, maxW, overlays, activePart, showClickDot =
 
 function hidePop() {
   popEl.hidden = true;
-  document.getElementById('detailPlaceholder').hidden = false;
+  document.getElementById('projectDefaults').hidden = false;
 }
 
 let charsets = {};
@@ -750,6 +816,7 @@ async function loadCharsets() {
     const data = await api('/api/charsets');
     charsets = data.charsets || {};
     renderCharsetList();
+    fillDefaultCharsetSelect();
   } catch (_) {}
 }
 
@@ -886,8 +953,12 @@ document.getElementById('charsetAdd').addEventListener('click', () => {
 });
 
 function fillCharsetSelect(select, selected) {
-  const current = selected || 'auto';
-  let html = CHARSET_OPTIONS.map((opt) =>
+  const current = selected ?? '';
+  const defaultLabel = projectDefaults.defaultCharset
+    ? 'default (' + projectDefaults.defaultCharset + ')'
+    : 'default';
+  let html = `<option value=""${current === '' ? ' selected' : ''}>${defaultLabel}</option>`;
+  html += CHARSET_OPTIONS.map((opt) =>
     `<option value="${opt.value}"${opt.value === current ? ' selected' : ''}>${opt.label}</option>`,
   ).join('');
   const customNames = Object.keys(charsets);
@@ -947,7 +1018,9 @@ function catalogElement(key) {
 
 
 function syncOcrFields() {
-  const isClipboard = document.getElementById('popRead').value === 'clipboard';
+  const val = document.getElementById('popRead').value;
+  const effective = val || projectDefaults.read || 'ocr';
+  const isClipboard = effective === 'clipboard';
   document.getElementById('overflowLabel').hidden = isClipboard;
   document.getElementById('charsetLabel').hidden = isClipboard;
 }
@@ -1013,12 +1086,13 @@ function renderPop() {
     hidePop();
     return;
   }
-  document.getElementById('detailPlaceholder').hidden = true;
+  document.getElementById('projectDefaults').hidden = true;
   popEl.hidden = false;
   document.getElementById('popJson').textContent = JSON.stringify(el, null, 2);
-  fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
-  document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
-  document.getElementById('popOverflow').value = el.overflow || '';
+  fillCharsetSelect(document.getElementById('popCharset'), el.charset ?? '');
+  applyDefaultsToUI();
+  document.getElementById('popRead').value = el.read ?? '';
+  document.getElementById('popOverflow').value = el.overflow ?? '';
   syncOcrFields();
   elSwapRender(el.swaps);
   popEl.dataset.element = el.name;
@@ -1115,9 +1189,9 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
   const element = popEl.dataset.element;
   if (!element || !state.name) return;
   try {
-    const charset = document.getElementById('popCharset').value;
-    const read = document.getElementById('popRead').value;
-    const overflow = document.getElementById('popOverflow').value;
+    const charset = document.getElementById('popCharset').value || null;
+    const read = document.getElementById('popRead').value || null;
+    const overflow = document.getElementById('popOverflow').value || null;
     const swaps = elSwapToObj(document.getElementById('popSwaps'));
     const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
       method: 'PUT',
@@ -1128,7 +1202,7 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
         type: document.getElementById('popType').value,
         charset,
         read,
-        overflow: overflow || null,
+        overflow,
         swaps,
       }),
     });
@@ -1700,7 +1774,32 @@ stage.addEventListener('click', (e) => {
 });
 document.getElementById('popRead').addEventListener('change', syncOcrFields);
 
-Promise.all([loadSettings(), loadCharsets()])
+document.getElementById('defaultRead').addEventListener('change', () => {
+  const isClipboard = document.getElementById('defaultRead').value === 'clipboard';
+  document.getElementById('defaultCharsetLabel').hidden = isClipboard;
+  document.getElementById('defaultOverflowLabel').hidden = isClipboard;
+});
+
+document.getElementById('saveDefaults').addEventListener('click', async () => {
+  try {
+    const read = document.getElementById('defaultRead').value;
+    const defaultCharset = document.getElementById('defaultCharset').value || null;
+    const overflow = document.getElementById('defaultOverflow').value || null;
+    const defaults = { read, ...(defaultCharset && { defaultCharset }), ...(overflow && { overflow }) };
+    const data = await api('/api/defaults', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ defaults }),
+    });
+    projectDefaults = data.defaults || {};
+    applyDefaultsToUI();
+    setStatus('Defaults saved');
+  } catch (err) {
+    toast(err.message || String(err));
+  }
+});
+
+Promise.all([loadSettings(), loadCharsets(), loadDefaults()])
   .then(renderTree)
   .then(() => setView('source'))
   .catch(handleApiError);

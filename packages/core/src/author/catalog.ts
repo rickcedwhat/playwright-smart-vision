@@ -89,16 +89,28 @@ export function readScreenCatalog(): ScreenCatalog {
 }
 
 /** Generated catalog source. Does not touch the filesystem. */
-export function screenCatalogSource(charsets?: Record<string, unknown>): string {
+export function screenCatalogSource(
+  charsets?: Record<string, unknown>,
+  ocr?: Record<string, unknown>,
+): string {
   const screens = listScreens(storageRoot());
   const resolvedCharsets = charsets ?? readCharsets();
   const charsetEntries = Object.entries(resolvedCharsets);
+  const ocrEntries = ocr ? Object.entries(ocr).filter(([, v]) => v != null && v !== '') : [];
 
-  const strategiesBody = charsetEntries.length
-    ? `{\n  charsets: {\n${charsetEntries
+  const parts: string[] = [];
+  if (charsetEntries.length) {
+    parts.push(
+      `  charsets: {\n${charsetEntries
         .map(([name, cs]) => `    ${JSON.stringify(name)}: ${JSON.stringify(cs)},`)
-        .join('\n')}\n  },\n}`
-    : '{}';
+        .join('\n')}\n  },`,
+    );
+  }
+  if (ocrEntries.length) {
+    const ocrObj = Object.fromEntries(ocrEntries);
+    parts.push(`  ocr: ${JSON.stringify(ocrObj, null, 2).replace(/\n/g, '\n  ')},`);
+  }
+  const strategiesBody = parts.length ? `{\n${parts.join('\n')}\n}` : '{}';
 
   const screensBody = screens
     .map((s) => {
@@ -163,8 +175,8 @@ export function screenCatalogPath(): string {
  * Write `{storage.root}/generated.ts` (or `destFile` if given).
  * QA Wolf: copy that file to `src/helpers/screens.generated.ts` after the flow.
  */
-export function writeScreenCatalog(destFile?: string, charsets?: Record<string, unknown>): string {
-  const source = screenCatalogSource(charsets);
+export function writeScreenCatalog(destFile?: string, charsets?: Record<string, unknown>, ocr?: Record<string, unknown>): string {
+  const source = screenCatalogSource(charsets, ocr);
   const dest = destFile || screenCatalogPath();
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, source);

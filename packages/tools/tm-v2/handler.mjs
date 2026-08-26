@@ -22,6 +22,14 @@ const DEFAULT_GCS = 'gs://qawolf-prod-team-storage/clzn2wsor00hcda0ickzd3544/scr
 
 const RUNTIME_FILES = ['blank.png', 'index.json'];
 const CHARSETS_FILE = path.join(HOME, 'charsets.json');
+const DEFAULTS_FILE = path.join(HOME, 'defaults.json');
+
+function readDefaults() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(DEFAULTS_FILE, 'utf8'));
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch { return {}; }
+}
 
 function normalizeGcs(raw) {
   const uri = String(raw || '').trim().replace(/\/+$/, '');
@@ -317,7 +325,7 @@ async function ensureConfigured() {
   if (_configured) return;
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   await configure({ storage: { root: CACHE_DIR } });
-  writeScreenCatalog();
+  writeScreenCatalog(undefined, undefined, readDefaults());
   _configured = true;
 }
 
@@ -426,11 +434,34 @@ async function handleInternal(req, res, url) {
     fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
     try {
-      writeScreenCatalog(undefined, incoming);
+      writeScreenCatalog(undefined, incoming, readDefaults());
     } catch (err) {
       console.error('[tm-v2] catalog regeneration failed after charset save:', err);
     }
     send(res, 200, { charsets: incoming });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/defaults') {
+    send(res, 200, { defaults: readDefaults() });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/defaults') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    const incoming = (body && body.defaults) ?? {};
+    if (typeof incoming !== 'object' || incoming === null || Array.isArray(incoming)) {
+      send(res, 400, { error: 'defaults must be a plain object' });
+      return;
+    }
+    fs.mkdirSync(HOME, { recursive: true });
+    fs.writeFileSync(DEFAULTS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
+    try {
+      writeScreenCatalog(undefined, undefined, incoming);
+    } catch (err) {
+      console.error('[tm-v2] catalog regeneration failed after defaults save:', err);
+    }
+    send(res, 200, { defaults: incoming });
     return;
   }
 
@@ -611,7 +642,7 @@ async function handleInternal(req, res, url) {
       return;
     }
     const result = applyScreen(assertScreenName(name));
-    writeScreenCatalog();
+    writeScreenCatalog(undefined, undefined, readDefaults());
     send(res, 200, {
       name,
       elements: result.elements.map((el) => el.name),
