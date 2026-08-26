@@ -1155,6 +1155,38 @@ function isImagePath(rel) {
   return /\.(png|jpe?g|gif|webp)$/i.test(rel || '');
 }
 
+function showFileMessage(msg) {
+  const textEl = document.getElementById('fileText');
+  blank.hidden = true;
+  overlays.innerHTML = '';
+  hidePop();
+  textEl.hidden = false;
+  textEl.innerHTML = '<span style="color:#666;font-style:italic">' + msg + '</span>';
+}
+
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function highlightJson(json) {
+  const re = /("(?:\\u[a-fA-F0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(?:true|false|null)\b|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let out = '', last = 0, m;
+  while ((m = re.exec(json)) !== null) {
+    out += escHtml(json.slice(last, m.index));
+    const tok = m[0];
+    if (tok[0] === '"') {
+      const color = /:$/.test(tok) ? '#9cdcfe' : '#ce9178';
+      out += '<span style="color:' + color + '">' + escHtml(tok) + '</span>';
+    } else if (tok === 'true' || tok === 'false') {
+      out += '<span style="color:#569cd6">' + tok + '</span>';
+    } else if (tok === 'null') {
+      out += '<span style="color:#808080">null</span>';
+    } else {
+      out += '<span style="color:#b5cea8">' + tok + '</span>';
+    }
+    last = m.index + tok.length;
+  }
+  out += escHtml(json.slice(last));
+  return out;
+}
+
 async function renderImage() {
   const textEl = document.getElementById('fileText');
   if (selectedFile && !isImagePath(selectedFile)) {
@@ -1162,7 +1194,7 @@ async function renderImage() {
     overlays.innerHTML = '';
     hidePop();
     textEl.hidden = false;
-    textEl.textContent = 'Loading…';
+    textEl.innerHTML = '<span style="color:#666">Loading…</span>';
     try {
       const res = await fetch(TM_BASE + '/file?path=' + encodeURIComponent(selectedFile) + '&t=' + Date.now());
       const body = await res.text();
@@ -1171,10 +1203,14 @@ async function renderImage() {
         try { msg = JSON.parse(body).error || body; } catch (_) {}
         throw new Error(msg || res.statusText);
       }
-      try { textEl.textContent = JSON.stringify(JSON.parse(body), null, 2); }
-      catch { textEl.textContent = body; }
+      try {
+        const pretty = JSON.stringify(JSON.parse(body), null, 2);
+        textEl.innerHTML = highlightJson(pretty);
+      } catch {
+        textEl.innerHTML = escHtml(body);
+      }
     } catch (err) {
-      textEl.textContent = '';
+      textEl.innerHTML = '<span style="color:#f44;font-style:italic">' + escHtml(err.message) + '</span>';
       setStatus(err.message, true);
     }
     return;
@@ -1440,10 +1476,23 @@ treeEl.addEventListener('click', async (e) => {
   }
   const fileRow = e.target.closest('.tree-row.file');
   if (fileRow && fileRow.dataset.path) {
+    const filePath = fileRow.dataset.path;
     const screen = fileRow.dataset.screen;
-    selectedFile = fileRow.dataset.path;
+    const isRootFile = !filePath.includes('/');
+    const isLocal = fileRow.classList.contains('local');
+    selectedFile = filePath;
+    if (!isLocal) {
+      setStatus(filePath + ' — not pulled locally (File → Pull GCS)', true);
+      showFileMessage('Not available locally — use File → Pull GCS to download.');
+      return;
+    }
+    if (isRootFile) {
+      setStatus(filePath);
+      renderImage();
+      return;
+    }
     if (screen) {
-      loadScreen(screen, { keepFile: true, view: 'source', status: fileRow.dataset.path }).catch((err) => setStatus(err.message, true));
+      loadScreen(screen, { keepFile: true, view: 'source', status: filePath }).catch((err) => setStatus(err.message, true));
     }
     return;
   }
