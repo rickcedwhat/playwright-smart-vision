@@ -127,10 +127,18 @@
   #popOpts { margin-top: 10px; display: grid; gap: 8px; }
   #popOpts label { display: flex; flex-direction: column; gap: 3px; color: #aaa; font-size: 11px; }
   #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
-  .swap-json-wrap { display: flex; flex-direction: column; }
-  .swap-brace { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #666; padding: 0 2px; }
-  #swapJson { width: 100%; min-height: 56px; background: #111; border: 0.5px solid #2e2e2e; color: #ccc; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 4px 8px; border-radius: 3px; resize: vertical; outline: none; }
-  #swapJson:focus { border-color: #3a5a3a; }
+  .el-swap-block { background: #111; border: 0.5px solid #2e2e2e; border-radius: 4px; padding: 5px 8px; display: flex; flex-direction: column; }
+  .el-swap-brace { font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: #555; user-select: none; }
+  .el-swap-add { background: none; border: none; color: #4a7a4a; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; padding: 2px 0; text-align: left; }
+  .el-swap-add:hover { color: #6aaa6a; }
+  .el-swap-row { display: flex; align-items: center; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #555; }
+  .el-swap-row .el-swap-punc { white-space: pre; user-select: none; }
+  .el-swap-row input.sk { width: 36px; background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #9cdcfe; font: inherit; padding: 0 2px; outline: none; text-align: center; }
+  .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa; }
+  .el-swap-row input.sv { flex: 1; background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #ce9178; font: inherit; padding: 0 2px; outline: none; min-width: 0; }
+  .el-swap-row input.sv:focus { border-bottom-color: #aa6a48; }
+  .el-swap-row .el-swap-del { margin-left: 4px; background: none; border: none; color: #3a3a3a; font-size: 13px; cursor: pointer; padding: 0 1px; line-height: 1; flex-shrink: 0; }
+  .el-swap-row .el-swap-del:hover { color: #f55; }
   #popOpts .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   #popOpts details { margin-top: 4px; }
   #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
@@ -283,17 +291,19 @@
       <label id="overflowLabel">Overflow
         <select id="popOverflow">
           <option value="">none</option>
-          <option value="end">end (prefix + trailing garbage)</option>
+          <option value="right">right (trailing garbage)</option>
+          <option value="left">left (leading prefix)</option>
+          <option value="both">both</option>
         </select>
       </label>
       <div>
         <div class="muted" style="margin-bottom:4px">Swaps (expected → OCR glyphs)</div>
-        <div class="swap-json-wrap">
-          <span class="swap-brace">{</span>
-          <textarea id="swapJson" spellcheck="false" rows="3" placeholder='"@": ["Q", "C"]'></textarea>
-          <span class="swap-brace">}</span>
+        <div class="el-swap-block">
+          <span class="el-swap-brace">{</span>
+          <div id="popSwaps"></div>
+          <button type="button" id="popAddSwap" class="el-swap-add">+ add</button>
+          <span class="el-swap-brace">}</span>
         </div>
-        <div id="swapErr" hidden style="font-size:11px;color:#f66;margin-top:3px">Invalid JSON</div>
         <div class="row-actions" style="margin-top:6px">
           <button type="button" id="popSaveOpts" class="primary">Save options</button>
         </div>
@@ -994,12 +1004,7 @@ function renderPop() {
   document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
   syncOcrFields();
-  const ta = document.getElementById('swapJson');
-  const swaps = el.swaps;
-  ta.value = swaps && Object.keys(swaps).length
-    ? Object.entries(swaps).map(([k, v]) => `"${k}": ${JSON.stringify(v)}`).join(',\n')
-    : '';
-  document.getElementById('swapErr').hidden = true;
+  elSwapRender(el.swaps);
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
   const partsEl = document.getElementById('popParts');
@@ -1026,12 +1031,57 @@ function renderPop() {
   updatePartFocus(partsEl, info, parent, el);
 }
 
-document.getElementById('swapJson').addEventListener('input', () => {
-  const raw = document.getElementById('swapJson').value.trim().replace(/,\s*$/, '');
-  const errEl = document.getElementById('swapErr');
-  if (!raw) { errEl.hidden = true; return; }
-  try { JSON.parse('{' + raw + '}'); errEl.hidden = true; }
-  catch { errEl.hidden = false; }
+function elSwapUpdateCommas() {
+  const rows = document.getElementById('popSwaps').querySelectorAll('.el-swap-row');
+  rows.forEach((r, i) => {
+    r.querySelector('.el-swap-trail').textContent = i < rows.length - 1 ? '"],' : '"]';
+  });
+}
+
+function elSwapAddRow(key, val) {
+  const container = document.getElementById('popSwaps');
+  const row = document.createElement('div');
+  row.className = 'el-swap-row';
+  row.innerHTML =
+    '<span class="el-swap-punc">"</span>' +
+    '<input class="sk" type="text" value="' + (key || '').replace(/"/g, '&quot;') + '" maxlength="8" placeholder="@">' +
+    '<span class="el-swap-punc">": ["</span>' +
+    '<input class="sv" type="text" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder=\'Q", "C\'>' +
+    '<span class="el-swap-trail el-swap-punc">"]</span>' +
+    '<button type="button" class="el-swap-del" title="Remove">×</button>';
+  row.querySelector('.el-swap-del').addEventListener('click', () => {
+    row.remove();
+    elSwapUpdateCommas();
+  });
+  container.appendChild(row);
+  elSwapUpdateCommas();
+  return row;
+}
+
+function elSwapRender(swaps) {
+  document.getElementById('popSwaps').innerHTML = '';
+  const entries = swaps ? Object.entries(swaps) : [];
+  if (!entries.length) { elSwapAddRow('', ''); return; }
+  for (const [k, v] of entries) {
+    const val = Array.isArray(v) ? v.join('", "') : String(v ?? '');
+    elSwapAddRow(k, val);
+  }
+}
+
+function elSwapToObj() {
+  const out = {};
+  for (const row of document.getElementById('popSwaps').querySelectorAll('.el-swap-row')) {
+    const k = row.querySelector('.sk').value.trim();
+    const raw = row.querySelector('.sv').value;
+    const vals = raw.split(/",\s*"/).map(s => s.replace(/^"|"$/g, '').trim()).filter(Boolean);
+    if (k && vals.length) out[k] = vals;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+document.getElementById('popAddSwap').addEventListener('click', () => {
+  const row = elSwapAddRow('', '');
+  row.querySelector('.sk').focus();
 });
 
 document.getElementById('popSaveOpts').addEventListener('click', async () => {
@@ -1041,13 +1091,7 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
     const charset = document.getElementById('popCharset').value;
     const read = document.getElementById('popRead').value;
     const overflow = document.getElementById('popOverflow').value;
-    const rawSwap = document.getElementById('swapJson').value.trim().replace(/,\s*$/, '');
-    let swaps = null;
-    if (rawSwap) {
-      try { swaps = JSON.parse('{' + rawSwap + '}'); }
-      catch { document.getElementById('swapErr').hidden = false; toast('Fix swap JSON before saving'); return; }
-    }
-    const part = popEl.dataset.part || '';
+    const swaps = elSwapToObj(document.getElementById('popSwaps'));
     const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -1666,6 +1710,13 @@ document.querySelectorAll('.menu-trigger').forEach(trigger => {
     const wasOpen = trigger.classList.contains('open');
     document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
     if (!wasOpen) trigger.classList.add('open');
+  });
+  trigger.addEventListener('mouseenter', () => {
+    const anyOpen = document.querySelector('.menu-trigger.open');
+    if (anyOpen && anyOpen !== trigger) {
+      anyOpen.classList.remove('open');
+      trigger.classList.add('open');
+    }
   });
 });
 document.addEventListener('click', () => {
