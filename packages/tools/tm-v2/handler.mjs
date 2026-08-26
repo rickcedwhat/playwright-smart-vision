@@ -455,9 +455,15 @@ async function handleInternal(req, res, url) {
     const rel = (url.searchParams.get('path') || '').replace(/^\/+|\/+$/g, '');
     if (rel.includes('..')) throw new Error('invalid path');
     const gcsUri = readSettings().gcsUri;
-    const remote = await listGcsPrefix(gcsUri, rel);
+    let remote = { dirs: [], files: [] };
+    let remoteError = null;
+    try {
+      remote = await listGcsPrefix(gcsUri, rel);
+    } catch (err) {
+      remoteError = String(err instanceof Error ? err.message : err);
+    }
     const local = listLocalPrefix(rel);
-    send(res, 200, { path: rel, remote, local });
+    send(res, 200, { path: rel, remote, local, remoteError });
     return;
   }
 

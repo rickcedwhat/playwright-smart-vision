@@ -127,15 +127,15 @@
   #popOpts { margin-top: 10px; display: grid; gap: 8px; }
   #popOpts label { display: flex; flex-direction: column; gap: 3px; color: #aaa; font-size: 11px; }
   #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
-  .el-swap-block { background: #0d0d0d; border: 0.5px solid #2a2a2a; border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; }
+  .el-swap-block { background: #0d0d0d; border: 0.5px solid #2a2a2a; border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; align-items: flex-start; }
   .el-swap-brace { font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #4a8; user-select: none; }
-  #popSwaps .el-swap-add { background: none !important; border: none !important; color: #4a8; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace !important; cursor: pointer; padding: 1px 0 !important; text-align: left; outline: none; }
-  #popSwaps .el-swap-add:hover { color: #6c6; }
+  #popAddSwap { background: none !important; border: none !important; color: #4a8; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace !important; cursor: pointer; padding: 1px 0 !important; text-align: left; outline: none; }
+  #popAddSwap:hover { color: #6c6; }
   #popSwaps .el-swap-row { display: flex; align-items: baseline; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
   #popSwaps .el-swap-punc { white-space: pre; user-select: none; color: #d4d4d4; }
-  #popSwaps .el-swap-row input.sk { width: 22px !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #9cdcfe !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 1px !important; outline: none !important; text-align: center; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sk { width: 1ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #9cdcfe !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; text-align: center; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
   #popSwaps .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa !important; }
-  #popSwaps .el-swap-row input.sv { flex: 1; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #ce9178 !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 1px !important; outline: none !important; min-width: 0; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sv { width: 4ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #ce9178 !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; min-width: 0; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
   #popSwaps .el-swap-row input.sv:focus { border-bottom-color: #a85 !important; }
   #popSwaps .el-swap-del { margin-left: 3px; background: none !important; border: none !important; color: #444; font-size: 11px !important; cursor: pointer; padding: 0 !important; line-height: 1; flex-shrink: 0; }
   #popSwaps .el-swap-del:hover { color: #f55; }
@@ -447,6 +447,12 @@ function listingHtml(rel, merged) {
 async function renderTree() {
   const root = await api('/api/ls?path=');
   treeEl.innerHTML = listingHtml('', mergeListing(root.remote, root.local));
+  if (root.remoteError) {
+    const note = document.createElement('div');
+    note.style.cssText = 'color:#666;font-size:11px;padding:6px 4px;';
+    note.textContent = 'GCS offline — showing local only';
+    treeEl.insertBefore(note, treeEl.firstChild);
+  }
 }
 
 function highlightTree() {
@@ -500,6 +506,7 @@ async function expandNode(node, open) {
   if (!node.dataset.loaded) {
     const listing = await api('/api/ls?path=' + encodeURIComponent(node.dataset.path));
     kids.innerHTML = listingHtml(node.dataset.path, mergeListing(listing.remote, listing.local)) || '<div class="muted">empty</div>';
+    if (listing.remoteError) kids.insertAdjacentHTML('afterbegin', '<div style="color:#666;font-size:11px;padding:2px 4px">GCS offline</div>');
     node.dataset.loaded = '1';
   }
   if (open !== undefined) {
@@ -1047,6 +1054,11 @@ function elSwapUpdateCommas() {
   });
 }
 
+function elSwapSizeInput(input) {
+  const n = Math.max(input.value.length, input.placeholder.length, 1);
+  input.style.setProperty('width', n + 'ch', 'important');
+}
+
 function elSwapAddRow(key, val) {
   const container = document.getElementById('popSwaps');
   const row = document.createElement('div');
@@ -1058,6 +1070,12 @@ function elSwapAddRow(key, val) {
     '<input class="sv" type="text" value="' + (val || '').replace(/"/g, '&quot;') + '" placeholder=\'Q", "C\'>' +
     '<span class="el-swap-trail el-swap-punc">"]</span>' +
     '<button type="button" class="el-swap-del" title="Remove">×</button>';
+  const sk = row.querySelector('.sk');
+  const sv = row.querySelector('.sv');
+  elSwapSizeInput(sk);
+  elSwapSizeInput(sv);
+  sk.addEventListener('input', () => elSwapSizeInput(sk));
+  sv.addEventListener('input', () => elSwapSizeInput(sv));
   row.querySelector('.el-swap-del').addEventListener('click', () => {
     row.remove();
     elSwapUpdateCommas();
