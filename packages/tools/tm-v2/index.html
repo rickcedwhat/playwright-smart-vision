@@ -127,22 +127,26 @@
   #popOpts { margin-top: 10px; display: grid; gap: 8px; }
   #popOpts label { display: flex; flex-direction: column; gap: 3px; color: #aaa; font-size: 11px; }
   #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
-  .el-swap-block { background: #111; border: 0.5px solid #2e2e2e; border-radius: 4px; padding: 5px 8px; display: flex; flex-direction: column; }
-  .el-swap-brace { font: 12px/1.7 ui-monospace, SFMono-Regular, Menlo, monospace; color: #555; user-select: none; }
-  .el-swap-add { background: none; border: none; color: #4a7a4a; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; padding: 2px 0; text-align: left; }
-  .el-swap-add:hover { color: #6aaa6a; }
-  .el-swap-row { display: flex; align-items: center; font: 12px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #555; }
-  .el-swap-row .el-swap-punc { white-space: pre; user-select: none; }
-  .el-swap-row input.sk { width: 36px; background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #9cdcfe; font: inherit; padding: 0 2px; outline: none; text-align: center; }
-  .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa; }
-  .el-swap-row input.sv { flex: 1; background: transparent; border: none; border-bottom: 1px solid #2a2a2a; color: #ce9178; font: inherit; padding: 0 2px; outline: none; min-width: 0; }
-  .el-swap-row input.sv:focus { border-bottom-color: #aa6a48; }
-  .el-swap-row .el-swap-del { margin-left: 4px; background: none; border: none; color: #3a3a3a; font-size: 13px; cursor: pointer; padding: 0 1px; line-height: 1; flex-shrink: 0; }
-  .el-swap-row .el-swap-del:hover { color: #f55; }
+  .el-swap-block { background: #0d0d0d; border: 0.5px solid #2a2a2a; border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; }
+  .el-swap-brace { font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #4a8; user-select: none; }
+  #popSwaps .el-swap-add { background: none !important; border: none !important; color: #4a8; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace !important; cursor: pointer; padding: 1px 0 !important; text-align: left; outline: none; }
+  #popSwaps .el-swap-add:hover { color: #6c6; }
+  #popSwaps .el-swap-row { display: flex; align-items: baseline; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #popSwaps .el-swap-punc { white-space: pre; user-select: none; color: #d4d4d4; }
+  #popSwaps .el-swap-row input.sk { width: 22px !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #9cdcfe !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 1px !important; outline: none !important; text-align: center; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa !important; }
+  #popSwaps .el-swap-row input.sv { flex: 1; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #ce9178 !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 1px !important; outline: none !important; min-width: 0; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sv:focus { border-bottom-color: #a85 !important; }
+  #popSwaps .el-swap-del { margin-left: 3px; background: none !important; border: none !important; color: #444; font-size: 11px !important; cursor: pointer; padding: 0 !important; line-height: 1; flex-shrink: 0; }
+  #popSwaps .el-swap-del:hover { color: #f55; }
   #popOpts .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   #popOpts details { margin-top: 4px; }
   #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
   .muted { color: #888; }
+  #boxesToolbar { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 2px; background: rgba(8,8,8,.88); border: 1px solid #2a2a2a; border-radius: 6px; padding: 3px 4px; z-index: 20; white-space: nowrap; }
+  #boxesToolbar button { background: none; border: none; color: #666; font: 11px/1 system-ui, sans-serif; padding: 4px 10px; border-radius: 4px; cursor: pointer; }
+  #boxesToolbar button.current { background: #162216; color: #8c8; }
+  #boxesToolbar button:hover:not(.current) { background: #1c1c1c; color: #aaa; }
   #authBanner { background: #1e1508; border: 1px solid #764; border-radius: 4px; color: #fb8; font-size: 11px; padding: 7px 10px; display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   #authBanner[hidden] { display: none; }
   #authBanner code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #111; color: #ff4; padding: 2px 6px; border-radius: 3px; user-select: all; display: inline-block; }
@@ -262,6 +266,11 @@
     <img id="blank" alt="screen">
     <pre id="fileText" hidden></pre>
     <div id="overlays"></div>
+    <div id="boxesToolbar" hidden>
+      <button type="button" id="toolbarSelect">Select</button>
+      <button type="button" id="toolbarDraw">Draw</button>
+      <button type="button" id="toolbarErase">Erase</button>
+    </div>
   </div>
 </main>
 <div id="detail">
@@ -1253,12 +1262,16 @@ function overlayMode() {
 
 function syncDetectTool() {
   const on = view === 'draft';
+  document.getElementById('boxesToolbar').hidden = !on;
   document.getElementById('stage').classList.toggle('draw-mode', on && detectTool === 'draw');
   document.getElementById('stage').classList.toggle('erase-mode', on && detectTool === 'erase');
   document.getElementById('toolDraw').classList.toggle('current', detectTool === 'draw');
   document.getElementById('toolErase').classList.toggle('current', detectTool === 'erase');
   document.getElementById('toolDraw').setAttribute('aria-pressed', detectTool === 'draw' ? 'true' : 'false');
   document.getElementById('toolErase').setAttribute('aria-pressed', detectTool === 'erase' ? 'true' : 'false');
+  document.getElementById('toolbarSelect').classList.toggle('current', detectTool === 'select');
+  document.getElementById('toolbarDraw').classList.toggle('current', detectTool === 'draw');
+  document.getElementById('toolbarErase').classList.toggle('current', detectTool === 'erase');
 }
 
 function stageToImage(e) {
@@ -1421,6 +1434,18 @@ overlays.addEventListener('pointerout', (e) => {
 });
 overlays.addEventListener('click', (e) => {
   if (view === 'draft' && detectTool === 'erase') return;
+  if (view === 'draft' && detectTool === 'select') {
+    const hit = e.target.closest('[data-key]');
+    if (!hit) { pinnedKey = ''; markActive(); return; }
+    pinnedKey = hit.dataset.key === pinnedKey ? '' : hit.dataset.key;
+    markActive();
+    if (pinnedKey && pinnedKey.startsWith('box:')) {
+      const id = Number(pinnedKey.slice(4));
+      const box = state.boxes.find((b) => b.id === id);
+      if (box) setStatus('box ' + id + ': ' + box.x + ',' + box.y + ' ' + box.width + '×' + box.height);
+    }
+    return;
+  }
   if (view !== 'catalog') return;
   const hit = e.target.closest('[data-key]');
   if (!hit) return;
@@ -1434,6 +1459,7 @@ const stage = document.getElementById('stage');
 blank.draggable = false;
 stage.addEventListener('pointerdown', (e) => {
   if (view !== 'draft') return;
+  if (detectTool === 'select') return;
   if (e.button !== 0) return;
   if (detectTool === 'draw' && e.target.closest('[data-key]')) return;
   if (!blank.naturalWidth) return;
@@ -1606,6 +1632,9 @@ document.getElementById('toolErase').onclick = () => {
   detectTool = 'erase';
   syncDetectTool();
 };
+document.getElementById('toolbarSelect').onclick = () => { detectTool = 'select'; syncDetectTool(); };
+document.getElementById('toolbarDraw').onclick = () => { detectTool = 'draw'; syncDetectTool(); };
+document.getElementById('toolbarErase').onclick = () => { detectTool = 'erase'; syncDetectTool(); };
 async function resetLocal({ all }) {
   const name = currentScreen();
   if (all) {
