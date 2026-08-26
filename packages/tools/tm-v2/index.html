@@ -64,15 +64,6 @@
   .tree-row .twist-spacer { width: 1.2em; flex-shrink: 0; }
   .tree .active { background: #243a24; color: #cfc; }
   .tree .local .name { color: #8c8; }
-  .view-pills { display: flex; gap: 3px; margin-left: 6px; flex-shrink: 0; }
-  .view-pill { width: 16px; height: 11px; padding: 0; border-radius: 3px; background: transparent; filter: none; }
-  .view-pill:hover { filter: none; }
-  .view-pill.source { border-color: #e55; }
-  .view-pill.source.on { background: #e55; border-color: #e55; }
-  .view-pill.draft { border-color: #e90; }
-  .view-pill.draft.on { background: #e90; border-color: #e90; }
-  .view-pill.catalog { border-color: #3a8; }
-  .view-pill.catalog.on { background: #3a8; border-color: #3a8; }
   .push-off { opacity: 0.55; }
   #pushModal {
     position: fixed; inset: 0; z-index: 40;
@@ -136,9 +127,10 @@
   #popOpts { margin-top: 10px; display: grid; gap: 8px; }
   #popOpts label { display: flex; flex-direction: column; gap: 3px; color: #aaa; font-size: 11px; }
   #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
-  #popSwaps { display: flex; flex-direction: column; gap: 4px; }
-  .swap-row { display: grid; grid-template-columns: 48px 1fr auto; gap: 4px; align-items: center; }
-  .swap-row input { min-width: 0; }
+  .swap-json-wrap { display: flex; flex-direction: column; }
+  .swap-brace { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #666; padding: 0 2px; }
+  #swapJson { width: 100%; min-height: 56px; background: #111; border: 0.5px solid #2e2e2e; color: #ccc; font: 12px/1.55 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 4px 8px; border-radius: 3px; resize: vertical; outline: none; }
+  #swapJson:focus { border-color: #3a5a3a; }
   #popOpts .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   #popOpts details { margin-top: 4px; }
   #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
@@ -175,9 +167,6 @@
       <div class="dd-sep"></div>
       <button type="button" class="dd-item" id="pullAll">Pull GCS</button>
       <button type="button" class="dd-item" id="pushAll">Push GCS</button>
-      <div class="dd-sep"></div>
-      <button type="button" class="dd-item" id="resetOne">Reset Screen</button>
-      <button type="button" class="dd-item" id="resetAll">Reset All Screens</button>
     </div>
   </div>
 
@@ -191,6 +180,9 @@
       <button type="button" class="dd-item" id="copyPrompt">Copy Prompt</button>
       <button type="button" class="dd-item" id="reloadScreen">Reload</button>
       <button type="button" class="dd-item" id="copyRevise">Copy Revision</button>
+      <div class="dd-sep"></div>
+      <button type="button" class="dd-item" id="resetOne">Reset Screen</button>
+      <button type="button" class="dd-item" id="resetAll">Reset All Screens</button>
     </div>
   </div>
 
@@ -279,25 +271,14 @@
       <dt id="popPartNamesDt">parts</dt><dd id="popPartNames"></dd>
     </dl>
     <div id="popOpts">
-      <label>Type
-        <select id="popType">
-          <option value="field">field</option>
-          <option value="dropdown">dropdown</option>
-          <option value="button">button</option>
-          <option value="checkbox">checkbox</option>
-          <option value="tab">tab</option>
-          <option value="icon">icon</option>
-          <option value="other">other</option>
-        </select>
-      </label>
-      <label>Charset
-        <select id="popCharset"></select>
-      </label>
       <label>Read
         <select id="popRead">
           <option value="ocr">ocr (Tesseract)</option>
           <option value="clipboard">clipboard (select-all + copy)</option>
         </select>
+      </label>
+      <label id="charsetLabel">Charset
+        <select id="popCharset"></select>
       </label>
       <label id="overflowLabel">Overflow
         <select id="popOverflow">
@@ -307,9 +288,13 @@
       </label>
       <div>
         <div class="muted" style="margin-bottom:4px">Swaps (expected → OCR glyphs)</div>
-        <div id="popSwaps"></div>
+        <div class="swap-json-wrap">
+          <span class="swap-brace">{</span>
+          <textarea id="swapJson" spellcheck="false" rows="3" placeholder='"@": ["Q", "C"]'></textarea>
+          <span class="swap-brace">}</span>
+        </div>
+        <div id="swapErr" hidden style="font-size:11px;color:#f66;margin-top:3px">Invalid JSON</div>
         <div class="row-actions" style="margin-top:6px">
-          <button type="button" id="popAddSwap">Add swap</button>
           <button type="button" id="popSaveOpts" class="primary">Save options</button>
         </div>
       </div>
@@ -413,14 +398,6 @@ function mergeListing(remote, local) {
   return { dirs, files, localSet };
 }
 
-function viewPillsHtml(screen) {
-  if (screen !== selectedScreen) return '';
-  return '<span class="view-pills">' +
-    '<button type="button" class="view-pill source' + (view === 'source' ? ' on' : '') + '" data-view="source" title="Source" aria-label="Source"></button>' +
-    '<button type="button" class="view-pill draft' + (view === 'draft' ? ' on' : '') + '" data-view="draft" title="Draft" aria-label="Draft"></button>' +
-    '<button type="button" class="view-pill catalog' + (view === 'catalog' ? ' on' : '') + '" data-view="catalog" title="Catalog" aria-label="Catalog"></button>' +
-    '</span>';
-}
 
 function listingHtml(rel, merged) {
   let html = '';
@@ -434,7 +411,6 @@ function listingHtml(rel, merged) {
       '<div class="tree-row dir' + active + local + '" data-screen="' + screen + '">' +
       '<button type="button" class="twist" aria-expanded="false" aria-label="expand">▸</button>' +
       '<span class="name">' + dir + '/</span>' +
-      (isRoot ? viewPillsHtml(screen) : '') +
       '</div>' +
       '<div class="tree-kids" hidden></div></div>';
   }
@@ -462,11 +438,6 @@ function highlightTree() {
     }
     const path = el.parentElement && el.parentElement.dataset.path;
     el.classList.toggle('active', path === selectedScreen && !selectedFile);
-    if (path && !path.includes('/')) {
-      const existing = el.querySelector('.view-pills');
-      if (existing) existing.remove();
-      if (path === selectedScreen) el.insertAdjacentHTML('beforeend', viewPillsHtml(path));
-    }
   });
 }
 
@@ -949,18 +920,10 @@ function catalogElement(key) {
 }
 
 
-function setMetaRow(dtId, ddId, value) {
-  const dd = document.getElementById(ddId);
-  const dt = document.getElementById(dtId);
-  const show = value && value !== '—';
-  dd.textContent = show ? value : '';
-  if (dt) dt.hidden = !show;
-  dd.hidden = !show;
-}
-
-function syncOverflowVisibility() {
+function syncOcrFields() {
   const isClipboard = document.getElementById('popRead').value === 'clipboard';
   document.getElementById('overflowLabel').hidden = isClipboard;
+  document.getElementById('charsetLabel').hidden = isClipboard;
 }
 
 function updatePartFocus(partsEl, info, parent, el) {
@@ -1030,8 +993,13 @@ function renderPop() {
   fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
   document.getElementById('popRead').value = el.read ?? (el.type === 'field' ? 'clipboard' : 'ocr');
   document.getElementById('popOverflow').value = el.overflow || '';
-  syncOverflowVisibility();
-  renderSwapRows(document.getElementById('popSwaps'), el.swaps);
+  syncOcrFields();
+  const ta = document.getElementById('swapJson');
+  const swaps = el.swaps;
+  ta.value = swaps && Object.keys(swaps).length
+    ? Object.entries(swaps).map(([k, v]) => `"${k}": ${JSON.stringify(v)}`).join(',\n')
+    : '';
+  document.getElementById('swapErr').hidden = true;
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
   const partsEl = document.getElementById('popParts');
@@ -1058,9 +1026,12 @@ function renderPop() {
   updatePartFocus(partsEl, info, parent, el);
 }
 
-wireSwapContainer(document.getElementById('popSwaps'));
-document.getElementById('popAddSwap').addEventListener('click', () => {
-  addSwapRow(document.getElementById('popSwaps'));
+document.getElementById('swapJson').addEventListener('input', () => {
+  const raw = document.getElementById('swapJson').value.trim().replace(/,\s*$/, '');
+  const errEl = document.getElementById('swapErr');
+  if (!raw) { errEl.hidden = true; return; }
+  try { JSON.parse('{' + raw + '}'); errEl.hidden = true; }
+  catch { errEl.hidden = false; }
 });
 
 document.getElementById('popSaveOpts').addEventListener('click', async () => {
@@ -1070,7 +1041,12 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
     const charset = document.getElementById('popCharset').value;
     const read = document.getElementById('popRead').value;
     const overflow = document.getElementById('popOverflow').value;
-    const swaps = rowsToSwaps(document.getElementById('popSwaps'));
+    const rawSwap = document.getElementById('swapJson').value.trim().replace(/,\s*$/, '');
+    let swaps = null;
+    if (rawSwap) {
+      try { swaps = JSON.parse('{' + rawSwap + '}'); }
+      catch { document.getElementById('swapErr').hidden = false; toast('Fix swap JSON before saving'); return; }
+    }
     const part = popEl.dataset.part || '';
     const out = await api('/api/element-options?name=' + encodeURIComponent(state.name), {
       method: 'PUT',
@@ -1454,14 +1430,6 @@ stage.addEventListener('pointercancel', () => {
 });
 
 treeEl.addEventListener('click', async (e) => {
-  const pill = e.target.closest('.view-pill');
-  if (pill && pill.dataset.view) {
-    e.stopPropagation();
-    pinnedKey = '';
-    hoverKey = '';
-    setView(pill.dataset.view);
-    return;
-  }
   const twist = e.target.closest('.twist');
   if (twist) {
     const node = twist.closest('.tree-node');
@@ -1639,7 +1607,7 @@ stage.addEventListener('click', (e) => {
   renderPop();
   markActive();
 });
-document.getElementById('popRead').addEventListener('change', syncOverflowVisibility);
+document.getElementById('popRead').addEventListener('change', syncOcrFields);
 
 Promise.all([loadSettings(), loadCharsets()])
   .then(renderTree)
