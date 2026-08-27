@@ -426,8 +426,8 @@ async function handleInternal(req, res, url) {
       return;
     }
     for (const [csName, cs] of Object.entries(incoming)) {
-      if (!cs || typeof cs !== 'object' || typeof cs.chars !== 'string') {
-        send(res, 400, { error: `charset "${csName}" must have a "chars" string field` });
+      if (!cs || typeof cs !== 'object' || !Array.isArray(cs.only)) {
+        send(res, 400, { error: `charset "${csName}" must have an "only" array field` });
         return;
       }
     }
@@ -705,6 +705,20 @@ async function handleInternal(req, res, url) {
   }
   if (req.method === 'GET' && url.pathname === '/file/annotated' && name) {
     sendFile(res, path.join(screenDir(name), 'boxes-annotated.png'), 'image/png');
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restart') {
+    send(res, 200, { ok: true });
+    setTimeout(() => {
+      const child = spawn(process.execPath, process.argv.slice(1), {
+        detached: true,
+        stdio: 'inherit',
+        env: { ...process.env, TM_NO_OPEN: '1' },
+      });
+      child.unref();
+      process.exit(0);
+    }, 100);
     return;
   }
 

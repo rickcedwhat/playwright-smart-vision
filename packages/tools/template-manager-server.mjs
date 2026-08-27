@@ -1062,7 +1062,7 @@ function listen(port) {
     for (const line of tmV2StartupLines(port)) console.log(line);
     console.log(`config.ts → ${dest.configRoot}`);
     console.log(`images    → ${dest.imagesRoot}`);
-    openBrowser(url);
+    if (!process.env.TM_NO_OPEN) openBrowser(url);
   });
 }
 

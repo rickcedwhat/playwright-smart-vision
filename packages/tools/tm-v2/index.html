@@ -129,16 +129,16 @@
   #popOpts select, #popOpts input { font: inherit; background: #222; color: #eee; border: 1px solid #444; padding: 5px 7px; border-radius: 4px; }
   .el-swap-block { background: #0d0d0d; border: 0.5px solid #2a2a2a; border-radius: 4px; padding: 4px 8px; display: flex; flex-direction: column; align-items: flex-start; }
   .el-swap-brace { font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; color: #4a8; user-select: none; }
-  #popAddSwap { background: none !important; border: none !important; color: #4a8; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace !important; cursor: pointer; padding: 1px 0 !important; text-align: left; outline: none; }
-  #popAddSwap:hover { color: #6c6; }
-  #popSwaps .el-swap-row { display: flex; align-items: baseline; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  #popSwaps .el-swap-punc { white-space: pre; user-select: none; color: #d4d4d4; }
-  #popSwaps .el-swap-row input.sk { width: 1ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #9cdcfe !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; text-align: center; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
-  #popSwaps .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa !important; }
-  #popSwaps .el-swap-row input.sv { width: 4ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #ce9178 !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; min-width: 0; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
-  #popSwaps .el-swap-row input.sv:focus { border-bottom-color: #a85 !important; }
-  #popSwaps .el-swap-del { margin-left: 3px; background: none !important; border: none !important; color: #444; font-size: 11px !important; cursor: pointer; padding: 0 !important; line-height: 1; flex-shrink: 0; }
-  #popSwaps .el-swap-del:hover { color: #f55; }
+  #popAddSwap, .el-swap-add { background: none !important; border: none !important; color: #4a8; font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace !important; cursor: pointer; padding: 1px 0 !important; text-align: left; outline: none; }
+  #popAddSwap:hover, .el-swap-add:hover { color: #6c6; }
+  #popSwaps .el-swap-row, .el-swap-host .el-swap-row { display: flex; align-items: baseline; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #popSwaps .el-swap-punc, .el-swap-host .el-swap-punc { white-space: pre; user-select: none; color: #d4d4d4; }
+  #popSwaps .el-swap-row input.sk, .el-swap-host .el-swap-row input.sk { width: 1ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #9cdcfe !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; text-align: center; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sk:focus, .el-swap-host .el-swap-row input.sk:focus { border-bottom-color: #4a7aaa !important; }
+  #popSwaps .el-swap-row input.sv, .el-swap-host .el-swap-row input.sv { width: 4ch !important; background: transparent !important; border: none !important; border-bottom: 1px solid #333 !important; border-radius: 0 !important; color: #ce9178 !important; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace !important; padding: 0 !important; outline: none !important; min-width: 0; box-shadow: none !important; min-height: 0 !important; height: auto !important; }
+  #popSwaps .el-swap-row input.sv:focus, .el-swap-host .el-swap-row input.sv:focus { border-bottom-color: #a85 !important; }
+  #popSwaps .el-swap-del, .el-swap-host .el-swap-del { margin-left: 3px; background: none !important; border: none !important; color: #444; font-size: 11px !important; cursor: pointer; padding: 0 !important; line-height: 1; flex-shrink: 0; }
+  #popSwaps .el-swap-del:hover, .el-swap-host .el-swap-del:hover { color: #f55; }
   #popOpts .row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
   #popOpts details { margin-top: 4px; }
   #popOpts summary { cursor: pointer; color: #888; font-size: 11px; }
@@ -151,21 +151,22 @@
   #authBanner[hidden] { display: none; }
   #authBanner code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; background: #111; color: #ff4; padding: 2px 6px; border-radius: 3px; user-select: all; display: inline-block; }
   #authBannerClose { align-self: flex-end; padding: 2px 8px; font-size: 11px; background: transparent; border: 1px solid #764; color: #fb8; }
-  #charsetPanel { border-top: 1px solid #333; margin-top: 8px; padding-top: 8px; }
-  #charsetPanel h4 { margin: 0 0 6px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; gap: 4px; }
-  #charsetPanel h4 button { margin-left: auto; padding: 2px 8px; font-size: 11px; }
-  #charsetList { display: flex; flex-direction: column; gap: 4px; overflow-y: auto; max-height: 280px; }
-  .charset-row { background: #1f1f1f; border: 1px solid #333; border-radius: 4px; font-size: 11px; }
-  .charset-row-header { display: flex; align-items: center; gap: 4px; padding: 5px 6px; cursor: pointer; user-select: none; }
-  .charset-row-header:hover { background: #2a2a2a; border-radius: 4px 4px 0 0; }
-  .charset-row-header .cs-name { flex: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfc; }
-  .charset-row-header .cs-del { padding: 1px 6px; font-size: 11px; color: #f88; background: transparent; border: 1px solid #555; }
-  .charset-row-body { padding: 6px 8px; border-top: 1px solid #2a2a2a; display: flex; flex-direction: column; gap: 6px; }
-  .charset-row-body label { color: #888; font-size: 11px; display: flex; flex-direction: column; gap: 2px; }
-  .charset-row-body input[type=text] { width: 100%; font-size: 11px; background: #222; color: #eee; border: 1px solid #444; padding: 4px 6px; border-radius: 3px; }
-  .charset-row-body .cs-swaps { display: flex; flex-direction: column; gap: 3px; }
-  .charset-row-body .cs-swaps-actions { display: flex; gap: 4px; margin-top: 2px; }
-  .charset-row-body .cs-save { padding: 3px 10px; font-size: 11px; }
+  #charsetSection { border-top: 1px solid #2a2a2a; margin-top: 4px; }
+  .cs-section-header { display: flex; align-items: center; padding: 8px 10px 6px; font: 11px/1 system-ui, sans-serif; color: #888; text-transform: uppercase; letter-spacing: .05em; }
+  .cs-section-header button { margin-left: auto; background: none; border: none; color: #4a8; font: 11px/1 ui-monospace, monospace; cursor: pointer; padding: 0; }
+  .cs-section-header button:hover { color: #6c6; }
+  #charsetList { display: flex; flex-direction: column; gap: 6px; padding: 0 10px 10px; }
+  .cs-entry { background: #0d0d0d; border: 0.5px solid #2a2a2a; border-radius: 4px; }
+  .cs-entry-header { display: flex; align-items: center; padding: 5px 8px; gap: 4px; border-bottom: 0.5px solid #2a2a2a; }
+  .cs-entry-header input.cs-name { background: transparent; border: none; color: #4d4; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; flex: 1; padding: 0; outline: none; min-width: 0; }
+  .cs-entry-header input.cs-name:focus { color: #6e6; }
+  .cs-entry-header .cs-del { background: none; border: none; color: #444; font-size: 11px; cursor: pointer; padding: 0; line-height: 1; flex-shrink: 0; }
+  .cs-entry-header .cs-del:hover { color: #f55; }
+  .cs-entry-body { padding: 6px 8px; display: flex; flex-direction: column; gap: 6px; }
+  .cs-field-label { font: 10px/1 system-ui, sans-serif; color: #666; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 2px; }
+  .cs-chars-input { background: transparent; border: none; border-bottom: 1px solid #333; color: #9cdcfe; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; width: 100%; padding: 0; outline: none; box-sizing: border-box; }
+  .cs-chars-input:focus { border-bottom-color: #4a7aaa; }
+  .cs-entry .row-actions { display: flex; gap: 6px; }
 </style>
 </head>
 <body>
@@ -179,6 +180,8 @@
       <div class="dd-sep"></div>
       <button type="button" class="dd-item" id="pullAll">Pull GCS</button>
       <button type="button" class="dd-item" id="pushAll">Push GCS</button>
+      <div class="dd-sep"></div>
+      <button type="button" class="dd-item" id="restartServer">Restart Server</button>
     </div>
   </div>
 
@@ -256,10 +259,6 @@
     <button id="authBannerClose" type="button">Dismiss</button>
   </div>
   <div id="tree" class="tree"></div>
-  <div id="charsetPanel">
-    <h4>Charsets <button id="charsetAdd" type="button">+ Add</button></h4>
-    <div id="charsetList"></div>
-  </div>
 </aside>
 <main id="main">
   <div class="stage" id="stage">
@@ -279,8 +278,8 @@
     <div id="popOpts" style="padding:10px">
       <label>Read
         <select id="defaultRead">
-          <option value="ocr">ocr (Tesseract)</option>
-          <option value="clipboard">clipboard (select-all + copy)</option>
+          <option value="ocr">ocr</option>
+          <option value="clipboard">clipboard</option>
         </select>
       </label>
       <label id="defaultCharsetLabel">Default Charset
@@ -289,14 +288,18 @@
       <label id="defaultOverflowLabel">Overflow
         <select id="defaultOverflow">
           <option value="">none</option>
-          <option value="right">right (trailing garbage)</option>
-          <option value="left">left (leading prefix)</option>
+          <option value="right">right</option>
+          <option value="left">left</option>
           <option value="both">both</option>
         </select>
       </label>
       <div class="row-actions">
         <button type="button" id="saveDefaults" class="primary">Save defaults</button>
       </div>
+    </div>
+    <div id="charsetSection">
+      <div class="cs-section-header">Custom Charsets <button id="charsetAdd" type="button">+ add</button></div>
+      <div id="charsetList"></div>
     </div>
   </div>
   <div id="pop" hidden>
@@ -315,8 +318,8 @@
       <label>Read
         <select id="popRead">
           <option value="">default</option>
-          <option value="ocr">ocr (Tesseract)</option>
-          <option value="clipboard">clipboard (select-all + copy)</option>
+          <option value="ocr">ocr</option>
+          <option value="clipboard">clipboard</option>
         </select>
       </label>
       <label id="charsetLabel">Charset
@@ -326,8 +329,8 @@
         <select id="popOverflow">
           <option value="">default</option>
           <option value="none">none</option>
-          <option value="right">right (trailing garbage)</option>
-          <option value="left">left (leading prefix)</option>
+          <option value="right">right</option>
+          <option value="left">left</option>
           <option value="both">both</option>
         </select>
       </label>
@@ -577,19 +580,10 @@ function applyDefaultsToUI() {
 
 function fillDefaultCharsetSelect() {
   const sel = document.getElementById('defaultCharset');
-  const current = projectDefaults.defaultCharset || '';
-  let html = '<option value="">(none — built-in heuristics)</option>';
-  html += CHARSET_OPTIONS.map((opt) =>
+  const current = projectDefaults.defaultCharset || 'text';
+  sel.innerHTML = CHARSET_OPTIONS.map((opt) =>
     `<option value="${opt.value}"${opt.value === current ? ' selected' : ''}>${opt.label}</option>`
   ).join('');
-  const customNames = Object.keys(charsets);
-  if (customNames.length) {
-    html += '<option disabled>── custom ──</option>';
-    for (const name of customNames) {
-      html += `<option value="${esc(name)}"${name === current ? ' selected' : ''}>${esc(name)}</option>`;
-    }
-  }
-  sel.innerHTML = html;
 }
 
 function screenRoot(name) {
@@ -840,14 +834,18 @@ async function saveCharsets(selectedName) {
 
 function collectCharsets() {
   const result = {};
-  for (const row of document.getElementById('charsetList').querySelectorAll('.charset-row')) {
-    const nameEl = row.querySelector('[data-cs-name]');
-    const charsEl = row.querySelector('[data-cs-chars]');
-    if (!nameEl || !charsEl) continue;
+  for (const entry of document.getElementById('charsetList').querySelectorAll('.cs-entry')) {
+    const nameEl = entry.querySelector('[data-cs-name]');
+    const onlyEl = entry.querySelector('[data-cs-only]');
+    const excludeEl = entry.querySelector('[data-cs-exclude]');
+    if (!nameEl || !onlyEl) continue;
     const n = nameEl.value.trim();
     if (!n) continue;
-    const swaps = rowsToSwaps(row.querySelector('.cs-swaps'));
-    result[n] = { chars: charsEl.value, ...(swaps && Object.keys(swaps).length ? { swaps } : {}) };
+    const only = onlyEl.value.split(',').map(s => s.trim()).filter(Boolean);
+    const exclude = excludeEl ? excludeEl.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+    const swapHost = entry.querySelector('.el-swap-host');
+    const swaps = swapHost ? elSwapToObj(swapHost) : null;
+    result[n] = { only, ...(exclude.length ? { exclude } : {}), ...(swaps ? { swaps } : {}) };
   }
   return result;
 }
@@ -862,92 +860,113 @@ function renderCharsetList() {
 
 function charsetRowEl(name, cs) {
   const wrap = document.createElement('div');
-  wrap.className = 'charset-row';
+  wrap.className = 'cs-entry';
+
+  // header: editable name + delete
   const header = document.createElement('div');
-  header.className = 'charset-row-header';
-  header.innerHTML =
-    `<span class="cs-name">${esc(name)}</span>` +
-    `<button type="button" class="cs-del" title="Delete">×</button>`;
-  header.querySelector('.cs-name').addEventListener('click', () => {
-    body.hidden = !body.hidden;
-  });
-  header.querySelector('.cs-del').addEventListener('click', (e) => {
-    e.stopPropagation();
+  header.className = 'cs-entry-header';
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.className = 'cs-name';
+  nameInput.setAttribute('data-cs-name', '');
+  nameInput.value = name;
+  nameInput.placeholder = 'name';
+  const delBtn = document.createElement('button');
+  delBtn.type = 'button';
+  delBtn.className = 'cs-del';
+  delBtn.title = 'Delete';
+  delBtn.textContent = '×';
+  delBtn.addEventListener('click', () => {
     wrap.remove();
     saveCharsets().catch((err) => toast(err.message));
   });
+  header.appendChild(nameInput);
+  header.appendChild(delBtn);
 
+  // body: chars + swaps + save
   const body = document.createElement('div');
-  body.className = 'charset-row-body';
-  body.hidden = true;
+  body.className = 'cs-entry-body';
 
-  const swapContainer = document.createElement('div');
-  swapContainer.className = 'cs-swaps';
-  renderSwapRows(swapContainer, cs.swaps);
+  const onlyLabel = document.createElement('div');
+  onlyLabel.className = 'cs-field-label';
+  onlyLabel.textContent = 'only';
+  const charsInput = document.createElement('input');
+  charsInput.type = 'text';
+  charsInput.className = 'cs-chars-input';
+  charsInput.setAttribute('data-cs-only', '');
+  charsInput.value = (cs.only || []).join(', ');
+  charsInput.placeholder = 'A-Z, 0-9, @';
 
-  body.innerHTML =
-    `<label>Name<input data-cs-name type="text" value="${esc(name)}"></label>` +
-    `<label>Chars<input data-cs-chars type="text" value="${esc(cs.chars || '')}"></label>`;
+  const excludeLabel = document.createElement('div');
+  excludeLabel.className = 'cs-field-label';
+  excludeLabel.textContent = 'exclude';
+  const excludeInput = document.createElement('input');
+  excludeInput.type = 'text';
+  excludeInput.className = 'cs-chars-input';
+  excludeInput.setAttribute('data-cs-exclude', '');
+  excludeInput.value = (cs.exclude || []).join(', ');
+  excludeInput.placeholder = 'I, O, Q  (optional)';
 
-  const swapLabel = document.createElement('label');
-  swapLabel.textContent = 'Swaps';
-  swapLabel.appendChild(swapContainer);
+  const swapsLabel = document.createElement('div');
+  swapsLabel.className = 'cs-field-label';
+  swapsLabel.textContent = 'swaps';
 
-  const swapActions = document.createElement('div');
-  swapActions.className = 'cs-swaps-actions';
-  wireSwapContainer(swapContainer);
+  const swapHost = document.createElement('div');
+  swapHost.className = 'el-swap-host';
+
+  const swapBlock = document.createElement('div');
+  swapBlock.className = 'el-swap-block';
+  const openBrace = document.createElement('span');
+  openBrace.className = 'el-swap-brace';
+  openBrace.textContent = '{';
+  const closeBrace = document.createElement('span');
+  closeBrace.className = 'el-swap-brace';
+  closeBrace.textContent = '}';
   const addSwapBtn = document.createElement('button');
   addSwapBtn.type = 'button';
-  addSwapBtn.textContent = '+ Swap';
-  addSwapBtn.style.fontSize = '11px';
-  addSwapBtn.addEventListener('click', () => addSwapRow(swapContainer));
-  swapActions.appendChild(addSwapBtn);
+  addSwapBtn.className = 'el-swap-add';
+  addSwapBtn.textContent = '+ add';
+  addSwapBtn.addEventListener('click', () => {
+    const row = elSwapAddRow(swapHost, '', '');
+    row.querySelector('.sk').focus();
+  });
+  swapBlock.appendChild(openBrace);
+  swapBlock.appendChild(swapHost);
+  swapBlock.appendChild(addSwapBtn);
+  swapBlock.appendChild(closeBrace);
+  elSwapRender(swapHost, cs.swaps);
 
+  const actions = document.createElement('div');
+  actions.className = 'row-actions';
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
-  saveBtn.className = 'cs-save primary';
+  saveBtn.className = 'primary';
   saveBtn.textContent = 'Save';
   saveBtn.addEventListener('click', async () => {
     try {
-      const newName = wrap.querySelector('[data-cs-name]').value.trim();
+      const newName = nameInput.value.trim();
       await saveCharsets(newName);
-      header.querySelector('.cs-name').textContent = newName;
       setStatus('Charset saved');
     } catch (err) { toast(err.message); }
   });
+  actions.appendChild(saveBtn);
 
-  body.appendChild(swapLabel);
-  body.appendChild(swapActions);
-  body.appendChild(saveBtn);
+  body.appendChild(onlyLabel);
+  body.appendChild(charsInput);
+  body.appendChild(excludeLabel);
+  body.appendChild(excludeInput);
+  body.appendChild(swapsLabel);
+  body.appendChild(swapBlock);
+  body.appendChild(actions);
+
   wrap.appendChild(header);
   wrap.appendChild(body);
   return wrap;
 }
 
-function addSwapRow(container) {
-  const el = document.createElement('div');
-  el.className = 'swap-row';
-  el.innerHTML =
-    `<input data-swap="from" type="text" maxlength="4" placeholder="@">` +
-    `<input data-swap="to" type="text" placeholder="Q,C">` +
-    `<button type="button" data-swap-remove title="Remove">×</button>`;
-  container.appendChild(el);
-}
-
-function wireSwapContainer(container) {
-  container.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-swap-remove]');
-    if (!btn) return;
-    btn.closest('.swap-row').remove();
-    if (!container.children.length) renderSwapRows(container, null);
-  });
-}
-
 document.getElementById('charsetAdd').addEventListener('click', () => {
   const list = document.getElementById('charsetList');
   const row = charsetRowEl('', { chars: '' });
-  // Auto-expand new row for editing.
-  row.querySelector('.charset-row-body').hidden = false;
   list.appendChild(row);
   row.querySelector('[data-cs-name]').focus();
 });
@@ -969,46 +988,6 @@ function fillCharsetSelect(select, selected) {
     }
   }
   select.innerHTML = html;
-}
-
-function swapsToRows(swaps) {
-  const rows = [];
-  if (!swaps || typeof swaps !== 'object') return rows;
-  for (const [from, to] of Object.entries(swaps)) {
-    rows.push({
-      from,
-      to: Array.isArray(to) ? to.join(',') : String(to ?? ''),
-    });
-  }
-  return rows;
-}
-
-function rowsToSwaps(container) {
-  const out = {};
-  for (const row of container.querySelectorAll('.swap-row')) {
-    const from = row.querySelector('[data-swap=from]').value.trim();
-    const to = row.querySelector('[data-swap=to]').value
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (from && to.length) out[from] = to;
-  }
-  return Object.keys(out).length ? out : null;
-}
-
-function renderSwapRows(container, swaps) {
-  const rows = swapsToRows(swaps);
-  if (!rows.length) rows.push({ from: '', to: '' });
-  container.innerHTML = '';
-  for (const row of rows) {
-    const el = document.createElement('div');
-    el.className = 'swap-row';
-    el.innerHTML =
-      `<input data-swap="from" type="text" maxlength="4" placeholder="@" value="${row.from.replace(/"/g, '&quot;')}">` +
-      `<input data-swap="to" type="text" placeholder="Q,C" value="${row.to.replace(/"/g, '&quot;')}">` +
-      `<button type="button" data-swap-remove title="Remove">×</button>`;
-    container.appendChild(el);
-  }
 }
 
 function catalogElement(key) {
@@ -1094,7 +1073,7 @@ function renderPop() {
   document.getElementById('popRead').value = el.read ?? '';
   document.getElementById('popOverflow').value = el.overflow ?? '';
   syncOcrFields();
-  elSwapRender(el.swaps);
+  elSwapRender(document.getElementById('popSwaps'), el.swaps);
   popEl.dataset.element = el.name;
   const parent = info.parent && info.parent.width ? info.parent : info.rect;
   const partsEl = document.getElementById('popParts');
@@ -1121,8 +1100,8 @@ function renderPop() {
   updatePartFocus(partsEl, info, parent, el);
 }
 
-function elSwapUpdateCommas() {
-  const rows = document.getElementById('popSwaps').querySelectorAll('.el-swap-row');
+function elSwapUpdateCommas(container) {
+  const rows = container.querySelectorAll('.el-swap-row');
   rows.forEach((r, i) => {
     r.querySelector('.el-swap-trail').textContent = i < rows.length - 1 ? '"],' : '"]';
   });
@@ -1133,8 +1112,7 @@ function elSwapSizeInput(input) {
   input.style.setProperty('width', n + 'ch', 'important');
 }
 
-function elSwapAddRow(key, val) {
-  const container = document.getElementById('popSwaps');
+function elSwapAddRow(container, key, val) {
   const row = document.createElement('div');
   row.className = 'el-swap-row';
   row.innerHTML =
@@ -1152,26 +1130,26 @@ function elSwapAddRow(key, val) {
   sv.addEventListener('input', () => elSwapSizeInput(sv));
   row.querySelector('.el-swap-del').addEventListener('click', () => {
     row.remove();
-    elSwapUpdateCommas();
+    elSwapUpdateCommas(container);
   });
   container.appendChild(row);
-  elSwapUpdateCommas();
+  elSwapUpdateCommas(container);
   return row;
 }
 
-function elSwapRender(swaps) {
-  document.getElementById('popSwaps').innerHTML = '';
+function elSwapRender(container, swaps) {
+  container.innerHTML = '';
   const entries = swaps ? Object.entries(swaps) : [];
-  if (!entries.length) { elSwapAddRow('', ''); return; }
+  if (!entries.length) { elSwapAddRow(container, '', ''); return; }
   for (const [k, v] of entries) {
     const val = Array.isArray(v) ? v.join('", "') : String(v ?? '');
-    elSwapAddRow(k, val);
+    elSwapAddRow(container, k, val);
   }
 }
 
-function elSwapToObj() {
+function elSwapToObj(container) {
   const out = {};
-  for (const row of document.getElementById('popSwaps').querySelectorAll('.el-swap-row')) {
+  for (const row of container.querySelectorAll('.el-swap-row')) {
     const k = row.querySelector('.sk').value.trim();
     const raw = row.querySelector('.sv').value;
     const vals = raw.split(/",\s*"/).map(s => s.replace(/^"|"$/g, '').trim()).filter(Boolean);
@@ -1181,7 +1159,8 @@ function elSwapToObj() {
 }
 
 document.getElementById('popAddSwap').addEventListener('click', () => {
-  const row = elSwapAddRow('', '');
+  const container = document.getElementById('popSwaps');
+  const row = elSwapAddRow(container, '', '');
   row.querySelector('.sk').focus();
 });
 
@@ -1905,6 +1884,28 @@ function updateEnvDisplay() {
   const name = localStorage.getItem('tm-env-name') || '';
   document.getElementById('envName').textContent = name || gcs.value;
 }
+
+document.getElementById('restartServer').onclick = async () => {
+  setStatus('Restarting…');
+  try {
+    await fetch('/template-manager/api/restart', { method: 'POST' });
+  } catch { /* server going down — expected */ }
+  const poll = async () => {
+    try {
+      const r = await fetch('/template-manager/api/defaults');
+      if (r.ok) {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+        location.reload();
+        return;
+      }
+    } catch { /* still down */ }
+    setTimeout(poll, 500);
+  };
+  setTimeout(poll, 800);
+};
 
 document.getElementById('menuConfigure').addEventListener('click', openConfigure);
 document.getElementById('configCancel').addEventListener('click', closeConfigure);
