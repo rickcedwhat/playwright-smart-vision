@@ -22,6 +22,14 @@ const DEFAULT_GCS = 'gs://qawolf-prod-team-storage/clzn2wsor00hcda0ickzd3544/scr
 
 const RUNTIME_FILES = ['blank.png', 'index.json'];
 const CHARSETS_FILE = path.join(HOME, 'charsets.json');
+const DEFAULTS_FILE = path.join(HOME, 'defaults.json');
+
+function readDefaults() {
+  try {
+    const raw = JSON.parse(fs.readFileSync(DEFAULTS_FILE, 'utf8'));
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch { return {}; }
+}
 
 function normalizeGcs(raw) {
   const uri = String(raw || '').trim().replace(/\/+$/, '');
@@ -141,14 +149,29 @@ function parseLs(stdout, gcsPrefix) {
   return { dirs: [...dirs].sort(), files: [...files].sort() };
 }
 
+const _gcsCache = new Map();
+const GCS_CACHE_TTL = 30_000;
+
+function invalidateGcsCache() {
+  _gcsCache.clear();
+}
+
 async function listGcsPrefix(gcsUri, relPath) {
   const base = relPath ? `${gcsUri}/${relPath}` : gcsUri;
+  const cached = _gcsCache.get(base);
+  if (cached && Date.now() - cached.ts < GCS_CACHE_TTL) return cached.result;
   try {
     const stdout = await runGcloud(['storage', 'ls', `${base}/`]);
-    return parseLs(stdout, base);
+    const result = parseLs(stdout, base);
+    _gcsCache.set(base, { ts: Date.now(), result });
+    return result;
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
-    if (/matched no objects/i.test(msg)) return { dirs: [], files: [] };
+    if (/matched no objects/i.test(msg)) {
+      const result = { dirs: [], files: [] };
+      _gcsCache.set(base, { ts: Date.now(), result });
+      return result;
+    }
     throw err;
   }
 }
@@ -297,10 +320,13 @@ async function pushRuntimeScreens({ names, dryRun }) {
   };
 }
 
+let _configured = false;
 async function ensureConfigured() {
+  if (_configured) return;
   fs.mkdirSync(CACHE_DIR, { recursive: true });
   await configure({ storage: { root: CACHE_DIR } });
-  writeScreenCatalog();
+  writeScreenCatalog(undefined, undefined, readDefaults());
+  _configured = true;
 }
 
 function resetScreenDir(name) {
@@ -400,19 +426,42 @@ async function handleInternal(req, res, url) {
       return;
     }
     for (const [csName, cs] of Object.entries(incoming)) {
-      if (!cs || typeof cs !== 'object' || typeof cs.chars !== 'string') {
-        send(res, 400, { error: `charset "${csName}" must have a "chars" string field` });
+      if (!cs || typeof cs !== 'object' || !Array.isArray(cs.only)) {
+        send(res, 400, { error: `charset "${csName}" must have an "only" array field` });
         return;
       }
     }
     fs.mkdirSync(HOME, { recursive: true });
     fs.writeFileSync(CHARSETS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
     try {
-      writeScreenCatalog(undefined, incoming);
+      writeScreenCatalog(undefined, incoming, readDefaults());
     } catch (err) {
       console.error('[tm-v2] catalog regeneration failed after charset save:', err);
     }
     send(res, 200, { charsets: incoming });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/defaults') {
+    send(res, 200, { defaults: readDefaults() });
+    return;
+  }
+
+  if (req.method === 'PUT' && url.pathname === '/api/defaults') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    const incoming = (body && body.defaults) ?? {};
+    if (typeof incoming !== 'object' || incoming === null || Array.isArray(incoming)) {
+      send(res, 400, { error: 'defaults must be a plain object' });
+      return;
+    }
+    fs.mkdirSync(HOME, { recursive: true });
+    fs.writeFileSync(DEFAULTS_FILE, `${JSON.stringify(incoming, null, 2)}\n`);
+    try {
+      writeScreenCatalog(undefined, undefined, incoming);
+    } catch (err) {
+      console.error('[tm-v2] catalog regeneration failed after defaults save:', err);
+    }
+    send(res, 200, { defaults: incoming });
     return;
   }
 
@@ -428,6 +477,7 @@ async function handleInternal(req, res, url) {
     const screen = body.name ? assertScreenName(body.name) : '';
     if (screen) await rsync(`${gcsUri}/${screen}`, screenDir(screen));
     else await rsync(gcsUri, CACHE_DIR);
+    invalidateGcsCache();
     send(res, 200, { ok: true, localScreens: listLocalScreens() });
     return;
   }
@@ -436,9 +486,15 @@ async function handleInternal(req, res, url) {
     const rel = (url.searchParams.get('path') || '').replace(/^\/+|\/+$/g, '');
     if (rel.includes('..')) throw new Error('invalid path');
     const gcsUri = readSettings().gcsUri;
-    const remote = await listGcsPrefix(gcsUri, rel);
+    let remote = { dirs: [], files: [] };
+    let remoteError = null;
+    try {
+      remote = await listGcsPrefix(gcsUri, rel);
+    } catch (err) {
+      remoteError = String(err instanceof Error ? err.message : err);
+    }
     const local = listLocalPrefix(rel);
-    send(res, 200, { path: rel, remote, local });
+    send(res, 200, { path: rel, remote, local, remoteError });
     return;
   }
 
@@ -447,6 +503,7 @@ async function handleInternal(req, res, url) {
     const dryRun = body.dryRun === true;
     const names = body.name ? [assertScreenName(body.name)] : undefined;
     const result = await pushRuntimeScreens({ names, dryRun });
+    if (!dryRun) invalidateGcsCache();
     send(res, 200, result);
     return;
   }
@@ -554,7 +611,8 @@ async function handleInternal(req, res, url) {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, 'first-pass.json'), `${JSON.stringify(firstPass, null, 2)}\n`);
     await ensureConfigured();
-    applyIfFirstPassNewer(assertScreenName(name));
+    const applied = applyIfFirstPassNewer(assertScreenName(name));
+    if (applied) writeScreenCatalog();
     send(res, 200, { saved: name });
     return;
   }
@@ -584,6 +642,7 @@ async function handleInternal(req, res, url) {
       return;
     }
     const result = applyScreen(assertScreenName(name));
+    writeScreenCatalog(undefined, undefined, readDefaults());
     send(res, 200, {
       name,
       elements: result.elements.map((el) => el.name),
@@ -646,6 +705,20 @@ async function handleInternal(req, res, url) {
   }
   if (req.method === 'GET' && url.pathname === '/file/annotated' && name) {
     sendFile(res, path.join(screenDir(name), 'boxes-annotated.png'), 'image/png');
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/restart') {
+    send(res, 200, { ok: true });
+    setTimeout(() => {
+      const child = spawn(process.execPath, process.argv.slice(1), {
+        detached: true,
+        stdio: 'inherit',
+        env: { ...process.env, TM_NO_OPEN: '1' },
+      });
+      child.unref();
+      process.exit(0);
+    }, 100);
     return;
   }
 

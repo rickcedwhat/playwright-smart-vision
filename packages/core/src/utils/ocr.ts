@@ -32,8 +32,7 @@ function expandRangeSpec(spec: string): string {
 
 /**
  * Expand a Charset's only/exclude arrays into the flat string passed to
- * `tessedit_char_whitelist`. Throws if only is empty or exclude is provided
- * without only.
+ * `tessedit_char_whitelist`. Throws if only is empty.
  */
 export function charsetToWhitelist(charset: Charset): string {
   if (!charset.only || charset.only.length === 0) {
@@ -60,7 +59,6 @@ export interface Charset {
   only: string[];
   /**
    * Characters to remove from the only set. Same range notation as only.
-   * Requires only — error if used alone.
    */
   exclude?: string[];
   /** Expected glyph → OCR glyphs that are acceptable in its place. */
