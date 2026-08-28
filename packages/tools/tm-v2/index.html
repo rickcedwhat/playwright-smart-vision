@@ -325,6 +325,12 @@
       <label id="charsetLabel">Charset
         <select id="popCharset"></select>
       </label>
+      <div id="popCharsetInline" hidden style="margin-top:-4px;display:grid;gap:3px">
+        <div class="cs-field-label">only</div>
+        <input type="text" id="popCharsetOnly" class="cs-chars-input" placeholder="A-Z, 0-9, @">
+        <div class="cs-field-label">exclude</div>
+        <input type="text" id="popCharsetExclude" class="cs-chars-input" placeholder="I, O, Q  (optional)">
+      </div>
       <label id="overflowLabel">Overflow
         <select id="popOverflow">
           <option value="">default</option>
@@ -972,7 +978,8 @@ document.getElementById('charsetAdd').addEventListener('click', () => {
 });
 
 function fillCharsetSelect(select, selected) {
-  const current = selected ?? '';
+  const isInline = selected && typeof selected === 'object';
+  const current = isInline ? '__inline__' : (selected ?? '');
   const defaultLabel = projectDefaults.defaultCharset
     ? 'default (' + projectDefaults.defaultCharset + ')'
     : 'default';
@@ -987,7 +994,19 @@ function fillCharsetSelect(select, selected) {
       html += `<option value="${esc(name)}"${name === current ? ' selected' : ''}>${esc(name)}</option>`;
     }
   }
+  html += `<option value="__inline__"${current === '__inline__' ? ' selected' : ''}>inline…</option>`;
   select.innerHTML = html;
+  if (isInline) {
+    const cs = selected;
+    document.getElementById('popCharsetOnly').value = (cs.only || []).join(', ');
+    document.getElementById('popCharsetExclude').value = (cs.exclude || []).join(', ');
+  }
+  syncCharsetInline();
+}
+
+function syncCharsetInline() {
+  const isInline = document.getElementById('popCharset').value === '__inline__';
+  document.getElementById('popCharsetInline').hidden = !isInline;
 }
 
 function catalogElement(key) {
@@ -1002,7 +1021,11 @@ function syncOcrFields() {
   const isClipboard = effective === 'clipboard';
   document.getElementById('overflowLabel').hidden = isClipboard;
   document.getElementById('charsetLabel').hidden = isClipboard;
+  if (isClipboard) document.getElementById('popCharsetInline').hidden = true;
+  else syncCharsetInline();
 }
+
+document.getElementById('popCharset').addEventListener('change', syncCharsetInline);
 
 function updatePartFocus(partsEl, info, parent, el) {
   const focusDiv = document.getElementById('popPartFocus');
@@ -1031,8 +1054,8 @@ function updatePartFocus(partsEl, info, parent, el) {
     fillCharsetSelect(document.getElementById('popCharset'), (rawPart && rawPart.charset) || 'text');
     document.getElementById('popRead').value = rawPart && rawPart.read != null ? rawPart.read : 'ocr';
     document.getElementById('popOverflow').value = (rawPart && rawPart.overflow) || '';
-    syncOverflowVisibility();
-    renderSwapRows(document.getElementById('popSwaps'), rawPart && rawPart.swaps);
+    syncOcrFields();
+    elSwapRender(document.getElementById('popSwaps'), rawPart && rawPart.swaps);
     popEl.dataset.part = selectedPartName;
   } else {
     drawSourceRect(mainCanvas, parent, 280, info.parts, undefined, true);
@@ -1046,8 +1069,8 @@ function updatePartFocus(partsEl, info, parent, el) {
     fillCharsetSelect(document.getElementById('popCharset'), el.charset || 'text');
     document.getElementById('popRead').value = el.read != null ? el.read : (el.type === 'field' ? 'clipboard' : 'ocr');
     document.getElementById('popOverflow').value = el.overflow || '';
-    syncOverflowVisibility();
-    renderSwapRows(document.getElementById('popSwaps'), el.swaps);
+    syncOcrFields();
+    elSwapRender(document.getElementById('popSwaps'), el.swaps);
     delete popEl.dataset.part;
   }
 }
@@ -1168,7 +1191,14 @@ document.getElementById('popSaveOpts').addEventListener('click', async () => {
   const element = popEl.dataset.element;
   if (!element || !state.name) return;
   try {
-    const charset = document.getElementById('popCharset').value || null;
+    const charsetSel = document.getElementById('popCharset').value;
+    const charset = charsetSel === '__inline__'
+      ? (() => {
+          const only = document.getElementById('popCharsetOnly').value.split(',').map(s => s.trim()).filter(Boolean);
+          const exclude = document.getElementById('popCharsetExclude').value.split(',').map(s => s.trim()).filter(Boolean);
+          return only.length ? { only, ...(exclude.length ? { exclude } : {}) } : null;
+        })()
+      : (charsetSel || null);
     const read = document.getElementById('popRead').value || null;
     const overflow = document.getElementById('popOverflow').value || null;
     const swaps = elSwapToObj(document.getElementById('popSwaps'));

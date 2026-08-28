@@ -35,6 +35,8 @@ export type HaveTextOptions = {
   overflowSlop?: number;
   /** Override config `read`. `clipboard` is click / select-all / copy. */
   read?: FieldRead;
+  /** Compare actual and expected case-insensitively. Swap keys are also lowercased automatically. */
+  caseInsensitive?: boolean;
 };
 
 export type WaitForOptions = {
@@ -300,7 +302,10 @@ export class ScreenElement {
       try {
         await this.retryAssertion(() => {
           const actual = this.result.value;
-          return ocrTextMatches(actual, expected, { ...(match.swaps && { swaps: match.swaps }) })
+          return ocrTextMatches(actual, expected, {
+            ...(match.swaps && { swaps: match.swaps }),
+            ...(options?.caseInsensitive && { caseInsensitive: true }),
+          })
             ? undefined
             : `Element "${this.label}" does not contain text "${expected}". Actual: "${actual}"`;
         }, expectTimeout(options?.timeout));
@@ -321,6 +326,7 @@ export class ScreenElement {
         ...(match.swaps !== undefined && { swaps: match.swaps }),
         ...(match.overflow !== undefined && { overflow: match.overflow }),
         ...(options?.overflowSlop !== undefined && { overflowSlop: options.overflowSlop }),
+        ...(options?.caseInsensitive && { caseInsensitive: true }),
       };
       if (match.read === 'clipboard') {
         await this.ensureLocated(options?.timeout);
@@ -359,6 +365,7 @@ export class ScreenElement {
         ...(match.overflow !== undefined && { overflow: match.overflow }),
         ...(options?.overflowSlop !== undefined && { overflowSlop: options.overflowSlop }),
         exact: !match.overflow,
+        ...(options?.caseInsensitive && { caseInsensitive: true }),
       };
       if (match.read === 'clipboard') {
         await this.ensureLocated(options?.timeout);
