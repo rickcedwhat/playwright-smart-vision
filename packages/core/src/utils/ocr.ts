@@ -287,26 +287,35 @@ export function ocrTextMatches(
     exact?: boolean;
     overflow?: OcrOverflow;
     overflowSlop?: number;
+    caseInsensitive?: boolean;
   } = {},
 ): boolean {
   if (expected instanceof RegExp) return expected.test(actual);
-  if (options.overflow) {
-    return overflowMatches(
-      actual,
-      expected,
-      options.overflow,
-      options.swaps,
-      options.overflowSlop ?? DEFAULT_OVERFLOW_SLOP,
-    );
+  let a = actual;
+  let e = expected;
+  let swaps = options.swaps;
+  if (options.caseInsensitive) {
+    a = a.toLowerCase();
+    e = e.toLowerCase();
+    if (swaps) {
+      const n: OcrSwaps = {};
+      for (const [k, v] of Object.entries(swaps)) {
+        n[k.toLowerCase()] = typeof v === 'string' ? v.toLowerCase() : v.map(s => s.toLowerCase());
+      }
+      swaps = n;
+    }
   }
-  if (options.exact) return charsMatch(actual, expected, options.swaps);
-  if (actual.includes(expected)) return true;
-  if (!options.swaps || !Object.keys(options.swaps).length) return false;
-  const got = [...actual];
-  const want = [...expected];
+  if (options.overflow) {
+    return overflowMatches(a, e, options.overflow, swaps, options.overflowSlop ?? DEFAULT_OVERFLOW_SLOP);
+  }
+  if (options.exact) return charsMatch(a, e, swaps);
+  if (a.includes(e)) return true;
+  if (!swaps || !Object.keys(swaps).length) return false;
+  const got = [...a];
+  const want = [...e];
   if (want.length > got.length) return false;
   for (let i = 0; i <= got.length - want.length; i++) {
-    if (charsMatch(got.slice(i, i + want.length).join(''), expected, options.swaps)) return true;
+    if (charsMatch(got.slice(i, i + want.length).join(''), e, swaps)) return true;
   }
   return false;
 }
