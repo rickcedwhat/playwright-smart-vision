@@ -1,0 +1,164 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>AutoSoft Mock</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: #000; }
+  .screen { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; display: none; }
+  .screen.active { display: block; }
+  .screen img.bg { position: absolute; top: 0; left: 0; width: 1280px; height: 720px; }
+  /* Transparent hotspot — covers an element for click/dblclick without obscuring template */
+  .hotspot {
+    position: absolute;
+    cursor: pointer;
+    background: transparent;
+    /* Uncomment to debug positions: border: 1px solid red; */
+  }
+  /* VIN input — placed exactly at the ocrRect absolute position (560+28, 88+6) */
+  #vinInput {
+    position: absolute;
+    left: 588px; top: 94px;
+    width: 147px; height: 18px;
+    background: transparent;
+    border: none;
+    outline: none;
+    font: 11px/18px Arial, sans-serif;
+    color: #000;
+    padding: 0;
+    letter-spacing: 0.5px;
+    cursor: text;
+  }
+  /* Text overlay boxes for the filled customer-info state */
+  .field-val {
+    position: absolute;
+    background: #fff;
+    color: #000;
+    font: 11px/1 Arial, sans-serif;
+    white-space: nowrap;
+    overflow: hidden;
+    display: none; /* shown after VIN search */
+  }
+  .screen.active #vinInput { display: block; }
+  .screen.active .field-val { display: none; }
+  /* After search, hide vinInput placeholder state and show filled values */
+  body.searched .screen.active .field-val { display: block; }
+</style>
+
+<script>
+// ─── Update these to match what your test customer returns from the API ───────
+const MOCK = {
+  customerId:       'SEA314535',
+  firstName:        'QAWCUSTOMR',  // verify against API result.person.firstName
+  lastName:         '',            // verify — Name row appears blank in filled screenshot
+  address:          '123 MAIN ST',
+  city:             'LOS ANGELES',
+  state:            'CA',
+  zip:              '90201',
+  vin:              '5NPDH4AE1DH314535',
+  year:             '2013',
+  make:             'HYUNDAI',
+  modelDescription: 'ELANTRA GL',
+  plate:            '9QAW4567',
+  plateState:       'CA',
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
+function goTo(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function triggerSearch() {
+  document.body.classList.add('searched');
+  // Populate field-val spans with mock data
+  Object.entries(MOCK).forEach(([k, v]) => {
+    const el = document.getElementById('val-' + k);
+    if (el) el.textContent = v;
+  });
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+  // VIN input: pressing Enter triggers the "search" transition
+  document.getElementById('vinInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') triggerSearch();
+  });
+  // Start on desktop
+  goTo('screen-desktop');
+  // Populate mock values into spans immediately so they're ready
+  Object.entries(MOCK).forEach(([k, v]) => {
+    const el = document.getElementById('val-' + k);
+    if (el) el.textContent = v;
+  });
+});
+</script>
+
+<!-- ── DESKTOP ── -->
+<div id="screen-desktop" class="screen">
+  <img class="bg" src="/screens/desktop/blank.png" alt="">
+  <!-- dblclick kill → then dblclick wolf01 to advance. Mock just needs wolf01 dblclick. -->
+  <div class="hotspot" style="left:16px; top:554px; width:43px; height:32px"
+       ondblclick=""></div>
+  <div class="hotspot" style="left:7px; top:437px; width:58px; height:71px"
+       ondblclick="goTo('screen-wolf01')"></div>
+</div>
+
+<!-- ── WOLF01 ── -->
+<div id="screen-wolf01" class="screen">
+  <img class="bg" src="/screens/wolf01/blank.png" alt="">
+  <!-- autosoftDmsLogo click — no navigation, just focus confirmation -->
+  <div class="hotspot" style="left:193px; top:32px; width:90px; height:27px"></div>
+  <!-- service hover then click → service screen -->
+  <div class="hotspot" style="left:168px; top:142px; width:218px; height:34px"
+       onclick="goTo('screen-service')"></div>
+</div>
+
+<!-- ── SERVICE ── -->
+<div id="screen-service" class="screen">
+  <img class="bg" src="/screens/service/blank.png" alt="">
+  <div class="hotspot" style="left:178px; top:147px; width:261px; height:41px"
+       onclick="goTo('screen-customer-info')"></div>
+</div>
+
+<!-- ── CUSTOMER INFO ── -->
+<!--
+  Layout reference (all coords are absolute screen pixels, 1280×720):
+
+  Element         x    y    w    h    ocrRect (absolute)
+  customerNumber  216  88   197  30   331,94  76×18
+  vin             560  88   181  30   588,94  147×18  ← real <input>
+  name            216  133  312  26
+    firstName                        280,139  88×14
+    lastName                         393,139  129×14
+  address         219  175  309  26   280,181  242×14
+  cityStateZip    215  195  313  26
+    city                             280,201  124×14
+    state                            411,201  21×14
+    zip                              439,201  83×14
+  year            401  300  79   26   440,306  34×14
+  make            396  320  132  26   440,326  82×14
+  model           392  340  168  26
+    description                      472,346  82×14
+  licenseState    570  320  168  26
+    plate                            642,326  66×14
+    state                            714,326  18×14
+-->
+<div id="screen-customer-info" class="screen">
+  <img class="bg" src="/screens/customer-info/blank.png" alt="">
+
+  <!-- Real VIN input — text lands at ocrRect 588,94 -->
+  <input id="vinInput" type="text" autocomplete="off" spellcheck="false">
+
+  <!-- Filled-state text overlays (hidden until Enter pressed) -->
+  <span id="val-customerId"      class="field-val" style="left:331px; top:94px;  width:76px;  height:18px; line-height:18px"></span>
+  <span id="val-firstName"       class="field-val" style="left:280px; top:139px; width:88px;  height:14px; line-height:14px"></span>
+  <span id="val-lastName"        class="field-val" style="left:393px; top:139px; width:129px; height:14px; line-height:14px"></span>
+  <span id="val-address"         class="field-val" style="left:280px; top:181px; width:242px; height:14px; line-height:14px"></span>
+  <span id="val-city"            class="field-val" style="left:280px; top:201px; width:124px; height:14px; line-height:14px"></span>
+  <span id="val-state"           class="field-val" style="left:411px; top:201px; width:21px;  height:14px; line-height:14px"></span>
+  <span id="val-zip"             class="field-val" style="left:439px; top:201px; width:83px;  height:14px; line-height:14px"></span>
+<span id="val-year"            class="field-val" style="left:440px; top:306px; width:34px;  height:14px; line-height:14px"></span>
+  <span id="val-make"            class="field-val" style="left:440px; top:326px; width:82px;  height:14px; line-height:14px"></span>
+  <span id="val-modelDescription"class="field-val" style="left:472px; top:346px; width:82px;  height:14px; line-height:14px"></span>
+  <span id="val-plate"           class="field-val" style="left:642px; top:326px; width:66px;  height:14px; line-height:14px"></span>
+  <span id="val-plateState"      class="field-val" style="left:714px; top:326px; width:18px;  height:14px; line-height:14px"></span>
+</div>
