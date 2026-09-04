@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// Test comment to verify GitHub authentication
 /**
  * Local Template Manager server.
  * Exports screens by writing config.ts and PNG templates to configured destinations.
