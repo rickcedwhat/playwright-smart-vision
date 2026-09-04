@@ -64,29 +64,6 @@
   .tree-row .twist-spacer { width: 1.2em; flex-shrink: 0; }
   .tree .active { background: #243a24; color: #cfc; }
   .tree .local .name { color: #8c8; }
-  .push-off { opacity: 0.55; }
-  #pushModal {
-    position: fixed; inset: 0; z-index: 40;
-    background: rgba(0,0,0,0.65);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-  }
-  #pushModal[hidden] { display: none; }
-  .push-card {
-    width: min(720px, 94vw); max-height: 86vh;
-    background: #1c1c1c; border: 1px solid #555; border-radius: 10px;
-    padding: 16px; display: flex; flex-direction: column; gap: 10px;
-  }
-  .push-card h3 { margin: 0; font-size: 15px; }
-  .push-card p { margin: 0; color: #ccc; }
-  #pushLog {
-    flex: 1; min-height: 160px; max-height: 48vh; overflow: auto;
-    margin: 0; padding: 10px; background: #111; border: 1px solid #333;
-    border-radius: 6px; color: #cfc;
-    font: 11px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
-    white-space: pre-wrap;
-  }
-  .push-actions { display: flex; gap: 8px; justify-content: flex-end; }
   .stage { position: relative; display: inline-block; min-width: 100%; }
   .stage img { display: block; max-width: 100%; height: auto; }
   .stage img[hidden] { display: none; }
@@ -178,8 +155,6 @@
     <div class="dropdown">
       <button type="button" class="dd-item" id="menuConfigure">Configure…</button>
       <div class="dd-sep"></div>
-      <button type="button" class="dd-item" id="pullAll">Pull GCS</button>
-      <button type="button" class="dd-item" id="pushAll">Push GCS</button>
       <div class="dd-sep"></div>
       <button type="button" class="dd-item" id="restartServer">Restart Server</button>
     </div>
@@ -217,7 +192,6 @@
   <span id="status"></span>
 
   <!-- Preserved for JS compatibility -->
-  <input id="gcs" type="text" spellcheck="false" hidden aria-hidden="true">
   <button type="button" id="saveSettings" hidden aria-hidden="true"></button>
   <button type="button" id="resetMenuBtn" hidden aria-hidden="true"></button>
   <div id="resetMenu" hidden></div>
@@ -231,8 +205,6 @@
       <input type="text" id="configEnvName" placeholder="e.g. Production — QAWolf" spellcheck="false">
     </div>
     <div class="config-field">
-      <label for="configGcsUri">GCS URI</label>
-      <input type="text" id="configGcsUri" spellcheck="false" placeholder="gs://bucket/path/screens">
     </div>
     <div class="config-actions">
       <button type="button" class="primary" id="configSave">Save</button>
@@ -240,24 +212,8 @@
     </div>
   </div>
 </div>
-<div id="pushModal" hidden>
-  <div class="push-card">
-    <h3 id="pushTitle">GCS push</h3>
-    <p id="pushSummary"></p>
-    <pre id="pushLog"></pre>
-    <div class="push-actions">
-      <button id="pushCancel" type="button">Close</button>
-    </div>
-  </div>
-</div>
 <div class="layout">
 <aside>
-  <div id="authBanner" hidden>
-    GCS auth required — run in terminal:
-    <code>gcloud auth login</code>
-    then reload.
-    <button id="authBannerClose" type="button">Dismiss</button>
-  </div>
   <div id="tree" class="tree"></div>
 </aside>
 <main id="main">
@@ -368,7 +324,6 @@ const TM_BASE = (() => {
 
 const statusEl = document.getElementById('status');
 const toastEl = document.getElementById('toast');
-const gcs = document.getElementById('gcs');
 const treeEl = document.getElementById('tree');
 const blank = document.getElementById('blank');
 const overlays = document.getElementById('overlays');
@@ -403,29 +358,6 @@ function toast(msg) {
   toast.t = setTimeout(() => { toastEl.style.display = 'none'; }, 4000);
 }
 
-function formatPushResult(out) {
-  const lines = [];
-  lines.push(out.dryRun ? 'DRY RUN — nothing was written.' : 'PUSH COMPLETE');
-  lines.push('Deletes: never (' + String(out.deletes) + ')');
-  lines.push('Destination prefix: ' + out.gcsUri);
-  lines.push('Screens: ' + (out.pushed || []).join(', '));
-  if ((out.skipped || []).length) {
-    lines.push('Skipped:');
-    for (const row of out.skipped) lines.push('  - ' + row.name + ': ' + row.reason);
-  }
-  lines.push('');
-  for (const op of out.operations || []) {
-    lines.push('== ' + op.screen + ' → ' + op.dest);
-    for (const file of op.files || []) lines.push('  ' + file);
-    if (op.gcloud) {
-      lines.push('-- gcloud --');
-      lines.push(op.gcloud);
-    }
-    lines.push('');
-  }
-  return lines.join('\n');
-}
-
 async function api(path, opts) {
   const res = await fetch(TM_BASE + path, opts);
   const body = await res.json().catch(() => ({}));
@@ -437,43 +369,31 @@ async function api(path, opts) {
   return body;
 }
 
-function showAuthBanner(visible = true) {
-  document.getElementById('authBanner').hidden = !visible;
-}
-
 function handleApiError(err) {
   setStatus(err.message, true);
-  if (err.authRequired) showAuthBanner();
 }
 
-function mergeListing(remote, local) {
-  const dirs = [...new Set([...(remote.dirs || []), ...(local.dirs || [])])].sort();
-  const files = [...new Set([...(remote.files || []), ...(local.files || [])])].sort();
-  const localSet = new Set([...(local.dirs || []), ...(local.files || [])]);
-  return { dirs, files, localSet };
-}
-
-
-function listingHtml(rel, merged) {
+function listingHtml(rel, listing) {
   let html = '';
-  for (const dir of merged.dirs) {
+  const dirs = listing.dirs || [];
+  const files = listing.files || [];
+  for (const dir of dirs) {
     const path = rel ? rel + '/' + dir : dir;
     const screen = path.split('/')[0];
     const isRoot = !rel;
     const active = isRoot && path === selectedScreen ? ' active' : '';
-    const local = merged.localSet.has(dir) ? ' local' : '';
     html += '<div class="tree-node" data-path="' + path + '">' +
-      '<div class="tree-row dir' + active + local + '" data-screen="' + screen + '">' +
+      '<div class="tree-row dir' + active + ' local" data-screen="' + screen + '">' +
       '<button type="button" class="twist" aria-expanded="false" aria-label="expand">▸</button>' +
       '<span class="name">' + dir + '/</span>' +
       '</div>' +
       '<div class="tree-kids" hidden></div></div>';
   }
-  for (const file of merged.files) {
+  for (const file of files) {
     const path = rel ? rel + '/' + file : file;
     const screen = path.split('/')[0];
     const active = path === selectedFile ? ' active' : '';
-    html += '<div class="tree-row file' + active + (merged.localSet.has(file) ? ' local' : '') + '" data-path="' + path + '" data-screen="' + screen + '">' +
+    html += '<div class="tree-row file' + active + ' local" data-path="' + path + '" data-screen="' + screen + '">' +
       '<span class="twist-spacer"></span>' +
       '<span class="name">' + file + '</span></div>';
   }
@@ -482,13 +402,7 @@ function listingHtml(rel, merged) {
 
 async function renderTree() {
   const root = await api('/api/ls?path=');
-  treeEl.innerHTML = listingHtml('', mergeListing(root.remote, root.local));
-  if (root.remoteError) {
-    const note = document.createElement('div');
-    note.style.cssText = 'color:#666;font-size:11px;padding:6px 4px;';
-    note.textContent = 'GCS offline — showing local only';
-    treeEl.insertBefore(note, treeEl.firstChild);
-  }
+  treeEl.innerHTML = listingHtml('', root.local);
 }
 
 function highlightTree() {
@@ -542,7 +456,6 @@ async function expandNode(node, open) {
   if (!node.dataset.loaded) {
     const listing = await api('/api/ls?path=' + encodeURIComponent(node.dataset.path));
     kids.innerHTML = listingHtml(node.dataset.path, mergeListing(listing.remote, listing.local)) || '<div class="muted">empty</div>';
-    if (listing.remoteError) kids.insertAdjacentHTML('afterbegin', '<div style="color:#666;font-size:11px;padding:2px 4px">GCS offline</div>');
     node.dataset.loaded = '1';
   }
   if (open !== undefined) {
@@ -557,7 +470,6 @@ async function expandNode(node, open) {
 
 async function loadSettings() {
   const s = await api('/api/settings');
-  gcs.value = s.gcsUri;
   cacheDir = s.cacheDir || '';
   if (typeof updateEnvDisplay === 'function') updateEnvDisplay();
 }
@@ -1271,7 +1183,7 @@ async function loadScreen(name, opts = {}) {
       for (const id of el.boxIds || []) state.names[id] = el.name;
     }
   }
-  if (!data.hasBlank) setStatus(name + ' has no local blank.png — Pull GCS', true);
+  if (!data.hasBlank) setStatus(name + ' has no local blank.png', true);
   else if (data.applied) setStatus((opts.status || name) + ' — applied first-pass.json');
   else setStatus(opts.status || name);
   updateMeta();
@@ -1517,7 +1429,7 @@ blank.addEventListener('error', () => {
   overlays.innerHTML = '';
   if (selectedFile) setStatus('could not display ' + selectedFile, true);
   else if (!state.name) setStatus('no screen selected', true);
-  else setStatus(state.name + ' has no local blank.png — Pull GCS', true);
+  else setStatus(state.name + ' has no local blank.png', true);
 });
 window.addEventListener('resize', paint);
 
@@ -1621,8 +1533,8 @@ treeEl.addEventListener('click', async (e) => {
     const isLocal = fileRow.classList.contains('local');
     selectedFile = filePath;
     if (!isLocal) {
-      setStatus(filePath + ' — not pulled locally (File → Pull GCS)', true);
-      showFileMessage('Not available locally — use File → Pull GCS to download.');
+      setStatus(filePath + ' — not available locally', true);
+      showFileMessage('Not available locally.');
       return;
     }
     if (isRootFile) {
@@ -1642,51 +1554,11 @@ treeEl.addEventListener('click', async (e) => {
 
 document.getElementById('saveSettings').onclick = async () => {
   try {
-    await api('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ gcsUri: gcs.value }) });
-    setStatus('saved URI');
+    await api('/api/settings', { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({}) });
+    setStatus('saved settings');
     await renderTree();
   } catch (err) { handleApiError(err); }
 };
-document.getElementById('pullAll').onclick = async () => {
-  if (!confirm('Pull from GCS? This will overwrite local screens (blank.png, index.json, boxes, templates) with whatever is in GCS.')) return;
-  try {
-    setStatus('pulling…');
-    const out = await api('/api/pull', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' });
-    setStatus('pulled ' + out.localScreens.length + ' local screens');
-    showAuthBanner(false);
-    await renderTree();
-    if (currentScreen()) await loadScreen(currentScreen(), { keepView: true });
-  } catch (err) { handleApiError(err); }
-};
-document.getElementById('pushAll').onclick = async () => {
-  if (!confirm('Push to GCS? This will overwrite the remote GCS path with your local screens.')) return;
-  const modal = document.getElementById('pushModal');
-  try {
-    setStatus('pushing to GCS…');
-    const out = await api('/api/push', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ dryRun: false }),
-    });
-    document.getElementById('pushTitle').textContent = 'GCS push complete';
-    document.getElementById('pushSummary').textContent =
-      'Copied blank.png, index.json, and templates/*.png. Nothing was deleted.';
-    document.getElementById('pushLog').textContent = formatPushResult(out);
-    modal.hidden = false;
-    setStatus('pushed ' + (out.pushed || []).join(', '));
-    showAuthBanner(false);
-    await renderTree();
-  } catch (err) { handleApiError(err); }
-};
-document.getElementById('pushCancel').onclick = () => {
-  document.getElementById('pushModal').hidden = true;
-};
-document.getElementById('pushModal').addEventListener('click', (e) => {
-  if (e.target.id === 'pushModal') document.getElementById('pushModal').hidden = true;
-});
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') document.getElementById('pushModal').hidden = true;
-});
 document.getElementById('copyPrompt').onclick = async () => {
   try {
     const name = currentScreen();
@@ -1813,7 +1685,6 @@ Promise.all([loadSettings(), loadCharsets(), loadDefaults()])
   .then(() => setView('source'))
   .catch(handleApiError);
 
-document.getElementById('authBannerClose').addEventListener('click', () => showAuthBanner(false));
 
 // Stage zoom via ctrl+wheel / trackpad pinch.
 // stageZoom and stageBaseW are module-level globals so loadScreen can reset them.
@@ -1901,7 +1772,6 @@ document.addEventListener('keydown', e => {
 
 // ── Configure modal ────────────────────────────────────────────────────────────
 function openConfigure() {
-  document.getElementById('configGcsUri').value = gcs.value;
   document.getElementById('configEnvName').value = localStorage.getItem('tm-env-name') || '';
   document.getElementById('configModal').hidden = false;
   document.querySelectorAll('.menu-trigger').forEach(t => t.classList.remove('open'));
@@ -1912,7 +1782,7 @@ function closeConfigure() {
 }
 function updateEnvDisplay() {
   const name = localStorage.getItem('tm-env-name') || '';
-  document.getElementById('envName').textContent = name || gcs.value;
+  document.getElementById('envName').textContent = name || 'local';
 }
 
 document.getElementById('restartServer').onclick = async () => {
@@ -1944,16 +1814,12 @@ document.getElementById('configModal').addEventListener('click', e => {
 });
 document.getElementById('configSave').addEventListener('click', async () => {
   const name = document.getElementById('configEnvName').value.trim();
-  gcs.value = document.getElementById('configGcsUri').value.trim();
   localStorage.setItem('tm-env-name', name);
   updateEnvDisplay();
   closeConfigure();
   document.getElementById('saveSettings').click();
 });
 document.getElementById('configEnvName').addEventListener('keydown', e => {
-  if (e.key === 'Enter') document.getElementById('configGcsUri').focus();
-});
-document.getElementById('configGcsUri').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('configSave').click();
   if (e.key === 'Escape') closeConfigure();
 });
