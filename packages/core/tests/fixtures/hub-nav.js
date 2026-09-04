@@ -1,4 +1,5 @@
 // Test comment for GitHub authentication
+// Second test comment to verify rickcedwhat-ai auth
 (() => {
   if (navigator.webdriver || window !== window.top) return;
 
