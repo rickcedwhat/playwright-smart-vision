@@ -1,5 +1,6 @@
 // Test comment for GitHub authentication
 // Second test comment to verify rickcedwhat-ai auth
+// Third test: Testing with GH_TOKEN environment variable
 (() => {
   if (navigator.webdriver || window !== window.top) return;
 
