@@ -1,3 +1,4 @@
+// Test comment for GitHub authentication
 (() => {
   if (navigator.webdriver || window !== window.top) return;
 
