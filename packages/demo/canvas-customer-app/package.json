@@ -1,0 +1,12 @@
+{
+  "name": "@playwright-smart-vision/demo-canvas-customer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Canvas-based customer form demo for testing OCR and visual automation",
+  "type": "module",
+  "scripts": {
+    "serve": "node server.mjs",
+    "dev": "node server.mjs"
+  },
+  "dependencies": {}
+}

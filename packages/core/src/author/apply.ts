@@ -259,7 +259,7 @@ function pickOption<T>(next: T | undefined, prev: T | undefined): T | undefined 
 
 /**
  * Turn first-pass.json (boxIds) into templates/ + index.json.
- * Pass `firstPass` to write that file first (QA Wolf AI can hand the object in).
+ * Pass `firstPass` to write that file first if you're generating it programmatically.
  */
 export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenResult {
   const dir = screenDir(name);

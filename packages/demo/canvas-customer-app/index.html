@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desktop Simulation - Canvas Demo</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+    #container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    #canvasWrapper {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background: #e0e0e0;
+    }
+    canvas {
+      cursor: default;
+      display: block;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+    .controls {
+      padding: 12px 20px;
+      background: #2c2c2c;
+      color: white;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      border-top: 1px solid #444;
+    }
+    .controls button {
+      padding: 6px 14px;
+      background: #444;
+      color: white;
+      border: 1px solid #666;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .controls button:hover {
+      background: #555;
+    }
+    .controls .separator {
+      width: 1px;
+      height: 20px;
+      background: #555;
+      margin: 0 5px;
+    }
+    .controls .info {
+      margin-left: auto;
+      font-size: 12px;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="canvasWrapper">
+      <canvas id="desktopCanvas" width="1200" height="800"></canvas>
+    </div>
+    
+    <div class="controls">
+      <button onclick="resetToDesktop()">Reset to Desktop</button>
+      <button onclick="openCRMApp()">Open CRM App</button>
+      <button onclick="openCustomerForm()">Open Form</button>
+      <div class="separator"></div>
+      <button onclick="fillTestData()">Fill Test Data</button>
+      <button onclick="clearForm()">Clear Form</button>
+      <button onclick="toggleSaveButton()">Toggle Save</button>
+      <div class="info">Canvas Desktop Demo - Click desktop icons to navigate</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('desktopCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Application state
+    let currentView = 'desktop'; // 'desktop' | 'crm-app' | 'customer-form'
+    
+    // Desktop icons
+    const desktopIcons = [
+      { name: 'CRM System', x: 50, y: 80, width: 80, height: 100, icon: '💼' },
+      { name: 'Email', x: 150, y: 80, width: 80, height: 100, icon: '✉️' },
+      { name: 'Calendar', x: 250, y: 80, width: 80, height: 100, icon: '📅' },
+      { name: 'Files', x: 50, y: 200, width: 80, height: 100, icon: '📁' },
+    ];
+    
+    // CRM app window
+    const crmWindow = {
+      x: 100,
+      y: 80,
+      width: 1000,
+      height: 620,
+      title: 'CRM System'
+    };
+    
+    // Customer form window
+    const formWindow = {
+      x: 150,
+      y: 80,
+      width: 900,
+      height: 640,
+      title: 'Customer Information'
+    };
+    
+    // Form state
+    const formData = {
+      customerNumber: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: { area: '', prefix: '', line: '' },
+      address: '',
+      city: '',
+      state: '',
+      zip: '',
+      vin: '',
+      birthdate: { month: '', day: '', year: '' },
+      activeCustomer: false,
+      doNotCall: false,
+      contactMethod: 'email',
+      saveButtonEnabled: true
+    };
+    
+    let focusedField = null;
+    let cursorVisible = true;
+    
+    // Field definitions with positions (relative to form content area)
+    const fields = {
+      customerNumber: { x: 150, y: 30, width: 150, height: 25, label: 'Customer #:', labelX: 20 },
+      firstName: { x: 150, y: 70, width: 150, height: 25, label: 'First Name:', labelX: 20 },
+      lastName: { x: 450, y: 70, width: 150, height: 25, label: 'Last Name:', labelX: 350 },
+      email: { x: 150, y: 110, width: 450, height: 25, label: 'Email:', labelX: 20 },
+      
+      // Multi-part phone field
+      phoneArea: { x: 150, y: 150, width: 50, height: 25, label: 'Phone:', labelX: 20, maxLength: 3 },
+      phonePrefix: { x: 210, y: 150, width: 50, height: 25, maxLength: 3 },
+      phoneLine: { x: 270, y: 150, width: 70, height: 25, maxLength: 4 },
+      
+      address: { x: 150, y: 190, width: 450, height: 25, label: 'Address:', labelX: 20 },
+      city: { x: 150, y: 230, width: 200, height: 25, label: 'City:', labelX: 20 },
+      state: { x: 400, y: 230, width: 80, height: 25, label: 'State:', labelX: 360 },
+      zip: { x: 530, y: 230, width: 70, height: 25, label: 'ZIP:', labelX: 490 },
+      
+      vin: { x: 150, y: 270, width: 250, height: 25, label: 'VIN:', labelX: 20 },
+      
+      // Multi-part birthdate field
+      birthMonth: { x: 150, y: 310, width: 40, height: 25, label: 'Birthdate:', labelX: 20, maxLength: 2 },
+      birthDay: { x: 200, y: 310, width: 40, height: 25, maxLength: 2 },
+      birthYear: { x: 250, y: 310, width: 60, height: 25, maxLength: 4 },
+      
+      // Checkboxes
+      activeCustomer: { x: 150, y: 350, width: 20, height: 20, label: 'Active Customer', labelX: 180, type: 'checkbox' },
+      doNotCall: { x: 150, y: 380, width: 20, height: 20, label: 'Do Not Call', labelX: 180, type: 'checkbox' },
+      
+      // Dropdown
+      contactMethod: { x: 150, y: 420, width: 150, height: 25, label: 'Contact Method:', labelX: 20, type: 'dropdown', options: ['email', 'phone', 'mail'] },
+      
+      // Buttons
+      saveButton: { x: 150, y: 480, width: 100, height: 35, label: 'Save', type: 'button' },
+      closeButton: { x: 270, y: 480, width: 100, height: 35, label: 'Close', type: 'button' }
+    };
+    
+    // ============================================================================
+    // RENDERING FUNCTIONS
+    // ============================================================================
+    
+    function render() {
+      if (currentView === 'desktop') {
+        drawDesktop();
+      } else if (currentView === 'crm-app') {
+        drawCRMApp();
+      } else if (currentView === 'customer-form') {
+        drawCustomerForm();
+      }
+    }
+    
+    function drawDesktop() {
+      // Desktop background
+      ctx.fillStyle = '#2c5aa0';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Taskbar
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      
+      // Start button
+      ctx.fillStyle = '#0078d4';
+      ctx.fillRect(10, canvas.height - 40, 80, 30);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Start', 50, canvas.height - 25);
+      ctx.textAlign = 'left';
+      
+      // Desktop icons
+      desktopIcons.forEach(icon => {
+        // Icon background
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fillRect(icon.x, icon.y, icon.width, icon.height);
+        
+        // Icon emoji
+        ctx.font = '40px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(icon.icon, icon.x + icon.width / 2, icon.y + 40);
+        
+        // Icon label
+        ctx.fillStyle = '#fff';
+        ctx.font = '12px Arial';
+        ctx.fillText(icon.name, icon.x + icon.width / 2, icon.y + 80);
+        
+        // Hover effect
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(icon.x, icon.y, icon.width, icon.height);
+      });
+      
+      ctx.textAlign = 'left';
+    }
+    
+    function drawCRMApp() {
+      // Desktop background (dimmed)
+      ctx.fillStyle = '#2c5aa0';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Taskbar
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      
+      // CRM Application Window
+      drawWindow(crmWindow.x, crmWindow.y, crmWindow.width, crmWindow.height, crmWindow.title);
+      
+      // CRM content area
+      const contentX = crmWindow.x + 10;
+      const contentY = crmWindow.y + 40;
+      const contentWidth = crmWindow.width - 20;
+      const contentHeight = crmWindow.height - 50;
+      
+      // Sidebar
+      ctx.fillStyle = '#f5f5f5';
+      ctx.fillRect(contentX, contentY, 180, contentHeight);
+      
+      // Sidebar items
+      const menuItems = ['Dashboard', 'Customers', 'Leads', 'Reports', 'Settings'];
+      menuItems.forEach((item, idx) => {
+        const itemY = contentY + 20 + (idx * 50);
+        ctx.fillStyle = item === 'Customers' ? '#e0e0e0' : 'transparent';
+        ctx.fillRect(contentX + 10, itemY, 160, 40);
+        
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.fillText(item, contentX + 20, itemY + 25);
+      });
+      
+      // Main content area
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(contentX + 190, contentY, contentWidth - 190, contentHeight);
+      
+      // Customer list header
+      ctx.fillStyle = '#333';
+      ctx.font = 'bold 18px Arial';
+      ctx.fillText('Customer Management', contentX + 210, contentY + 30);
+      
+      // Search bar
+      ctx.strokeStyle = '#ccc';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(contentX + 210, contentY + 50, 300, 30);
+      ctx.fillStyle = '#999';
+      ctx.font = '14px Arial';
+      ctx.fillText('Search customers...', contentX + 220, contentY + 70);
+      
+      // "New Customer" button
+      const newCustomerBtn = {
+        x: contentX + 530,
+        y: contentY + 50,
+        width: 150,
+        height: 30
+      };
+      ctx.fillStyle = '#28a745';
+      ctx.fillRect(newCustomerBtn.x, newCustomerBtn.y, newCustomerBtn.width, newCustomerBtn.height);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('+ New Customer', newCustomerBtn.x + newCustomerBtn.width / 2, newCustomerBtn.y + 20);
+      ctx.textAlign = 'left';
+      
+      // Customer list table
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 1;
+      const tableY = contentY + 100;
+      const tableHeaders = ['ID', 'Name', 'Email', 'Phone', 'Status'];
+      const colWidths = [80, 150, 180, 120, 100];
+      let colX = contentX + 210;
+      
+      // Table header
+      const tableWidth = Math.min(colWidths.reduce((a, b) => a + b, 0), contentWidth - 200);
+      ctx.fillStyle = '#f8f8f8';
+      ctx.fillRect(colX, tableY, tableWidth, 35);
+      
+      ctx.fillStyle = '#333';
+      ctx.font = 'bold 13px Arial';
+      tableHeaders.forEach((header, idx) => {
+        ctx.fillText(header, colX + 10, tableY + 22);
+        colX += colWidths[idx];
+      });
+      
+      // Table rows (sample data)
+      const customers = [
+        ['CUST001', 'John Smith', 'john@example.com', '555-123-4567', 'Active'],
+        ['CUST002', 'Jane Doe', 'jane@example.com', '555-234-5678', 'Active'],
+        ['CUST003', 'Bob Johnson', 'bob@example.com', '555-345-6789', 'Inactive'],
+      ];
+      
+      customers.forEach((customer, rowIdx) => {
+        colX = contentX + 210;
+        const rowY = tableY + 35 + (rowIdx * 40);
+        
+        // Alternating row background
+        if (rowIdx % 2 === 0) {
+          ctx.fillStyle = '#fafafa';
+          ctx.fillRect(colX, rowY, tableWidth, 40);
+        }
+        
+        ctx.fillStyle = '#333';
+        ctx.font = '13px Arial';
+        customer.forEach((cell, colIdx) => {
+          ctx.fillText(cell, colX + 10, rowY + 25);
+          colX += colWidths[colIdx];
+        });
+      });
+    }
+    
+    function drawCustomerForm() {
+      // Desktop background (more dimmed)
+      ctx.fillStyle = '#2c5aa0';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Taskbar
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, canvas.height - 50, canvas.width, 50);
+      
+      // Customer Form Window
+      drawWindow(formWindow.x, formWindow.y, formWindow.width, formWindow.height, formWindow.title);
+      
+      // Form content
+      const formContentX = formWindow.x + 20;
+      const formContentY = formWindow.y + 40;
+      
+      // Save canvas state and translate for form rendering
+      ctx.save();
+      ctx.translate(formContentX, formContentY);
+      
+      // Draw all form fields
+      for (const [key, field] of Object.entries(fields)) {
+        if (field.type === 'checkbox') {
+          drawCheckbox(key, field);
+        } else if (field.type === 'dropdown') {
+          drawDropdown(key, field);
+        } else if (field.type === 'button') {
+          drawButton(key, field);
+        } else {
+          drawTextField(key, field);
+        }
+      }
+      
+      // Draw cursor in focused field
+      if (focusedField && cursorVisible) {
+        drawCursor();
+      }
+      
+      ctx.restore();
+    }
+    
+    function drawWindow(x, y, width, height, title) {
+      // Window shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x + 5, y + 5, width, height);
+      
+      // Window background
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(x, y, width, height);
+      
+      // Title bar
+      ctx.fillStyle = '#0078d4';
+      ctx.fillRect(x, y, width, 35);
+      
+      // Title text
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText(title, x + 10, y + 22);
+      
+      // Window controls (minimize, maximize, close)
+      const btnSize = 25;
+      const btnY = y + 5;
+      
+      // Close button
+      ctx.fillStyle = '#e81123';
+      ctx.fillRect(x + width - btnSize - 5, btnY, btnSize, btnSize);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + width - btnSize + 3, btnY + 8);
+      ctx.lineTo(x + width - 13, btnY + btnSize - 8);
+      ctx.moveTo(x + width - 13, btnY + 8);
+      ctx.lineTo(x + width - btnSize + 3, btnY + btnSize - 8);
+      ctx.stroke();
+      
+      // Maximize button
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.fillRect(x + width - (btnSize * 2) - 10, btnY, btnSize, btnSize);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + width - (btnSize * 2) - 2, btnY + 8, 10, 10);
+      
+      // Minimize button
+      ctx.fillRect(x + width - (btnSize * 3) - 15, btnY, btnSize, btnSize);
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + width - (btnSize * 3) - 7, btnY + btnSize - 10);
+      ctx.lineTo(x + width - (btnSize * 3) + 3, btnY + btnSize - 10);
+      ctx.stroke();
+      
+      // Window border
+      ctx.strokeStyle = '#0078d4';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x, y, width, height);
+    }
+    
+    function drawForm() {
+      // This function is now just an alias for render when in form view
+      render();
+      
+      // Draw all fields
+      for (const [key, field] of Object.entries(fields)) {
+        if (field.type === 'checkbox') {
+          drawCheckbox(key, field);
+        } else if (field.type === 'dropdown') {
+          drawDropdown(key, field);
+        } else if (field.type === 'button') {
+          drawButton(key, field);
+        } else {
+          drawTextField(key, field);
+        }
+      }
+      
+      // Draw cursor in focused field
+      if (focusedField && cursorVisible) {
+        drawCursor();
+      }
+    }
+    
+    function drawTextField(key, field) {
+      // Draw label
+      if (field.label && field.labelX !== undefined) {
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(field.label, field.labelX, field.y + field.height / 2);
+      }
+      
+      // Draw field box
+      ctx.strokeStyle = focusedField === key ? '#007bff' : '#999';
+      ctx.lineWidth = focusedField === key ? 2 : 1;
+      ctx.strokeRect(field.x, field.y, field.width, field.height);
+      
+      // Draw field value
+      const value = getFieldValue(key);
+      if (value) {
+        ctx.fillStyle = '#000';
+        ctx.font = '14px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(value, field.x + 5, field.y + field.height / 2);
+      }
+    }
+    
+    function drawCheckbox(key, field) {
+      // Draw label
+      ctx.fillStyle = '#333';
+      ctx.font = '14px Arial';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(field.label, field.labelX, field.y + field.height / 2);
+      
+      // Draw checkbox
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(field.x, field.y, field.width, field.height);
+      
+      // Draw checkmark if checked
+      if (formData[key]) {
+        ctx.fillStyle = '#007bff';
+        ctx.fillRect(field.x + 3, field.y + 3, field.width - 6, field.height - 6);
+      }
+    }
+    
+    function drawDropdown(key, field) {
+      // Draw label
+      ctx.fillStyle = '#333';
+      ctx.font = '14px Arial';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(field.label, field.labelX, field.y + field.height / 2);
+      
+      // Draw dropdown box
+      ctx.strokeStyle = '#999';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(field.x, field.y, field.width, field.height);
+      
+      // Draw current value
+      ctx.fillStyle = '#000';
+      ctx.fillText(formData[key], field.x + 5, field.y + field.height / 2);
+      
+      // Draw dropdown arrow
+      ctx.fillStyle = '#666';
+      ctx.beginPath();
+      ctx.moveTo(field.x + field.width - 20, field.y + 10);
+      ctx.lineTo(field.x + field.width - 10, field.y + 10);
+      ctx.lineTo(field.x + field.width - 15, field.y + 15);
+      ctx.closePath();
+      ctx.fill();
+    }
+    
+    function drawButton(key, field) {
+      const enabled = key === 'closeButton' || formData.saveButtonEnabled;
+      
+      // Draw button
+      ctx.fillStyle = enabled ? (key === 'closeButton' ? '#6c757d' : '#28a745') : '#ccc';
+      ctx.fillRect(field.x, field.y, field.width, field.height);
+      
+      // Draw button border
+      ctx.strokeStyle = enabled ? '#333' : '#999';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(field.x, field.y, field.width, field.height);
+      
+      // Draw button text
+      ctx.fillStyle = enabled ? '#fff' : '#666';
+      ctx.font = 'bold 14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(field.label, field.x + field.width / 2, field.y + field.height / 2);
+      ctx.textAlign = 'left';
+    }
+    
+    function drawCursor() {
+      const field = fields[focusedField];
+      if (!field || field.type) return;
+      
+      const value = getFieldValue(focusedField);
+      const textWidth = ctx.measureText(value || '').width;
+      
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(field.x + 5 + textWidth, field.y + 5);
+      ctx.lineTo(field.x + 5 + textWidth, field.y + field.height - 5);
+      ctx.stroke();
+    }
+    
+    function getFieldValue(key) {
+      if (key === 'phoneArea') return formData.phone.area;
+      if (key === 'phonePrefix') return formData.phone.prefix;
+      if (key === 'phoneLine') return formData.phone.line;
+      if (key === 'birthMonth') return formData.birthdate.month;
+      if (key === 'birthDay') return formData.birthdate.day;
+      if (key === 'birthYear') return formData.birthdate.year;
+      return formData[key];
+    }
+    
+    function setFieldValue(key, value) {
+      if (key === 'phoneArea') formData.phone.area = value;
+      else if (key === 'phonePrefix') formData.phone.prefix = value;
+      else if (key === 'phoneLine') formData.phone.line = value;
+      else if (key === 'birthMonth') formData.birthdate.month = value;
+      else if (key === 'birthDay') formData.birthdate.day = value;
+      else if (key === 'birthYear') formData.birthdate.year = value;
+      else formData[key] = value;
+    }
+    
+    // ============================================================================
+    // EVENT HANDLERS
+    // ============================================================================
+    
+    // Handle canvas clicks
+    canvas.addEventListener('click', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      if (currentView === 'desktop') {
+        handleDesktopClick(x, y);
+        return;
+      } else if (currentView === 'crm-app') {
+        handleCRMClick(x, y);
+        return;
+      } else if (currentView === 'customer-form') {
+        handleFormClick(x, y);
+        return;
+      }
+    });
+    
+    function handleDesktopClick(x, y) {
+      // Check if CRM icon was clicked
+      const crmIcon = desktopIcons[0];
+      if (x >= crmIcon.x && x <= crmIcon.x + crmIcon.width &&
+          y >= crmIcon.y && y <= crmIcon.y + crmIcon.height) {
+        currentView = 'crm-app';
+        render();
+      }
+    }
+    
+    function handleCRMClick(x, y) {
+      // Check if "New Customer" button was clicked
+      const contentX = crmWindow.x + 10;
+      const contentY = crmWindow.y + 40;
+      const newCustomerBtn = {
+        x: contentX + 530,
+        y: contentY + 50,
+        width: 150,
+        height: 30
+      };
+      
+      if (x >= newCustomerBtn.x && x <= newCustomerBtn.x + newCustomerBtn.width &&
+          y >= newCustomerBtn.y && y <= newCustomerBtn.y + newCustomerBtn.height) {
+        currentView = 'customer-form';
+        render();
+      }
+      
+      // Check if close button was clicked
+      const closeX = crmWindow.x + crmWindow.width - 30;
+      const closeY = crmWindow.y + 5;
+      if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
+        currentView = 'desktop';
+        render();
+      }
+    }
+    
+    function handleFormClick(x, y) {
+      // Adjust coordinates relative to form content area
+      const formContentX = formWindow.x + 20;
+      const formContentY = formWindow.y + 40;
+      const relX = x - formContentX;
+      const relY = y - formContentY;
+      
+      // Check if close button on form window was clicked
+      const closeX = formWindow.x + formWindow.width - 30;
+      const closeY = formWindow.y + 5;
+      if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
+        currentView = 'crm-app';
+        focusedField = null;
+        render();
+        return;
+      }
+      
+      // Check which field was clicked
+      for (const [key, field] of Object.entries(fields)) {
+        if (relX >= field.x && relX <= field.x + field.width &&
+            relY >= field.y && relY <= field.y + field.height) {
+          
+          if (field.type === 'checkbox') {
+            formData[key] = !formData[key];
+            render();
+          } else if (field.type === 'button') {
+            handleButtonClick(key);
+          } else if (field.type === 'dropdown') {
+            // Cycle through options
+            const currentIndex = field.options.indexOf(formData[key]);
+            const nextIndex = (currentIndex + 1) % field.options.length;
+            formData[key] = field.options[nextIndex];
+            render();
+          } else {
+            focusedField = key;
+            render();
+          }
+          return;
+        }
+      }
+      
+      // Clicked outside any field
+      focusedField = null;
+      render();
+    }
+    
+    // Handle keyboard input
+    document.addEventListener('keydown', (e) => {
+      if (currentView !== 'customer-form' || !focusedField) return;
+      
+      const field = fields[focusedField];
+      if (field && field.type) return; // Skip special fields
+      
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        focusNextField();
+        return;
+      }
+      
+      if (e.key === 'Backspace') {
+        e.preventDefault();
+        const currentValue = getFieldValue(focusedField);
+        setFieldValue(focusedField, currentValue.slice(0, -1));
+        render();
+        return;
+      }
+      
+      if (e.key.length === 1) {
+        e.preventDefault();
+        const currentValue = getFieldValue(focusedField);
+        const maxLength = field.maxLength || 100;
+        
+        if (currentValue.length < maxLength) {
+          setFieldValue(focusedField, currentValue + e.key);
+          render();
+        }
+      }
+    });
+    
+    function focusNextField() {
+      const fieldKeys = Object.keys(fields).filter(k => !fields[k].type || fields[k].type === 'dropdown');
+      const currentIndex = fieldKeys.indexOf(focusedField);
+      const nextIndex = (currentIndex + 1) % fieldKeys.length;
+      focusedField = fieldKeys[nextIndex];
+      render();
+    }
+    
+    // ============================================================================
+    // CONTROL FUNCTIONS
+    // ============================================================================
+    
+    function resetToDesktop() {
+      currentView = 'desktop';
+      focusedField = null;
+      render();
+    }
+    
+    function openCRMApp() {
+      currentView = 'crm-app';
+      focusedField = null;
+      render();
+    }
+    
+    function openCustomerForm() {
+      currentView = 'customer-form';
+      focusedField = null;
+      render();
+    }
+    
+    function handleButtonClick(key) {
+      if (key === 'saveButton' && formData.saveButtonEnabled) {
+        alert('Form saved! (This is a demo)');
+      } else if (key === 'closeButton') {
+        currentView = 'crm-app';
+        focusedField = null;
+        render();
+      }
+    }
+    
+    function fillTestData() {
+      if (currentView !== 'customer-form') {
+        alert('Open the customer form first!');
+        return;
+      }
+      formData.customerNumber = 'CUST12345';
+      formData.firstName = 'John';
+      formData.lastName = 'Smith';
+      formData.email = 'john.smith@example.com';
+      formData.phone = { area: '555', prefix: '123', line: '4567' };
+      formData.address = '123 Main Street';
+      formData.city = 'Springfield';
+      formData.state = 'IL';
+      formData.zip = '62701';
+      formData.vin = '1HGBH41JXMN109186';
+      formData.birthdate = { month: '05', day: '15', year: '1980' };
+      formData.activeCustomer = true;
+      formData.doNotCall = false;
+      formData.contactMethod = 'email';
+      render();
+    }
+    
+    function clearForm() {
+      if (currentView !== 'customer-form') {
+        return;
+      }
+      formData.customerNumber = '';
+      formData.firstName = '';
+      formData.lastName = '';
+      formData.email = '';
+      formData.phone = { area: '', prefix: '', line: '' };
+      formData.address = '';
+      formData.city = '';
+      formData.state = '';
+      formData.zip = '';
+      formData.vin = '';
+      formData.birthdate = { month: '', day: '', year: '' };
+      formData.activeCustomer = false;
+      formData.doNotCall = false;
+      formData.contactMethod = 'email';
+      focusedField = null;
+      render();
+    }
+    
+    function toggleSaveButton() {
+      if (currentView !== 'customer-form') {
+        alert('Open the customer form first!');
+        return;
+      }
+      formData.saveButtonEnabled = !formData.saveButtonEnabled;
+      render();
+    }
+    
+    // Cursor blink animation
+    setInterval(() => {
+      cursorVisible = !cursorVisible;
+      if (currentView === 'customer-form' && focusedField) render();
+    }, 500);
+    
+    // Initial render
+    render();
+  </script>
+</body>
+</html>

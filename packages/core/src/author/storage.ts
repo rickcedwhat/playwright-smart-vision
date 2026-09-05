@@ -5,7 +5,7 @@ import { getGlobalConfig } from '../configure.js';
 export function storageRoot(): string {
   const root = getGlobalConfig().storage?.root;
   if (!root) {
-    throw new Error('call configure({ storage: { root } }) first — in QA Wolf: process.env.TEAM_STORAGE_DIR + "/screens"');
+    throw new Error('call configure({ storage: { root } }) first — example: configure({ storage: { root: "./screens" } })');
   }
   return root;
 }
