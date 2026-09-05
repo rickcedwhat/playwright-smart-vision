@@ -91,10 +91,10 @@
     
     // Desktop icons
     const desktopIcons = [
-      { name: 'CRM System', x: 50, y: 80, width: 80, height: 100, icon: '💼' },
-      { name: 'Email', x: 150, y: 80, width: 80, height: 100, icon: '✉️' },
-      { name: 'Calendar', x: 250, y: 80, width: 80, height: 100, icon: '📅' },
-      { name: 'Files', x: 50, y: 200, width: 80, height: 100, icon: '📁' },
+      { name: 'CRM System', x: 50, y: 80, width: 80, height: 100, iconType: 'crm' },
+      { name: 'Email', x: 150, y: 80, width: 80, height: 100, iconType: 'email' },
+      { name: 'Calendar', x: 250, y: 80, width: 80, height: 100, iconType: 'calendar' },
+      { name: 'Files', x: 50, y: 200, width: 80, height: 100, iconType: 'files' },
     ];
     
     // CRM app window
@@ -208,19 +208,24 @@
       
       // Desktop icons
       desktopIcons.forEach(icon => {
-        // Icon background
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        // Icon background (subtle)
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
         ctx.fillRect(icon.x, icon.y, icon.width, icon.height);
         
-        // Icon emoji
-        ctx.font = '40px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText(icon.icon, icon.x + icon.width / 2, icon.y + 40);
+        // Draw custom icon
+        drawDesktopIcon(icon.iconType, icon.x + icon.width / 2, icon.y + 30);
         
-        // Icon label
+        // Icon label with shadow for readability
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+        ctx.shadowBlur = 3;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
         ctx.fillStyle = '#fff';
         ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
         ctx.fillText(icon.name, icon.x + icon.width / 2, icon.y + 80);
+        ctx.shadowColor = 'transparent';
+        ctx.shadowBlur = 0;
         
         // Hover effect
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
@@ -229,6 +234,141 @@
       });
       
       ctx.textAlign = 'left';
+    }
+    
+    function drawDesktopIcon(type, centerX, centerY) {
+      ctx.save();
+      
+      if (type === 'crm') {
+        // Briefcase icon
+        const size = 36;
+        const x = centerX - size / 2;
+        const y = centerY - size / 2;
+        
+        // Main briefcase body
+        ctx.fillStyle = '#8b7355';
+        ctx.fillRect(x + 4, y + 12, size - 8, size - 16);
+        
+        // Top flap
+        ctx.fillStyle = '#a0826d';
+        ctx.fillRect(x + 4, y + 8, size - 8, 6);
+        
+        // Handle
+        ctx.strokeStyle = '#6b5a47';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, y + 8, 8, Math.PI, 0, true);
+        ctx.stroke();
+        
+        // Lock
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(centerX - 3, y + 18, 6, 8);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(centerX - 1, y + 20, 2, 4);
+        
+        // Highlights
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillRect(x + 6, y + 14, 4, 10);
+        
+      } else if (type === 'email') {
+        // Envelope icon
+        const size = 36;
+        const x = centerX - size / 2;
+        const y = centerY - size / 2;
+        
+        // Envelope body
+        ctx.fillStyle = '#e8e8e8';
+        ctx.fillRect(x + 2, y + 8, size - 4, size - 16);
+        
+        // Envelope flap (back)
+        ctx.fillStyle = '#d0d0d0';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y + 8);
+        ctx.lineTo(centerX, y + 18);
+        ctx.lineTo(x + size - 2, y + 8);
+        ctx.fill();
+        
+        // Envelope flap (front)
+        ctx.fillStyle = '#f5f5f5';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y + 8);
+        ctx.lineTo(centerX, y + 20);
+        ctx.lineTo(x + size - 2, y + 8);
+        ctx.fill();
+        
+        // Red stamp
+        ctx.fillStyle = '#dc3545';
+        ctx.fillRect(x + size - 14, y + size - 20, 10, 8);
+        
+        // Border
+        ctx.strokeStyle = '#999';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 2, y + 8, size - 4, size - 16);
+        
+      } else if (type === 'calendar') {
+        // Calendar icon
+        const size = 36;
+        const x = centerX - size / 2;
+        const y = centerY - size / 2;
+        
+        // Calendar page
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(x + 4, y + 8, size - 8, size - 12);
+        
+        // Calendar header (red)
+        ctx.fillStyle = '#dc3545';
+        ctx.fillRect(x + 4, y + 8, size - 8, 8);
+        
+        // Binding rings
+        ctx.fillStyle = '#666';
+        ctx.fillRect(x + 8, y + 6, 3, 4);
+        ctx.fillRect(x + size - 11, y + 6, 3, 4);
+        
+        // Date number "15"
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('15', centerX, y + 24);
+        
+        // Border
+        ctx.strokeStyle = '#ccc';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x + 4, y + 8, size - 8, size - 12);
+        
+      } else if (type === 'files') {
+        // Folder icon
+        const size = 36;
+        const x = centerX - size / 2;
+        const y = centerY - size / 2;
+        
+        // Folder back
+        ctx.fillStyle = '#ffd966';
+        ctx.fillRect(x + 2, y + 14, size - 4, size - 18);
+        
+        // Folder tab
+        ctx.fillStyle = '#f9c74f';
+        ctx.beginPath();
+        ctx.moveTo(x + 2, y + 14);
+        ctx.lineTo(x + 2, y + 10);
+        ctx.lineTo(x + 14, y + 10);
+        ctx.lineTo(x + 16, y + 14);
+        ctx.fill();
+        
+        // Folder front (lighter)
+        ctx.fillStyle = '#ffd966';
+        ctx.fillRect(x + 2, y + 14, size - 4, size - 20);
+        
+        // Folder depth shadow
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+        ctx.fillRect(x + 3, y + 15, size - 6, 2);
+        
+        // Highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(x + 4, y + 18, size - 8, 3);
+      }
+      
+      ctx.restore();
     }
     
     function drawCRMApp() {
