@@ -131,7 +131,7 @@ export function screenCatalogSource(
     .join('\n');
 
   const ts = new Date().toISOString();
-  return `// Generated ${ts} by TM v2 — do not edit, re-generated on every save.
+  return `// Generated ${ts} by Template Manager — do not edit, re-generated on every save.
 /** @generated */
 import type { Strategies } from '@rickcedwhat/playwright-smart-vision';
 

@@ -108,10 +108,10 @@ The Template Manager is a visual authoring tool that helps you create screen con
 
 ```bash
 # From your project root
-npm run tm:v2
+npm run tm
 
 # Or use npx
-npx @rickcedwhat/playwright-smart-vision tm:v2
+npx @rickcedwhat/playwright-smart-vision tm
 ```
 
 Open `http://localhost:3455` in your browser and follow the visual workflow to author your screens.
@@ -347,12 +347,12 @@ This demo renders a complete customer form on HTML5 canvas, perfect for testing 
 
 ## Development Tools
 
-### Template Manager v2
+### Template Manager
 
 Visual authoring tool for creating screen configs:
 
 ```bash
-npm run tm:v2  # http://localhost:3455
+npm run tm  # http://localhost:3455
 ```
 
 ### Serve Test Fixtures

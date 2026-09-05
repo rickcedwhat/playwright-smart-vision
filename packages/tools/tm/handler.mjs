@@ -1,5 +1,5 @@
 /**
- * Template Manager v2 — Local screen authoring and management.
+ * Template Manager — Local screen authoring and management.
  * Mounted under /template-manager on the main tools server (port 2020).
  */
 import fs from 'node:fs';
@@ -15,7 +15,7 @@ export const TM_V2_BASE = '/template-manager';
 const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const HTML_FILE = path.join(TOOLS_DIR, 'index.html');
 const HOME = path.join(os.homedir(), '.smart-vision');
-const SETTINGS_FILE = path.join(HOME, 'tm-v2.json');
+const SETTINGS_FILE = path.join(HOME, 'tm.json');
 const CACHE_DIR = path.join(HOME, 'screens');
 const CHARSETS_FILE = path.join(HOME, 'charsets.json');
 const DEFAULTS_FILE = path.join(HOME, 'defaults.json');
@@ -229,7 +229,7 @@ async function handleInternal(req, res, url) {
     try {
       writeScreenCatalog(undefined, incoming, readDefaults());
     } catch (err) {
-      console.error('[tm-v2] catalog regeneration failed after charset save:', err);
+      console.error('[tm] catalog regeneration failed after charset save:', err);
     }
     send(res, 200, { charsets: incoming });
     return;
@@ -252,7 +252,7 @@ async function handleInternal(req, res, url) {
     try {
       writeScreenCatalog(undefined, undefined, incoming);
     } catch (err) {
-      console.error('[tm-v2] catalog regeneration failed after defaults save:', err);
+      console.error('[tm] catalog regeneration failed after defaults save:', err);
     }
     send(res, 200, { defaults: incoming });
     return;
@@ -497,7 +497,7 @@ export async function handleTmV2Request(req, res, url) {
     await handleInternal(req, res, stripTmV2Base(url));
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
-    console.error('[tm-v2]', msg);
+    console.error('[tm]', msg);
     send(res, 500, { error: msg });
   }
   return true;
