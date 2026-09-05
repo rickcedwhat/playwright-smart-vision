@@ -1,11 +1,10 @@
 /**
- * Template Manager v2 — GCS screens (QA Wolf team-storage).
+ * Template Manager v2 — Local screen authoring and management.
  * Mounted under /template-manager on the main tools server (port 2020).
  */
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { configure } from '@rickcedwhat/playwright-smart-vision/configure';
@@ -18,9 +17,6 @@ const HTML_FILE = path.join(TOOLS_DIR, 'index.html');
 const HOME = path.join(os.homedir(), '.smart-vision');
 const SETTINGS_FILE = path.join(HOME, 'tm-v2.json');
 const CACHE_DIR = path.join(HOME, 'screens');
-const DEFAULT_GCS = 'gs://qawolf-prod-team-storage/clzn2wsor00hcda0ickzd3544/screens';
-
-const RUNTIME_FILES = ['blank.png', 'index.json'];
 const CHARSETS_FILE = path.join(HOME, 'charsets.json');
 const DEFAULTS_FILE = path.join(HOME, 'defaults.json');
 
@@ -31,28 +27,12 @@ function readDefaults() {
   } catch { return {}; }
 }
 
-function normalizeGcs(raw) {
-  const uri = String(raw || '').trim().replace(/\/+$/, '');
-  if (!uri.startsWith('gs://')) {
-    throw new Error('GCS URI must start with gs://');
-  }
-  return uri;
-}
-
-function assertScreensUri(gcsUri) {
-  const uri = normalizeGcs(gcsUri);
-  if (!uri.endsWith('/screens')) {
-    throw new Error('GCS URI must end with /screens — refusing to push anywhere else');
-  }
-  return uri;
-}
-
 function readSettings() {
   try {
     const raw = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
-    return { gcsUri: normalizeGcs(raw.gcsUri || DEFAULT_GCS) };
+    return raw && typeof raw === 'object' ? raw : {};
   } catch {
-    return { gcsUri: DEFAULT_GCS };
+    return {};
   }
 }
 
@@ -108,74 +88,6 @@ function kebab(name) {
     .toLowerCase();
 }
 
-function runGcloud(args) {
-  return new Promise((resolve, reject) => {
-    const child = spawn('gcloud', args, { stdio: ['ignore', 'pipe', 'pipe'] });
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    child.on('error', () => {
-      reject(new Error('gcloud not found — install the Google Cloud SDK and run gcloud auth login'));
-    });
-    child.on('close', (code) => {
-      if (code !== 0) reject(new Error(stderr.trim() || stdout.trim() || `gcloud exited ${code}`));
-      else resolve(`${stdout}${stderr ? `\n${stderr}` : ''}`.trim());
-    });
-  });
-}
-
-function parseLs(stdout, gcsPrefix) {
-  const prefix = `${gcsPrefix.replace(/\/+$/, '')}/`;
-  const dirs = new Set();
-  const files = new Set();
-  for (const line of stdout.split('\n')) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('gs://') || trimmed.endsWith(':')) continue;
-    if (!trimmed.startsWith(prefix)) continue;
-    const rest = trimmed.slice(prefix.length);
-    if (!rest) continue;
-    const parts = rest.replace(/\/+$/, '').split('/').filter(Boolean);
-    if (parts.length !== 1) continue;
-    const name = parts[0];
-    if (!/^[a-zA-Z0-9._-]+$/.test(name)) continue;
-    if (trimmed.endsWith('/')) dirs.add(name);
-    else files.add(name);
-  }
-  return { dirs: [...dirs].sort(), files: [...files].sort() };
-}
-
-const _gcsCache = new Map();
-const GCS_CACHE_TTL = 30_000;
-
-function invalidateGcsCache() {
-  _gcsCache.clear();
-}
-
-async function listGcsPrefix(gcsUri, relPath) {
-  const base = relPath ? `${gcsUri}/${relPath}` : gcsUri;
-  const cached = _gcsCache.get(base);
-  if (cached && Date.now() - cached.ts < GCS_CACHE_TTL) return cached.result;
-  try {
-    const stdout = await runGcloud(['storage', 'ls', `${base}/`]);
-    const result = parseLs(stdout, base);
-    _gcsCache.set(base, { ts: Date.now(), result });
-    return result;
-  } catch (err) {
-    const msg = String(err instanceof Error ? err.message : err);
-    if (/matched no objects/i.test(msg)) {
-      const result = { dirs: [], files: [] };
-      _gcsCache.set(base, { ts: Date.now(), result });
-      return result;
-    }
-    throw err;
-  }
-}
-
 function listLocalPrefix(relPath) {
   const dir = relPath ? path.join(CACHE_DIR, ...relPath.split('/')) : CACHE_DIR;
   if (!fs.existsSync(dir)) return { dirs: [], files: [] };
@@ -199,125 +111,6 @@ function listLocalScreens() {
 
 function isSafeFileName(name) {
   return /^[a-zA-Z0-9._-]+$/.test(name);
-}
-
-function screenRuntimePlan(name) {
-  const dir = screenDir(name);
-  const missing = [];
-  for (const file of RUNTIME_FILES) {
-    if (!fs.existsSync(path.join(dir, file))) missing.push(file);
-  }
-  const tmplDir = path.join(dir, 'templates');
-  const templates = [];
-  if (!fs.existsSync(tmplDir) || !fs.statSync(tmplDir).isDirectory()) {
-    missing.push('templates/');
-  } else {
-    for (const ent of fs.readdirSync(tmplDir, { withFileTypes: true })) {
-      if (!ent.isFile() || !ent.name.endsWith('.png') || !isSafeFileName(ent.name)) continue;
-      templates.push(ent.name);
-    }
-    if (!templates.length) missing.push('templates/*.png');
-  }
-  if (missing.length) {
-    return { name, ready: false, reason: `missing ${missing.join(', ')}`, files: [] };
-  }
-  return {
-    name,
-    ready: true,
-    files: [
-      ...RUNTIME_FILES.map((file) => `${name}/${file}`),
-      ...templates.map((file) => `${name}/templates/${file}`),
-    ],
-  };
-}
-
-function stageRuntimeScreen(name, stagingRoot) {
-  const src = screenDir(name);
-  const dest = path.join(stagingRoot, name);
-  fs.mkdirSync(path.join(dest, 'templates'), { recursive: true });
-  for (const file of RUNTIME_FILES) {
-    fs.copyFileSync(path.join(src, file), path.join(dest, file));
-  }
-  const tmplDir = path.join(src, 'templates');
-  for (const ent of fs.readdirSync(tmplDir, { withFileTypes: true })) {
-    if (!ent.isFile() || !ent.name.endsWith('.png') || !isSafeFileName(ent.name)) continue;
-    fs.copyFileSync(path.join(tmplDir, ent.name), path.join(dest, 'templates', ent.name));
-  }
-}
-
-async function rsync(src, dest, { dryRun = false } = {}) {
-  if (!src.startsWith('gs://')) fs.mkdirSync(src, { recursive: true });
-  if (!dest.startsWith('gs://')) fs.mkdirSync(dest, { recursive: true });
-  const args = ['storage', 'rsync', '-r'];
-  if (dryRun) args.push('--dry-run');
-  args.push(src, dest);
-  return runGcloud(args);
-}
-
-async function pushRuntimeScreens({ names, dryRun }) {
-  await ensureConfigured();
-  const gcsUri = assertScreensUri(readSettings().gcsUri);
-  const requested = names?.length
-    ? names.map((name) => assertScreenName(name))
-    : listLocalScreens();
-  const plans = requested.map(screenRuntimePlan);
-  const ready = plans.filter((plan) => plan.ready);
-  const skipped = plans.filter((plan) => !plan.ready);
-  if (!ready.length) {
-    throw new Error('no runtime-ready screens to push (need blank.png, index.json, templates/*.png)');
-  }
-
-  const staging = fs.mkdtempSync(path.join(os.tmpdir(), 'tm-v2-push-'));
-  const logs = [];
-  try {
-    for (const plan of ready) {
-      stageRuntimeScreen(plan.name, staging);
-      const dest = `${gcsUri}/${plan.name}`;
-      const log = await rsync(path.join(staging, plan.name), dest, { dryRun });
-      logs.push({
-        screen: plan.name,
-        dest,
-        files: plan.files,
-        gcloud: log.trim(),
-      });
-    }
-    const catalogLocal = path.join(CACHE_DIR, 'generated.ts');
-    if (fs.existsSync(catalogLocal)) {
-      const dest = `${gcsUri}/generated.ts`;
-      const log = dryRun
-        ? `Would copy ${catalogLocal} to ${dest}`
-        : await runGcloud(['storage', 'cp', catalogLocal, dest]);
-      logs.push({
-        screen: 'generated.ts',
-        dest,
-        files: ['generated.ts'],
-        gcloud: String(log).trim(),
-      });
-    }
-    if (fs.existsSync(CHARSETS_FILE)) {
-      const dest = `${gcsUri}/charsets.json`;
-      const log = dryRun
-        ? `Would copy ${CHARSETS_FILE} to ${dest}`
-        : await runGcloud(['storage', 'cp', CHARSETS_FILE, dest]);
-      logs.push({
-        screen: 'charsets.json',
-        dest,
-        files: ['charsets.json'],
-        gcloud: String(log).trim(),
-      });
-    }
-  } finally {
-    fs.rmSync(staging, { recursive: true, force: true });
-  }
-
-  return {
-    dryRun,
-    deletes: false,
-    gcsUri,
-    pushed: ready.map((plan) => plan.name),
-    skipped: skipped.map((plan) => ({ name: plan.name, reason: plan.reason })),
-    operations: logs,
-  };
 }
 
 let _configured = false;
@@ -400,7 +193,7 @@ async function handleInternal(req, res, url) {
 
   if (req.method === 'PUT' && url.pathname === '/api/settings') {
     const body = JSON.parse(await readBody(req));
-    const settings = { gcsUri: normalizeGcs(body.gcsUri) };
+    const settings = body && typeof body === 'object' ? body : {};
     writeSettings(settings);
     send(res, 200, { ...settings, cacheDir: CACHE_DIR });
     return;
@@ -465,46 +258,11 @@ async function handleInternal(req, res, url) {
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/api/remote') {
-    const names = await listGcsPrefix(readSettings().gcsUri, '').then((listing) => listing.dirs);
-    send(res, 200, { screens: names });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/pull') {
-    const body = JSON.parse(await readBody(req) || '{}');
-    const gcsUri = readSettings().gcsUri;
-    const screen = body.name ? assertScreenName(body.name) : '';
-    if (screen) await rsync(`${gcsUri}/${screen}`, screenDir(screen));
-    else await rsync(gcsUri, CACHE_DIR);
-    invalidateGcsCache();
-    send(res, 200, { ok: true, localScreens: listLocalScreens() });
-    return;
-  }
-
   if (req.method === 'GET' && url.pathname === '/api/ls') {
     const rel = (url.searchParams.get('path') || '').replace(/^\/+|\/+$/g, '');
     if (rel.includes('..')) throw new Error('invalid path');
-    const gcsUri = readSettings().gcsUri;
-    let remote = { dirs: [], files: [] };
-    let remoteError = null;
-    try {
-      remote = await listGcsPrefix(gcsUri, rel);
-    } catch (err) {
-      remoteError = String(err instanceof Error ? err.message : err);
-    }
     const local = listLocalPrefix(rel);
-    send(res, 200, { path: rel, remote, local, remoteError });
-    return;
-  }
-
-  if (req.method === 'POST' && url.pathname === '/api/push') {
-    const body = JSON.parse(await readBody(req) || '{}');
-    const dryRun = body.dryRun === true;
-    const names = body.name ? [assertScreenName(body.name)] : undefined;
-    const result = await pushRuntimeScreens({ names, dryRun });
-    if (!dryRun) invalidateGcsCache();
-    send(res, 200, result);
+    send(res, 200, { path: rel, local });
     return;
   }
 
@@ -728,12 +486,8 @@ async function handleInternal(req, res, url) {
 /** One-time startup (cache dir, default settings, catalog). */
 export function initTmV2() {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
-  if (!fs.existsSync(SETTINGS_FILE)) writeSettings({ gcsUri: DEFAULT_GCS });
+  if (!fs.existsSync(SETTINGS_FILE)) writeSettings({});
   ensureConfigured().catch((err) => console.error(err));
-}
-
-function isAuthError(msg) {
-  return /gcloud not found|active account|auth login|UNAUTHENTICATED|invalid authentication credentials|credentials do not satisfy|could not refresh|invalid_grant|AccessDeniedException/i.test(msg);
 }
 
 /** Returns true when the request was handled. */
@@ -744,19 +498,14 @@ export async function handleTmV2Request(req, res, url) {
   } catch (err) {
     const msg = String(err instanceof Error ? err.message : err);
     console.error('[tm-v2]', msg);
-    if (isAuthError(msg)) {
-      send(res, 401, { error: 'GCS auth error — run: gcloud auth login', authRequired: true });
-    } else {
-      send(res, 500, { error: msg });
-    }
+    send(res, 500, { error: msg });
   }
   return true;
 }
 
 export function tmV2StartupLines(port) {
   return [
-    `Template Manager (GCS): http://localhost:${port}${TM_V2_BASE}`,
-    `Local cache: ${CACHE_DIR}`,
-    `GCS: ${readSettings().gcsUri}`,
+    `Template Manager: http://localhost:${port}${TM_V2_BASE}`,
+    `Local screens: ${CACHE_DIR}`,
   ];
 }
