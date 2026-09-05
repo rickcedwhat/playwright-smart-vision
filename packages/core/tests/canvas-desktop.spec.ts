@@ -13,7 +13,7 @@ testWithScreen.setTimeout(180_000);
 /**
  * Canvas Desktop Demo E2E Tests
  * 
- * TODO: These tests require screen configs to be authored using Template Manager v2.
+ * TODO: These tests require screen configs to be authored using Template Manager.
  * 
  * Steps to author screens:
  * 1. Start the canvas demo: `npm run demo`
@@ -21,7 +21,7 @@ testWithScreen.setTimeout(180_000);
  *    - Desktop with CRM icon
  *    - CRM app with "New Customer" button
  *    - Customer form (filled state)
- * 3. Start Template Manager: `npm run tm:v2`
+ * 3. Start Template Manager: `npm run tm`
  * 4. Create screen configs for each state:
  *    - screens/canvas-desktop/
  *    - screens/canvas-crm-app/
@@ -32,17 +32,17 @@ testWithScreen.setTimeout(180_000);
 testWithScreen.skip('Desktop workflow - icon to form', async ({ page, screen }) => {
   await page.goto('http://localhost:3456');
   
-  // TODO: Author desktop screen with TM v2
+  // TODO: Author desktop screen with TM
   // const desktop = screen('canvas-desktop');
   // await desktop.waitFor();
   // await desktop.element('crmIcon').click();
   
-  // TODO: Author CRM app screen with TM v2
+  // TODO: Author CRM app screen with TM
   // const crmApp = screen('canvas-crm-app');
   // await crmApp.waitFor();
   // await crmApp.element('newCustomerButton').click();
   
-  // TODO: Author customer form screen with TM v2
+  // TODO: Author customer form screen with TM
   // const customerForm = screen('canvas-customer-form');
   // await customerForm.waitFor();
   
@@ -59,7 +59,7 @@ testWithScreen.skip('Customer form - fill and verify', async ({ page, screen }) 
   // Wait for canvas to update (give it time to render the form)
   await page.waitForTimeout(500);
   
-  // TODO: Author customer form screen with TM v2
+  // TODO: Author customer form screen with TM
   // const form = screen('canvas-customer-form');
   // await form.waitFor();
   

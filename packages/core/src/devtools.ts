@@ -342,7 +342,7 @@ const FAB_SCRIPT = `(function () {
       overlayBtn.disabled = !currentHasIndex;
       overlayBtn.title = currentHasIndex
         ? (overlayOn ? 'Hide overlay' : 'Show overlay')
-        : (currentScreen ? 'Apply this screen in TM v2 first' : 'Choose a screen first');
+        : (currentScreen ? 'Apply this screen in TM first' : 'Choose a screen first');
       overlayBtn.classList.toggle('on', overlayOn);
     }
 
