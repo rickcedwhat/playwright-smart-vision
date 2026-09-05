@@ -87,4 +87,4 @@ Return **only** JSON:
 
 ## After you write the file
 
-Write `first-pass.json` next to `boxes.json` (under `~/.smart-vision/screens/{name}/`). TM v2 applies automatically when that file is newer than `index.json`, including on Reload. Tell the user to Reload in TM v2. Do not tell them to Apply.
+Write `first-pass.json` next to `boxes.json` (under `~/.smart-vision/screens/{name}/`). TM applies automatically when that file is newer than `index.json`, including on Reload. Tell the user to Reload in TM. Do not tell them to Apply.
