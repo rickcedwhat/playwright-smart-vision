@@ -173,7 +173,7 @@ export function screenCatalogPath(): string {
 
 /**
  * Write `{storage.root}/generated.ts` (or `destFile` if given).
- * QA Wolf: copy that file to `src/helpers/screens.generated.ts` after the flow.
+ * This generates a TypeScript file with typed screen configs for your project.
  */
 export function writeScreenCatalog(destFile?: string, charsets?: Record<string, unknown>, ocr?: Record<string, unknown>): string {
   const source = screenCatalogSource(charsets, ocr);

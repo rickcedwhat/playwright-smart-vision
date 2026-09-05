@@ -43,11 +43,11 @@ export function clearConfigUnhoverPoint(): void {
 
 /**
  * Configure storage root and optional devtools FAB.
- * Pass `page` to inject the FAB immediately (QA Wolf / non-fixture usage).
+ * Pass `page` to inject the FAB immediately (non-fixture usage).
  * In fixture-based Playwright tests the FAB is injected automatically by the ocrScreen fixture.
  *
  * await configure({
- *   storage: { root: process.env.TEAM_STORAGE_DIR + '/screens' },
+ *   storage: { root: './screens' },
  *   devtools: true,
  *   page,
  *   // unhoverBeforeCapture: false, // keep hover for a rare case

@@ -277,7 +277,7 @@ interface ScreenWorkerFixtures {
  *
  *   test('my test', async ({ page, screen }) => {
  *     const login = screen(htmlLoginScreen);
- *     await login.element('username').fill('qawolf');
+ *     await login.element('username').fill('admin');
  *   });
  *
  *   // Enable overlay rendering for a test file:
@@ -285,7 +285,7 @@ interface ScreenWorkerFixtures {
  */
 export function createFixture(): TestType<ScreenFixtures, ScreenWorkerFixtures> {
   // Dynamic import so @playwright/test is not required at module load time
-  // (it is an optional peer — QA Wolf flows use init()/screen() without fixtures)
+  // (it is an optional peer — non-fixture usage relies on init()/screen() instead)
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { test: base } = require('@playwright/test') as typeof import('@playwright/test');
   return base.extend<ScreenFixtures, ScreenWorkerFixtures>({

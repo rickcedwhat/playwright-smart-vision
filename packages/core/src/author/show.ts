@@ -2,8 +2,8 @@ import fs from 'node:fs';
 import type { Page } from '@playwright/test';
 
 /**
- * Open a FUSE PNG (typically boxes-annotated.png) in a **new tab**.
- * Leaves the app / Guacamole page alone so QA Wolf can screenshot the boxes.
+ * Open an annotated PNG (typically boxes-annotated.png) in a **new tab**.
+ * Leaves the original page alone so tests can continue.
  * Close the returned page when done inspecting.
  */
 export async function showAnnotated(page: Page, pngPath: string): Promise<Page> {
