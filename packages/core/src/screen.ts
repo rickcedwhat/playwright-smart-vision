@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import type { Page, TestType } from '@playwright/test';
+import { test as base, type Page, type TestType } from '@playwright/test';
 import type { ScreenConfig } from './screen-config.js';
 import { loadScreen, clearConfigUnhoverPoint, configure } from './configure.js';
 import { clearScreenHandlers } from './screen-handler.js';
@@ -263,6 +263,8 @@ export type ScreenFixture = (config: ScreenConfig | string) => ScreenResult;
 interface ScreenFixtures {
   screen: ScreenFixture;
   ocrOverlay: boolean;
+  /** Directory containing `{name}/index.json` + templates. Required for `screen('name')`. */
+  storageRoot?: string;
 }
 
 interface ScreenWorkerFixtures {
@@ -280,14 +282,11 @@ interface ScreenWorkerFixtures {
  *     await login.element('username').fill('admin');
  *   });
  *
- *   // Enable overlay rendering for a test file:
- *   test.use({ ocrOverlay: true });
+ *   // Enable overlay rendering and load TM screens by name:
+ *   test.use({ ocrOverlay: true, storageRoot: './screens' });
+ *   const desktop = screen('desktop');
  */
 export function createFixture(): TestType<ScreenFixtures, ScreenWorkerFixtures> {
-  // Dynamic import so @playwright/test is not required at module load time
-  // (it is an optional peer — non-fixture usage relies on init()/screen() instead)
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { test: base } = require('@playwright/test') as typeof import('@playwright/test');
   return base.extend<ScreenFixtures, ScreenWorkerFixtures>({
     _ocrReady: [
       async ({}, use) => {
@@ -299,13 +298,22 @@ export function createFixture(): TestType<ScreenFixtures, ScreenWorkerFixtures> 
     ],
 
     ocrOverlay: [false, { option: true }],
+    storageRoot: [undefined, { option: true }],
 
     screen: async (
-      { page, _ocrReady, ocrOverlay }: { page: Page; _ocrReady: void; ocrOverlay: boolean },
+      { page, _ocrReady, ocrOverlay, storageRoot }: {
+        page: Page;
+        _ocrReady: void;
+        ocrOverlay: boolean;
+        storageRoot?: string;
+      },
       use: (fn: ScreenFixture) => Promise<void>,
       testInfo: { outputPath: (...pathSegments: string[]) => string },
     ) => {
       void _ocrReady;
+      if (storageRoot) {
+        await configure({ storage: { root: storageRoot } });
+      }
       try {
         await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
       } catch {

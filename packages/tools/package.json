@@ -20,6 +20,7 @@
   "author": "rickcedwhat",
   "license": "MIT",
   "dependencies": {
+    "@playwright/test": "^1.63.0",
     "@rickcedwhat/playwright-smart-vision": "workspace:*",
     "pngjs": "^7.0.0"
   }

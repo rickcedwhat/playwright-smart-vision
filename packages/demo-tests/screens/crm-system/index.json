@@ -1,0 +1,219 @@
+{
+  "name": "crm-system",
+  "sections": [],
+  "elements": [
+    {
+      "name": "windowTitle",
+      "filename": "window-title.png",
+      "type": "label",
+      "x": 99,
+      "y": 83,
+      "width": 124,
+      "height": 35,
+      "boxIds": [
+        11
+      ],
+      "labelIds": [
+        2
+      ],
+      "ocrRect": {
+        "x": 6,
+        "y": 6,
+        "width": 112,
+        "height": 23
+      }
+    },
+    {
+      "name": "minimize",
+      "filename": "minimize.png",
+      "type": "button",
+      "x": 1010,
+      "y": 85,
+      "width": 26,
+      "height": 26,
+      "boxIds": [
+        1
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "name": "maximize",
+      "filename": "maximize.png",
+      "type": "button",
+      "x": 1040,
+      "y": 85,
+      "width": 26,
+      "height": 26,
+      "boxIds": [
+        2
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "name": "closeWindow",
+      "filename": "close-window.png",
+      "type": "button",
+      "x": 1070,
+      "y": 84,
+      "width": 26,
+      "height": 26,
+      "boxIds": [
+        12
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "name": "searchCustomers",
+      "filename": "search-customers.png",
+      "type": "field",
+      "x": 319,
+      "y": 169,
+      "width": 303,
+      "height": 33,
+      "boxIds": [
+        3
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 299,
+        "height": 29
+      }
+    },
+    {
+      "name": "newCustomer",
+      "filename": "new-customer.png",
+      "type": "button",
+      "x": 640,
+      "y": 170,
+      "width": 151,
+      "height": 31,
+      "boxIds": [
+        4
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 147,
+        "height": 27
+      }
+    },
+    {
+      "name": "customers",
+      "filename": "customers.png",
+      "type": "other",
+      "x": 120,
+      "y": 190,
+      "width": 161,
+      "height": 41,
+      "boxIds": [
+        5
+      ]
+    },
+    {
+      "name": "johnEmail",
+      "filename": "john-email.png",
+      "type": "field",
+      "x": 560,
+      "y": 274,
+      "width": 116,
+      "height": 15,
+      "boxIds": [
+        6
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 112,
+        "height": 11
+      }
+    },
+    {
+      "name": "johnPhone",
+      "filename": "john-phone.png",
+      "type": "field",
+      "x": 775,
+      "y": 274,
+      "width": 25,
+      "height": 12,
+      "boxIds": [
+        7
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 21,
+        "height": 8
+      }
+    },
+    {
+      "name": "janeEmail",
+      "filename": "jane-email.png",
+      "type": "field",
+      "x": 560,
+      "y": 314,
+      "width": 116,
+      "height": 15,
+      "boxIds": [
+        8
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 112,
+        "height": 11
+      }
+    },
+    {
+      "name": "janePhone",
+      "filename": "jane-phone.png",
+      "type": "field",
+      "x": 741,
+      "y": 314,
+      "width": 81,
+      "height": 12,
+      "boxIds": [
+        9
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 77,
+        "height": 8
+      }
+    },
+    {
+      "name": "bobEmail",
+      "filename": "bob-email.png",
+      "type": "field",
+      "x": 561,
+      "y": 354,
+      "width": 112,
+      "height": 15,
+      "boxIds": [
+        10
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 108,
+        "height": 11
+      }
+    }
+  ]
+}

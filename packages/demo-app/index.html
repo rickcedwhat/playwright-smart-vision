@@ -5,82 +5,20 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Desktop Simulation - Canvas Demo</title>
   <style>
-    body {
+    html, body {
       margin: 0;
       padding: 0;
-      font-family: Arial, sans-serif;
-      background: #f0f0f0;
       overflow: hidden;
-    }
-    #container {
-      width: 100vw;
-      height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-    #canvasWrapper {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      background: #e0e0e0;
+      background: #2c5aa0;
     }
     canvas {
-      cursor: default;
       display: block;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
-    }
-    .controls {
-      padding: 12px 20px;
-      background: #2c2c2c;
-      color: white;
-      display: flex;
-      gap: 10px;
-      align-items: center;
-      border-top: 1px solid #444;
-    }
-    .controls button {
-      padding: 6px 14px;
-      background: #444;
-      color: white;
-      border: 1px solid #666;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 13px;
-    }
-    .controls button:hover {
-      background: #555;
-    }
-    .controls .separator {
-      width: 1px;
-      height: 20px;
-      background: #555;
-      margin: 0 5px;
-    }
-    .controls .info {
-      margin-left: auto;
-      font-size: 12px;
-      color: #aaa;
+      cursor: default;
     }
   </style>
 </head>
 <body>
-  <div id="container">
-    <div id="canvasWrapper">
-      <canvas id="desktopCanvas" width="1200" height="800"></canvas>
-    </div>
-    
-    <div class="controls">
-      <button onclick="resetToDesktop()">Reset to Desktop</button>
-      <button onclick="openCRMApp()">Open CRM App</button>
-      <button onclick="openCustomerForm()">Open Form</button>
-      <div class="separator"></div>
-      <button onclick="fillTestData()">Fill Test Data</button>
-      <button onclick="clearForm()">Clear Form</button>
-      <button onclick="toggleSaveButton()">Toggle Save</button>
-      <div class="info">Canvas Desktop Demo - Click desktop icons to navigate</div>
-    </div>
-  </div>
+  <canvas id="desktopCanvas" width="1200" height="800" tabindex="0"></canvas>
 
   <script>
     const canvas = document.getElementById('desktopCanvas');
@@ -97,23 +35,37 @@
       { name: 'Files', x: 50, y: 200, width: 80, height: 100, iconType: 'files' },
     ];
     
-    // CRM app window
+    // CRM app window (position set dynamically on open)
     const crmWindow = {
-      x: 100,
-      y: 80,
+      x: 0,
+      y: 0,
       width: 1000,
       height: 620,
       title: 'CRM System'
     };
     
-    // Customer form window
+    // Customer form window (position set dynamically on open)
     const formWindow = {
-      x: 150,
-      y: 80,
+      x: 0,
+      y: 0,
       width: 900,
       height: 640,
       title: 'Customer Information'
     };
+    
+    // Helper to generate random window position within safe viewport bounds
+    function randomWindowPosition(windowWidth, windowHeight) {
+      const taskbarHeight = 50;
+      const padding = 10; // Keep windows away from edges
+      
+      const maxX = canvas.width - windowWidth - padding;
+      const maxY = canvas.height - windowHeight - taskbarHeight - padding;
+      
+      return {
+        x: padding + Math.floor(Math.random() * (maxX - padding)),
+        y: padding + Math.floor(Math.random() * (maxY - padding))
+      };
+    }
     
     // Form state
     const formData = {
@@ -755,6 +707,10 @@
       const crmIcon = desktopIcons[0];
       if (x >= crmIcon.x && x <= crmIcon.x + crmIcon.width &&
           y >= crmIcon.y && y <= crmIcon.y + crmIcon.height) {
+        // Randomize window position each time it opens
+        const pos = randomWindowPosition(crmWindow.width, crmWindow.height);
+        crmWindow.x = pos.x;
+        crmWindow.y = pos.y;
         currentView = 'crm-app';
         render();
       }
@@ -773,6 +729,10 @@
       
       if (x >= newCustomerBtn.x && x <= newCustomerBtn.x + newCustomerBtn.width &&
           y >= newCustomerBtn.y && y <= newCustomerBtn.y + newCustomerBtn.height) {
+        // Randomize form window position
+        const pos = randomWindowPosition(formWindow.width, formWindow.height);
+        formWindow.x = pos.x;
+        formWindow.y = pos.y;
         currentView = 'customer-form';
         render();
       }
@@ -821,6 +781,7 @@
             render();
           } else {
             focusedField = key;
+            canvas.focus(); // Ensure canvas receives keyboard events
             render();
           }
           return;
@@ -832,8 +793,8 @@
       render();
     }
     
-    // Handle keyboard input
-    document.addEventListener('keydown', (e) => {
+    // Handle keyboard input on canvas element
+    canvas.addEventListener('keydown', (e) => {
       if (currentView !== 'customer-form' || !focusedField) return;
       
       const field = fields[focusedField];
@@ -877,24 +838,6 @@
     // CONTROL FUNCTIONS
     // ============================================================================
     
-    function resetToDesktop() {
-      currentView = 'desktop';
-      focusedField = null;
-      render();
-    }
-    
-    function openCRMApp() {
-      currentView = 'crm-app';
-      focusedField = null;
-      render();
-    }
-    
-    function openCustomerForm() {
-      currentView = 'customer-form';
-      focusedField = null;
-      render();
-    }
-    
     function handleButtonClick(key) {
       if (key === 'saveButton' && formData.saveButtonEnabled) {
         alert('Form saved! (This is a demo)');
@@ -905,64 +848,35 @@
       }
     }
     
-    function fillTestData() {
-      if (currentView !== 'customer-form') {
-        alert('Open the customer form first!');
-        return;
-      }
-      formData.customerNumber = 'CUST12345';
-      formData.firstName = 'John';
-      formData.lastName = 'Smith';
-      formData.email = 'john.smith@example.com';
-      formData.phone = { area: '555', prefix: '123', line: '4567' };
-      formData.address = '123 Main Street';
-      formData.city = 'Springfield';
-      formData.state = 'IL';
-      formData.zip = '62701';
-      formData.vin = '1HGBH41JXMN109186';
-      formData.birthdate = { month: '05', day: '15', year: '1980' };
-      formData.activeCustomer = true;
-      formData.doNotCall = false;
-      formData.contactMethod = 'email';
-      render();
-    }
-    
-    function clearForm() {
-      if (currentView !== 'customer-form') {
-        return;
-      }
-      formData.customerNumber = '';
-      formData.firstName = '';
-      formData.lastName = '';
-      formData.email = '';
-      formData.phone = { area: '', prefix: '', line: '' };
-      formData.address = '';
-      formData.city = '';
-      formData.state = '';
-      formData.zip = '';
-      formData.vin = '';
-      formData.birthdate = { month: '', day: '', year: '' };
-      formData.activeCustomer = false;
-      formData.doNotCall = false;
-      formData.contactMethod = 'email';
-      focusedField = null;
-      render();
-    }
-    
-    function toggleSaveButton() {
-      if (currentView !== 'customer-form') {
-        alert('Open the customer form first!');
-        return;
-      }
-      formData.saveButtonEnabled = !formData.saveButtonEnabled;
-      render();
-    }
-    
     // Cursor blink animation
     setInterval(() => {
       cursorVisible = !cursorVisible;
       if (currentView === 'customer-form' && focusedField) render();
     }, 500);
+    
+    // Expose for debugging/testing
+    window.formData = formData;
+    window.render = render;
+    
+    // Simple test API: map screen element names to canvas field keys
+    const elementToFieldMap = {
+      'firstName': 'firstName',
+      'lastName': 'lastName',
+      'area': 'phoneArea',
+      'prefix': 'phonePrefix',
+      'line': 'phoneLine',
+    };
+    
+    // Helper for automated testing: fill by element name
+    window.testFillElement = (elementName, partName, value) => {
+      const key = partName ? elementToFieldMap[partName] : elementToFieldMap[elementName];
+      if (key) {
+        setFieldValue(key, value);
+        render();
+        return true;
+      }
+      return false;
+    };
     
     // Initial render
     render();

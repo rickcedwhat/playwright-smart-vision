@@ -1,0 +1,29 @@
+{
+  "screen": { "name": "desktop", "width": 1200, "height": 800 },
+  "notes": [
+    "crmIcon (box 4) is the briefcase tile. start (box 3) is the taskbar button.",
+    "Boxes 1 and 2 are leftover Detect scraps on the Calendar/Email artwork, not drawn icon boxes."
+  ],
+  "unknowns": [
+    "box 1 — Detect scrap, not a drawn calendar icon",
+    "box 2 — Detect scrap, not a drawn email icon",
+    "files icon — no box"
+  ],
+  "sections": [],
+  "elements": [
+    {
+      "name": "crmIcon",
+      "type": "icon",
+      "section": null,
+      "boxIds": [4],
+      "labelIds": []
+    },
+    {
+      "name": "start",
+      "type": "button",
+      "section": null,
+      "boxIds": [3],
+      "labelIds": []
+    }
+  ]
+}

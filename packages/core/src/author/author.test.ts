@@ -27,6 +27,8 @@ describe('author apply + catalog', () => {
       boxes: [
         { id: 1, x: 590, y: 147, width: 204, height: 22 },
         { id: 2, x: 590, y: 174, width: 204, height: 22 },
+        { id: 3, x: 500, y: 147, width: 80, height: 22 },
+        { id: 4, x: 500, y: 150, width: 40, height: 12 },
       ],
       labels: [
         { id: 1, x: 500, y: 149, width: 80, height: 16, text: 'Username:' },
@@ -72,6 +74,42 @@ describe('author apply + catalog', () => {
     expect(delivered?.parts?.map((p) => p.name)).toEqual(['month', 'day', 'year']);
     expect(delivered?.parts?.[0]?.width).toBeGreaterThan(0);
     expect(delivered?.parts?.[2]?.x).toBeGreaterThan(delivered!.parts![0]!.x);
+  });
+
+  it('applyScreen ocrRect uses part cells, not extra caption boxIds', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        {
+          name: 'phone',
+          type: 'field',
+          boxIds: [3, 1, 2],
+          parts: [
+            { name: 'area', boxId: 1 },
+            { name: 'prefix', boxId: 2 },
+          ],
+        },
+      ],
+    });
+    const phone = result.elements.find((el) => el.name === 'phone');
+    const area = phone?.parts?.find((p) => p.name === 'area');
+    const prefix = phone?.parts?.find((p) => p.name === 'prefix');
+    expect(area && prefix).toBeTruthy();
+    expect(phone!.ocrRect!.x).toBeGreaterThanOrEqual(area!.x - 2);
+    expect(phone!.ocrRect!.x).toBeLessThan(area!.x + 4);
+    expect(phone!.ocrRect!.width).toBeLessThan(phone!.width);
+  });
+
+  it('applyScreen ocrRect ignores a short caption boxId on a field without parts', () => {
+    const result = applyScreen(name, {
+      screen: { name },
+      elements: [
+        { name: 'vin', type: 'field', boxIds: [4, 1] },
+      ],
+    });
+    const vin = result.elements.find((el) => el.name === 'vin');
+    expect(vin?.ocrRect?.width).toBeLessThan(vin!.width);
+    expect(vin!.ocrRect!.x).toBeGreaterThan(20);
   });
 
   it('applyScreen keeps button crops on the detected box', () => {

@@ -22,6 +22,6 @@ const server = createServer(async (req, res) => {
 server.listen(PORT, () => {
   console.log(`\n✨ Canvas Customer Form Demo`);
   console.log(`   Running at: http://localhost:${PORT}`);
-  console.log(`\n📝 Test Data: Click "Fill Test Data" button`);
+  console.log(`\n🖱️  Click the CRM System icon, then + New Customer`);
   console.log(`🔍 OCR Testing: Text is rendered on canvas (requires OCR to read)\n`);
 });

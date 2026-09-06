@@ -16,9 +16,27 @@ const TOOLS_DIR = path.dirname(fileURLToPath(import.meta.url));
 const HTML_FILE = path.join(TOOLS_DIR, 'index.html');
 const HOME = path.join(os.homedir(), '.smart-vision');
 const SETTINGS_FILE = path.join(HOME, 'tm.json');
-const CACHE_DIR = path.join(HOME, 'screens');
 const CHARSETS_FILE = path.join(HOME, 'charsets.json');
 const DEFAULTS_FILE = path.join(HOME, 'defaults.json');
+
+function expandHomeDir(raw) {
+  const value = String(raw ?? '').trim();
+  if (!value) return '';
+  if (value === '~') return os.homedir();
+  if (value.startsWith('~/') || value.startsWith('~\\')) {
+    return path.join(os.homedir(), value.slice(2));
+  }
+  return value;
+}
+
+/** Screens root: SMART_VISION_SCREENS, else ~/.smart-vision/screens. */
+function resolveScreensRoot() {
+  const fromEnv = expandHomeDir(process.env.SMART_VISION_SCREENS);
+  if (fromEnv) return path.resolve(fromEnv);
+  return path.join(HOME, 'screens');
+}
+
+const CACHE_DIR = resolveScreensRoot();
 
 function readDefaults() {
   try {

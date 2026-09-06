@@ -79,12 +79,12 @@ Return **only** JSON:
 
 5. **Look at filled shots** to see which boxes received values. Crops still come from the blank.
 
-6. **Skip OS chrome:** desktop icons, browser tabs, the OS window title bar. Keep in-window controls — footer buttons, a close X the human drew, and other app buttons.
+6. **Every box in `boxes.json` is intentional.** The human already erased junk and may have drawn extra rectangles. Assign each box to an element (alone or joined). Do not skip title-bar text, min/max/close, or in-app icons because they look like OS chrome — those are often the `waitFor` hook and window controls. Name what the rectangle actually covers on the blank; do not promote a scrap on nearby artwork into a full control (a 30×20 patch on an icon is not that icon).
 
-7. **Names** are camelCase. Screen folder names stay kebab-case.
+7. **Names** are camelCase. Screen folder names stay kebab-case. Put the distinctive screen heading or window title first when it has a box, so `waitFor` can key off it.
 
-8. Skip a box you cannot read. Do not reuse IDs from a previous screenshot.
+8. If a box is unreadable, list **`box {id}`** in `unknowns`. Do not guess a nearby control the box does not contain. Do not reuse IDs from a previous screenshot.
 
 ## After you write the file
 
-Write `first-pass.json` next to `boxes.json` (under `~/.smart-vision/screens/{name}/`). TM applies automatically when that file is newer than `index.json`, including on Reload. Tell the user to Reload in TM. Do not tell them to Apply.
+Write `first-pass.json` next to `boxes.json` (under the TM screens root, e.g. `packages/demo-tests/screens/{name}/` when `SMART_VISION_SCREENS` is set). TM applies automatically when that file is newer than `index.json`, including on Reload. Tell the user to Reload in TM. Do not tell them to Apply.

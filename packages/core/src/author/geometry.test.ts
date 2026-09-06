@@ -5,6 +5,7 @@ import {
   insetRect,
   relativeToCrop,
   ocrRectFromBoxes,
+  valueBoxesForOcr,
   includeLabelForType,
   expandLeftForLabel,
   dedupeBoxes,
@@ -155,6 +156,26 @@ describe('splitRowGutters', () => {
   it('ignores a panel without repeating hairlines', () => {
     const means = Array(220).fill(243);
     expect(splitRowGutters({ x: 800, y: 320, width: 150, height: 220 }, means)).toBeNull();
+  });
+});
+
+describe('valueBoxesForOcr', () => {
+  it('drops short caption scraps next to a field', () => {
+    const field = { x: 320, y: 390, width: 250, height: 28 };
+    const caption = { x: 191, y: 396, width: 27, height: 12 };
+    expect(valueBoxesForOcr([field, caption], 'field')).toEqual([field]);
+  });
+
+  it('keeps same-height dropdown cell and arrow', () => {
+    const value = { x: 355, y: 540, width: 102, height: 29 };
+    const arrow = { x: 453, y: 540, width: 19, height: 29 };
+    expect(valueBoxesForOcr([value, arrow], 'dropdown')).toEqual([value, arrow]);
+  });
+
+  it('picks the squarish box for a checkbox plus caption scrap', () => {
+    const box = { x: 319, y: 469, width: 23, height: 23 };
+    const caption = { x: 393, y: 474, width: 61, height: 12 };
+    expect(valueBoxesForOcr([box, caption], 'checkbox')).toEqual([box]);
   });
 });
 

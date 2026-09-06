@@ -1,0 +1,42 @@
+{
+  "name": "desktop",
+  "sections": [],
+  "elements": [
+    {
+      "name": "crmIcon",
+      "filename": "crm-icon.png",
+      "type": "icon",
+      "x": 44,
+      "y": 73,
+      "width": 93,
+      "height": 113,
+      "boxIds": [
+        4
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 89,
+        "height": 109
+      }
+    },
+    {
+      "name": "start",
+      "filename": "start.png",
+      "type": "button",
+      "x": 10,
+      "y": 760,
+      "width": 81,
+      "height": 31,
+      "boxIds": [
+        3
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 77,
+        "height": 27
+      }
+    }
+  ]
+}

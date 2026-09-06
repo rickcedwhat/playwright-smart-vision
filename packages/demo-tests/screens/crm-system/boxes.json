@@ -1,0 +1,272 @@
+{
+  "width": 1200,
+  "height": 800,
+  "boxes": [
+    {
+      "id": 1,
+      "x": 1010,
+      "y": 85,
+      "width": 26,
+      "height": 26
+    },
+    {
+      "id": 2,
+      "x": 1040,
+      "y": 85,
+      "width": 26,
+      "height": 26
+    },
+    {
+      "id": 3,
+      "x": 319,
+      "y": 169,
+      "width": 303,
+      "height": 33
+    },
+    {
+      "id": 4,
+      "x": 640,
+      "y": 170,
+      "width": 151,
+      "height": 31
+    },
+    {
+      "id": 5,
+      "x": 120,
+      "y": 190,
+      "width": 161,
+      "height": 41
+    },
+    {
+      "id": 6,
+      "x": 560,
+      "y": 274,
+      "width": 116,
+      "height": 15
+    },
+    {
+      "id": 7,
+      "x": 775,
+      "y": 274,
+      "width": 25,
+      "height": 12
+    },
+    {
+      "id": 8,
+      "x": 560,
+      "y": 314,
+      "width": 116,
+      "height": 15
+    },
+    {
+      "id": 9,
+      "x": 741,
+      "y": 314,
+      "width": 81,
+      "height": 12
+    },
+    {
+      "id": 10,
+      "x": 561,
+      "y": 354,
+      "width": 112,
+      "height": 15
+    },
+    {
+      "id": 11,
+      "x": 103,
+      "y": 87,
+      "width": 116,
+      "height": 27
+    },
+    {
+      "id": 12,
+      "x": 1070,
+      "y": 84,
+      "width": 26,
+      "height": 26
+    }
+  ],
+  "labels": [
+    {
+      "id": 1,
+      "x": 1047,
+      "y": 90,
+      "width": 41,
+      "height": 19,
+      "text": "Oo Xx",
+      "confidence": 46
+    },
+    {
+      "id": 2,
+      "x": 111,
+      "y": 96,
+      "width": 85,
+      "height": 13,
+      "text": "CRM System",
+      "confidence": 96
+    },
+    {
+      "id": 3,
+      "x": 321,
+      "y": 142,
+      "width": 198,
+      "height": 17,
+      "text": "Customer Management",
+      "confidence": 94
+    },
+    {
+      "id": 4,
+      "x": 131,
+      "y": 159,
+      "width": 67,
+      "height": 10,
+      "text": "Dashboard",
+      "confidence": 96
+    },
+    {
+      "id": 5,
+      "x": 411,
+      "y": 236,
+      "width": 34,
+      "height": 10,
+      "text": "Name",
+      "confidence": 96
+    },
+    {
+      "id": 6,
+      "x": 561,
+      "y": 236,
+      "width": 33,
+      "height": 10,
+      "text": "Email",
+      "confidence": 96
+    },
+    {
+      "id": 7,
+      "x": 741,
+      "y": 236,
+      "width": 39,
+      "height": 10,
+      "text": "Phone",
+      "confidence": 96
+    },
+    {
+      "id": 8,
+      "x": 862,
+      "y": 236,
+      "width": 38,
+      "height": 10,
+      "text": "Status",
+      "confidence": 95
+    },
+    {
+      "id": 9,
+      "x": 131,
+      "y": 259,
+      "width": 37,
+      "height": 10,
+      "text": "Leads",
+      "confidence": 95
+    },
+    {
+      "id": 10,
+      "x": 331,
+      "y": 274,
+      "width": 55,
+      "height": 10,
+      "text": "CUST001",
+      "confidence": 51
+    },
+    {
+      "id": 11,
+      "x": 411,
+      "y": 274,
+      "width": 64,
+      "height": 10,
+      "text": "John Smith",
+      "confidence": 95
+    },
+    {
+      "id": 12,
+      "x": 860,
+      "y": 274,
+      "width": 35,
+      "height": 10,
+      "text": "Active",
+      "confidence": 96
+    },
+    {
+      "id": 13,
+      "x": 131,
+      "y": 309,
+      "width": 48,
+      "height": 13,
+      "text": "Reports",
+      "confidence": 96
+    },
+    {
+      "id": 14,
+      "x": 331,
+      "y": 314,
+      "width": 56,
+      "height": 10,
+      "text": "CUST002",
+      "confidence": 40
+    },
+    {
+      "id": 15,
+      "x": 411,
+      "y": 314,
+      "width": 55,
+      "height": 10,
+      "text": "Jane Doe",
+      "confidence": 95
+    },
+    {
+      "id": 16,
+      "x": 860,
+      "y": 314,
+      "width": 35,
+      "height": 10,
+      "text": "Active",
+      "confidence": 96
+    },
+    {
+      "id": 17,
+      "x": 331,
+      "y": 354,
+      "width": 56,
+      "height": 10,
+      "text": "CUST003",
+      "confidence": 56
+    },
+    {
+      "id": 18,
+      "x": 411,
+      "y": 354,
+      "width": 75,
+      "height": 10,
+      "text": "Bob Johnson",
+      "confidence": 95
+    },
+    {
+      "id": 19,
+      "x": 861,
+      "y": 354,
+      "width": 44,
+      "height": 10,
+      "text": "Inactive",
+      "confidence": 96
+    },
+    {
+      "id": 20,
+      "x": 131,
+      "y": 359,
+      "width": 50,
+      "height": 13,
+      "text": "Settings",
+      "confidence": 96
+    }
+  ]
+}

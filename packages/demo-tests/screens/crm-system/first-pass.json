@@ -1,0 +1,95 @@
+{
+  "screen": { "name": "crm-system", "width": 1200, "height": 800 },
+  "notes": [
+    "windowTitle is box 11 + label 2 (CRM System) — first for waitFor.",
+    "Box 12 is the close X you drew. Boxes 1–2 are minimize and maximize."
+  ],
+  "unknowns": [],
+  "sections": [],
+  "elements": [
+    {
+      "name": "windowTitle",
+      "type": "label",
+      "section": null,
+      "boxIds": [11],
+      "labelIds": [2]
+    },
+    {
+      "name": "minimize",
+      "type": "button",
+      "section": null,
+      "boxIds": [1],
+      "labelIds": []
+    },
+    {
+      "name": "maximize",
+      "type": "button",
+      "section": null,
+      "boxIds": [2],
+      "labelIds": []
+    },
+    {
+      "name": "closeWindow",
+      "type": "button",
+      "section": null,
+      "boxIds": [12],
+      "labelIds": []
+    },
+    {
+      "name": "searchCustomers",
+      "type": "field",
+      "section": null,
+      "boxIds": [3],
+      "labelIds": []
+    },
+    {
+      "name": "newCustomer",
+      "type": "button",
+      "section": null,
+      "boxIds": [4],
+      "labelIds": []
+    },
+    {
+      "name": "customers",
+      "type": "other",
+      "section": null,
+      "boxIds": [5],
+      "labelIds": []
+    },
+    {
+      "name": "johnEmail",
+      "type": "field",
+      "section": null,
+      "boxIds": [6],
+      "labelIds": []
+    },
+    {
+      "name": "johnPhone",
+      "type": "field",
+      "section": null,
+      "boxIds": [7],
+      "labelIds": []
+    },
+    {
+      "name": "janeEmail",
+      "type": "field",
+      "section": null,
+      "boxIds": [8],
+      "labelIds": []
+    },
+    {
+      "name": "janePhone",
+      "type": "field",
+      "section": null,
+      "boxIds": [9],
+      "labelIds": []
+    },
+    {
+      "name": "bobEmail",
+      "type": "field",
+      "section": null,
+      "boxIds": [10],
+      "labelIds": []
+    }
+  ]
+}
