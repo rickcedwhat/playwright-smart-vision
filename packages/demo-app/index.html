@@ -67,6 +67,42 @@
       };
     }
     
+    // Sample customer database
+    const customerDatabase = {
+      '1HGBH41JXMN109186': {
+        customerNumber: 'CUST001',
+        firstName: 'John',
+        lastName: 'Smith',
+        email: 'john@example.com',
+        phone: { area: '555', prefix: '123', line: '4567' },
+        address: '123 Main St',
+        city: 'Springfield',
+        state: 'IL',
+        zip: '62701',
+        vin: '1HGBH41JXMN109186',
+        birthdate: { month: '03', day: '15', year: '1985' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'email',
+      },
+      '2FTRX18W1XCA12345': {
+        customerNumber: 'CUST002',
+        firstName: 'Jane',
+        lastName: 'Doe',
+        email: 'jane@example.com',
+        phone: { area: '555', prefix: '234', line: '5678' },
+        address: '456 Oak Ave',
+        city: 'Portland',
+        state: 'OR',
+        zip: '97201',
+        vin: '2FTRX18W1XCA12345',
+        birthdate: { month: '07', day: '22', year: '1990' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'phone',
+      },
+    };
+    
     // Form state
     const formData = {
       customerNumber: '',
@@ -85,6 +121,9 @@
       contactMethod: 'email',
       saveButtonEnabled: true
     };
+    
+    // Search state
+    let searchValue = '';
     
     let focusedField = null;
     let cursorVisible = true;
@@ -370,9 +409,17 @@
       ctx.strokeStyle = '#ccc';
       ctx.lineWidth = 1;
       ctx.strokeRect(contentX + 210, contentY + 50, 300, 30);
-      ctx.fillStyle = '#999';
-      ctx.font = '14px Arial';
-      ctx.fillText('Search customers...', contentX + 220, contentY + 70);
+      
+      // Search value or placeholder
+      if (searchValue) {
+        ctx.fillStyle = '#000';
+        ctx.font = '14px Arial';
+        ctx.fillText(searchValue, contentX + 220, contentY + 70);
+      } else {
+        ctx.fillStyle = '#999';
+        ctx.font = '14px Arial';
+        ctx.fillText('Search by VIN...', contentX + 220, contentY + 70);
+      }
       
       // "New Customer" button
       const newCustomerBtn = {
@@ -717,9 +764,26 @@
     }
     
     function handleCRMClick(x, y) {
-      // Check if "New Customer" button was clicked
       const contentX = crmWindow.x + 10;
       const contentY = crmWindow.y + 40;
+      
+      // Check if search box was clicked
+      const searchBox = {
+        x: contentX + 210,
+        y: contentY + 50,
+        width: 300,
+        height: 30
+      };
+      
+      if (x >= searchBox.x && x <= searchBox.x + searchBox.width &&
+          y >= searchBox.y && y <= searchBox.y + searchBox.height) {
+        focusedField = 'crmSearch';
+        canvas.focus();
+        render();
+        return;
+      }
+      
+      // Check if "New Customer" button was clicked
       const newCustomerBtn = {
         x: contentX + 530,
         y: contentY + 50,
@@ -742,6 +806,8 @@
       const closeY = crmWindow.y + 5;
       if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
         currentView = 'desktop';
+        searchValue = '';
+        focusedField = null;
         render();
       }
     }
@@ -795,6 +861,30 @@
     
     // Handle keyboard input on canvas element
     canvas.addEventListener('keydown', (e) => {
+      // Handle CRM search field
+      if (currentView === 'crm-app' && focusedField === 'crmSearch') {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          performSearch();
+          return;
+        }
+        
+        if (e.key === 'Backspace') {
+          e.preventDefault();
+          searchValue = searchValue.slice(0, -1);
+          render();
+          return;
+        }
+        
+        if (e.key.length === 1) {
+          e.preventDefault();
+          searchValue += e.key;
+          render();
+        }
+        return;
+      }
+      
+      // Handle customer form fields
       if (currentView !== 'customer-form' || !focusedField) return;
       
       const field = fields[focusedField];
@@ -832,6 +922,28 @@
       const nextIndex = (currentIndex + 1) % fieldKeys.length;
       focusedField = fieldKeys[nextIndex];
       render();
+    }
+    
+    function performSearch() {
+      const vin = searchValue.trim().toUpperCase();
+      const customer = customerDatabase[vin];
+      
+      if (customer) {
+        // Load customer data into form
+        Object.assign(formData, customer);
+        
+        // Open customer form at random position
+        const pos = randomWindowPosition(formWindow.width, formWindow.height);
+        formWindow.x = pos.x;
+        formWindow.y = pos.y;
+        currentView = 'customer-form';
+        focusedField = null;
+        render();
+      } else {
+        // Could show "not found" message, but for demo just do nothing
+        searchValue = '';
+        render();
+      }
     }
     
     // ============================================================================
@@ -877,6 +989,15 @@
       }
       return false;
     };
+    
+    // Helper for automated testing: search for customer by VIN
+    window.testSearchCustomer = (vin) => {
+      searchValue = vin;
+      performSearch();
+    };
+    
+    // Helper to get available test VINs
+    window.testGetSampleVINs = () => Object.keys(customerDatabase);
     
     // Initial render
     render();
