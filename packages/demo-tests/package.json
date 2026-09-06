@@ -1,0 +1,20 @@
+{
+  "name": "@playwright-smart-vision/demo-tests",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Playwright Smart Vision tests and TM screens for the canvas demo-app",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:e2e": "playwright test",
+    "tm": "node tm.mjs",
+    "capture": "node capture.mjs"
+  },
+  "dependencies": {
+    "@rickcedwhat/playwright-smart-vision": "workspace:*"
+  },
+  "devDependencies": {
+    "@playwright-smart-vision/demo-app": "workspace:*",
+    "@playwright/test": "^1.63.0"
+  }
+}

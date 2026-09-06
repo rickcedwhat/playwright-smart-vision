@@ -39,17 +39,17 @@ Unlike DOM-based UIs, this simulates a real desktop environment where everything
 
 ```bash
 # From monorepo root
-pnpm --filter @playwright-smart-vision/demo-canvas-customer serve
+pnpm demo
 
 # Or from this directory
 node server.mjs
 ```
 
-The app runs at `http://localhost:3456`
+The app runs at `http://localhost:3456`. Authored screens and Playwright tests live in `packages/demo-tests`.
 
-### Fill test data
+### Navigate the desktop
 
-Click the "Fill Test Data" button to populate with known values:
+Click the **CRM System** icon, then **+ New Customer**, then type into the form fields. Suggested values for OCR checks:
 - Customer: CUST12345
 - Name: John Smith
 - Email: john.smith@example.com
@@ -62,41 +62,11 @@ Click the "Fill Test Data" button to populate with known values:
 
 ### Use with playwright-smart-vision
 
-```typescript
-import { test } from '@playwright/test';
-import { createFixture } from '@rickcedwhat/playwright-smart-vision';
+Screens and tests live in [`packages/demo-tests`](../demo-tests). From the repo root:
 
-const testWithScreen = createFixture();
-
-test('complete desktop workflow', async ({ page, screen }) => {
-  await page.goto('http://localhost:3456');
-  
-  // 1. Desktop screen - find and click CRM icon
-  const desktop = screen('desktop');
-  await desktop.waitFor();
-  await desktop.element('crmIcon').click();
-  
-  // 2. CRM app screen - find and click "New Customer" button
-  const crmApp = screen('crm-app');
-  await crmApp.waitFor();
-  await crmApp.element('newCustomerButton').click();
-  
-  // 3. Customer form screen - verify and interact with form
-  const customerForm = screen('customer-form');
-  await customerForm.waitFor();
-  
-  // Fill the form using OCR and template matching
-  await customerForm.element('customerNumber').fill('CUST12345');
-  await customerForm.element('firstName').fill('John');
-  await customerForm.element('email').fill('john.smith@example.com');
-  
-  // Verify form fields
-  await customerForm.element('customerNumber').toHaveValue('CUST12345');
-  await customerForm.element('saveButton').toBeEnabled();
-  
-  // Click save
-  await customerForm.element('saveButton').click();
-});
+```bash
+pnpm --filter @playwright-smart-vision/demo-tests test:e2e
+pnpm --filter @playwright-smart-vision/demo-tests tm
 ```
 
 ## Testing Scenarios
@@ -116,5 +86,5 @@ This demo supports testing:
 ## Related
 
 - Part of [Issue #115](https://github.com/rickcedwhat/playwright-smart-vision/issues/115)
-- Used for E2E tests in `packages/core/tests/`
+- Used for E2E tests in `packages/demo-tests`
 - Replaces dependency on external test applications

@@ -1,0 +1,161 @@
+{
+  "screen": { "name": "customer-information", "width": 1200, "height": 800 },
+  "notes": [
+    "windowTitle is box 31 + label 2 (Customer Information) — first for waitFor.",
+    "Box 32 is the close X you drew. Boxes 1–2 are minimize and maximize."
+  ],
+  "unknowns": [],
+  "sections": [],
+  "elements": [
+    {
+      "name": "windowTitle",
+      "type": "label",
+      "section": null,
+      "boxIds": [31],
+      "labelIds": [2]
+    },
+    {
+      "name": "minimize",
+      "type": "button",
+      "section": null,
+      "boxIds": [1],
+      "labelIds": []
+    },
+    {
+      "name": "maximize",
+      "type": "button",
+      "section": null,
+      "boxIds": [2],
+      "labelIds": []
+    },
+    {
+      "name": "closeWindow",
+      "type": "button",
+      "section": null,
+      "boxIds": [32],
+      "labelIds": []
+    },
+    {
+      "name": "customerNumber",
+      "type": "field",
+      "section": null,
+      "boxIds": [3, 4],
+      "labelIds": []
+    },
+    {
+      "name": "firstName",
+      "type": "field",
+      "section": null,
+      "boxIds": [5],
+      "labelIds": [3]
+    },
+    {
+      "name": "lastName",
+      "type": "field",
+      "section": null,
+      "boxIds": [6],
+      "labelIds": [4]
+    },
+    {
+      "name": "email",
+      "type": "field",
+      "section": null,
+      "boxIds": [7],
+      "labelIds": [5]
+    },
+    {
+      "name": "phone",
+      "type": "field",
+      "section": null,
+      "boxIds": [8, 9, 10, 11],
+      "labelIds": [],
+      "parts": [
+        { "name": "area", "boxId": 8 },
+        { "name": "prefix", "boxId": 9 },
+        { "name": "line", "boxId": 10 }
+      ]
+    },
+    {
+      "name": "address",
+      "type": "field",
+      "section": null,
+      "boxIds": [12],
+      "labelIds": [6]
+    },
+    {
+      "name": "city",
+      "type": "field",
+      "section": null,
+      "boxIds": [13, 16],
+      "labelIds": []
+    },
+    {
+      "name": "state",
+      "type": "field",
+      "section": null,
+      "boxIds": [14],
+      "labelIds": [7]
+    },
+    {
+      "name": "zip",
+      "type": "field",
+      "section": null,
+      "boxIds": [15, 17],
+      "labelIds": []
+    },
+    {
+      "name": "vin",
+      "type": "field",
+      "section": null,
+      "boxIds": [18, 19],
+      "labelIds": []
+    },
+    {
+      "name": "birthdate",
+      "type": "field",
+      "section": null,
+      "boxIds": [20, 21, 22],
+      "labelIds": [8],
+      "parts": [
+        { "name": "month", "boxId": 20 },
+        { "name": "day", "boxId": 21 },
+        { "name": "year", "boxId": 22 }
+      ]
+    },
+    {
+      "name": "activeCustomer",
+      "type": "checkbox",
+      "section": null,
+      "boxIds": [23, 24],
+      "labelIds": []
+    },
+    {
+      "name": "doNotCall",
+      "type": "checkbox",
+      "section": null,
+      "boxIds": [25, 26],
+      "labelIds": [9]
+    },
+    {
+      "name": "contactMethod",
+      "type": "dropdown",
+      "section": null,
+      "boxIds": [27, 28],
+      "labelIds": [10]
+    },
+    {
+      "name": "save",
+      "type": "button",
+      "section": null,
+      "boxIds": [29],
+      "labelIds": []
+    },
+    {
+      "name": "close",
+      "type": "button",
+      "section": null,
+      "boxIds": [30],
+      "labelIds": []
+    }
+  ]
+}

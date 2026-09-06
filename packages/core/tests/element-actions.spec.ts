@@ -54,6 +54,24 @@ test.describe('ScreenElement actions', () => {
     expect(pos.y).toBe(220);
   });
 
+  test('click() uses ocrLocation when present', async ({ page }) => {
+    await page.goto('/');
+
+    await page.evaluate(() => {
+      (window as any).__clickPos = null;
+      document.addEventListener('click', (e) => {
+        (window as any).__clickPos = { x: e.clientX, y: e.clientY };
+      });
+    });
+
+    const result = makeResult({ ocrLocation: { x: 50, y: 60, width: 60, height: 20 } });
+    const el = new ScreenElement(result, page);
+    await el.click();
+
+    const pos = await page.evaluate(() => (window as any).__clickPos);
+    expect(pos).toEqual({ x: 80, y: 70 });
+  });
+
   test('hover() uses ocrLocation when present', async ({ page }) => {
     await page.goto('/');
 

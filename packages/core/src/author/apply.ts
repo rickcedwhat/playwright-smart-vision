@@ -9,6 +9,7 @@ import {
   insetRect,
   kebab,
   ocrRectFromBoxes,
+  valueBoxesForOcr,
   relativeToCrop,
   sliceRectHorizontal,
   unionRects,
@@ -386,7 +387,17 @@ export function applyScreen(name: string, firstPass?: FirstPass): ApplyScreenRes
     if (read) applied.read = read;
     if (el.options?.length) applied.options = el.options;
     if (el.section) applied.section = sectionFile.get(el.section) || el.section;
-    if (fieldBoxes.length && el.type !== 'other') applied.ocrRect = ocrRectFromBoxes(match, fieldBoxes, el.type || 'field');
+    if (el.type !== 'other') {
+      const ocrBoxes = parts.length
+        ? parts.map((part) => ({
+            x: match.x + part.x,
+            y: match.y + part.y,
+            width: part.width,
+            height: part.height,
+          }))
+        : valueBoxesForOcr(fieldBoxes, el.type || 'field');
+      if (ocrBoxes.length) applied.ocrRect = ocrRectFromBoxes(match, ocrBoxes, el.type || 'field');
+    }
     if (parts.length) applied.parts = parts;
     elements.push(applied);
   }

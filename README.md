@@ -129,18 +129,10 @@ Open `http://localhost:3455` in your browser and follow the visual workflow to a
 For projects with many screens, use the storage-based workflow:
 
 ```ts
-// Configure storage once
-import { configure } from '@rickcedwhat/playwright-smart-vision';
-
-await configure({
-  storage: { root: './screens' },  // Directory containing your screen folders
-});
-
-// Load screens by name
-import { test } from '@playwright/test';
 import { createFixture } from '@rickcedwhat/playwright-smart-vision';
 
 const testWithScreen = createFixture();
+testWithScreen.use({ storageRoot: './screens' });
 
 testWithScreen('verify customer form', async ({ page, screen }) => {
   await page.goto('http://localhost:3456');
@@ -334,13 +326,17 @@ await form.element('saveButton').toBeDisabled();
 
 ## Demo Application
 
-The repo includes a canvas-based customer form demo for testing:
+The repo includes a paired demo: the canvas app (`packages/demo-app`) and the consumer test project (`packages/demo-tests`) that holds TM screens and Playwright tests.
 
 ```bash
-# Start demo app
-npm run demo
+# Start the canvas desktop
+pnpm demo
 
 # App runs at http://localhost:3456
+
+# Author screens / run vision tests (from demo-tests)
+pnpm tm
+pnpm --filter @playwright-smart-vision/demo-tests test:e2e
 ```
 
 This demo renders a complete customer form on HTML5 canvas, perfect for testing OCR and visual automation without needing an actual desktop application.

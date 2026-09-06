@@ -1,0 +1,451 @@
+{
+  "name": "customer-information",
+  "sections": [],
+  "elements": [
+    {
+      "name": "windowTitle",
+      "filename": "window-title.png",
+      "type": "label",
+      "x": 147,
+      "y": 80,
+      "width": 179,
+      "height": 35,
+      "boxIds": [
+        31
+      ],
+      "labelIds": [
+        2
+      ],
+      "ocrRect": {
+        "x": 6,
+        "y": 6,
+        "width": 167,
+        "height": 23
+      }
+    },
+    {
+      "name": "minimize",
+      "filename": "minimize.png",
+      "type": "button",
+      "x": 960,
+      "y": 85,
+      "width": 26,
+      "height": 26,
+      "boxIds": [
+        1
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "name": "maximize",
+      "filename": "maximize.png",
+      "type": "button",
+      "x": 990,
+      "y": 85,
+      "width": 26,
+      "height": 26,
+      "boxIds": [
+        2
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 22,
+        "height": 22
+      }
+    },
+    {
+      "name": "closeWindow",
+      "filename": "close-window.png",
+      "type": "button",
+      "x": 1018,
+      "y": 84,
+      "width": 27,
+      "height": 26,
+      "boxIds": [
+        32
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 23,
+        "height": 22
+      }
+    },
+    {
+      "name": "customerNumber",
+      "filename": "customer-number.png",
+      "type": "field",
+      "x": 191,
+      "y": 149,
+      "width": 281,
+      "height": 28,
+      "boxIds": [
+        3,
+        4
+      ],
+      "ocrRect": {
+        "x": 130,
+        "y": 2,
+        "width": 149,
+        "height": 24
+      }
+    },
+    {
+      "name": "firstName",
+      "filename": "first-name.png",
+      "type": "field",
+      "x": 187,
+      "y": 185,
+      "width": 289,
+      "height": 36,
+      "boxIds": [
+        5
+      ],
+      "labelIds": [
+        3
+      ],
+      "ocrRect": {
+        "x": 134,
+        "y": 6,
+        "width": 149,
+        "height": 24
+      }
+    },
+    {
+      "name": "lastName",
+      "filename": "last-name.png",
+      "type": "field",
+      "x": 517,
+      "y": 185,
+      "width": 259,
+      "height": 36,
+      "boxIds": [
+        6
+      ],
+      "labelIds": [
+        4
+      ],
+      "ocrRect": {
+        "x": 104,
+        "y": 6,
+        "width": 149,
+        "height": 24
+      }
+    },
+    {
+      "name": "email",
+      "filename": "email.png",
+      "type": "field",
+      "x": 187,
+      "y": 225,
+      "width": 589,
+      "height": 36,
+      "boxIds": [
+        7
+      ],
+      "labelIds": [
+        5
+      ],
+      "ocrRect": {
+        "x": 134,
+        "y": 6,
+        "width": 449,
+        "height": 24
+      }
+    },
+    {
+      "name": "phone",
+      "filename": "phone.png",
+      "type": "field",
+      "x": 191,
+      "y": 269,
+      "width": 321,
+      "height": 28,
+      "boxIds": [
+        8,
+        9,
+        10,
+        11
+      ],
+      "ocrRect": {
+        "x": 132,
+        "y": 4,
+        "width": 185,
+        "height": 20
+      },
+      "parts": [
+        {
+          "name": "area",
+          "x": 130,
+          "y": 2,
+          "width": 49,
+          "height": 24
+        },
+        {
+          "name": "prefix",
+          "x": 190,
+          "y": 2,
+          "width": 49,
+          "height": 24
+        },
+        {
+          "name": "line",
+          "x": 250,
+          "y": 2,
+          "width": 69,
+          "height": 24
+        }
+      ]
+    },
+    {
+      "name": "address",
+      "filename": "address.png",
+      "type": "field",
+      "x": 186,
+      "y": 305,
+      "width": 590,
+      "height": 36,
+      "boxIds": [
+        12
+      ],
+      "labelIds": [
+        6
+      ],
+      "ocrRect": {
+        "x": 135,
+        "y": 6,
+        "width": 449,
+        "height": 24
+      }
+    },
+    {
+      "name": "city",
+      "filename": "city.png",
+      "type": "field",
+      "x": 191,
+      "y": 349,
+      "width": 331,
+      "height": 28,
+      "boxIds": [
+        13,
+        16
+      ],
+      "ocrRect": {
+        "x": 130,
+        "y": 2,
+        "width": 199,
+        "height": 24
+      }
+    },
+    {
+      "name": "state",
+      "filename": "state.png",
+      "type": "field",
+      "x": 527,
+      "y": 345,
+      "width": 129,
+      "height": 36,
+      "boxIds": [
+        14
+      ],
+      "labelIds": [
+        7
+      ],
+      "ocrRect": {
+        "x": 44,
+        "y": 6,
+        "width": 79,
+        "height": 24
+      }
+    },
+    {
+      "name": "zip",
+      "filename": "zip.png",
+      "type": "field",
+      "x": 661,
+      "y": 349,
+      "width": 111,
+      "height": 28,
+      "boxIds": [
+        15,
+        17
+      ],
+      "ocrRect": {
+        "x": 40,
+        "y": 2,
+        "width": 69,
+        "height": 24
+      }
+    },
+    {
+      "name": "vin",
+      "filename": "vin.png",
+      "type": "field",
+      "x": 191,
+      "y": 389,
+      "width": 381,
+      "height": 28,
+      "boxIds": [
+        18,
+        19
+      ],
+      "ocrRect": {
+        "x": 130,
+        "y": 2,
+        "width": 249,
+        "height": 24
+      }
+    },
+    {
+      "name": "birthdate",
+      "filename": "birthdate.png",
+      "type": "field",
+      "x": 187,
+      "y": 425,
+      "width": 299,
+      "height": 36,
+      "boxIds": [
+        20,
+        21,
+        22
+      ],
+      "labelIds": [
+        8
+      ],
+      "ocrRect": {
+        "x": 136,
+        "y": 8,
+        "width": 155,
+        "height": 20
+      },
+      "parts": [
+        {
+          "name": "month",
+          "x": 134,
+          "y": 6,
+          "width": 39,
+          "height": 24
+        },
+        {
+          "name": "day",
+          "x": 184,
+          "y": 6,
+          "width": 39,
+          "height": 24
+        },
+        {
+          "name": "year",
+          "x": 234,
+          "y": 6,
+          "width": 59,
+          "height": 24
+        }
+      ]
+    },
+    {
+      "name": "activeCustomer",
+      "filename": "active-customer.png",
+      "type": "checkbox",
+      "x": 319,
+      "y": 469,
+      "width": 135,
+      "height": 23,
+      "boxIds": [
+        23,
+        24
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 19,
+        "height": 19
+      }
+    },
+    {
+      "name": "doNotCall",
+      "filename": "do-not-call.png",
+      "type": "checkbox",
+      "x": 315,
+      "y": 495,
+      "width": 110,
+      "height": 31,
+      "boxIds": [
+        25,
+        26
+      ],
+      "labelIds": [
+        9
+      ],
+      "ocrRect": {
+        "x": 6,
+        "y": 6,
+        "width": 19,
+        "height": 19
+      }
+    },
+    {
+      "name": "contactMethod",
+      "filename": "contact-method.png",
+      "type": "dropdown",
+      "x": 187,
+      "y": 536,
+      "width": 289,
+      "height": 37,
+      "boxIds": [
+        27,
+        28
+      ],
+      "labelIds": [
+        10
+      ],
+      "ocrRect": {
+        "x": 170,
+        "y": 6,
+        "width": 97,
+        "height": 25
+      }
+    },
+    {
+      "name": "save",
+      "filename": "save.png",
+      "type": "button",
+      "x": 320,
+      "y": 600,
+      "width": 102,
+      "height": 37,
+      "boxIds": [
+        29
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 98,
+        "height": 33
+      }
+    },
+    {
+      "name": "close",
+      "filename": "close.png",
+      "type": "button",
+      "x": 440,
+      "y": 600,
+      "width": 102,
+      "height": 37,
+      "boxIds": [
+        30
+      ],
+      "ocrRect": {
+        "x": 2,
+        "y": 2,
+        "width": 98,
+        "height": 33
+      }
+    }
+  ]
+}

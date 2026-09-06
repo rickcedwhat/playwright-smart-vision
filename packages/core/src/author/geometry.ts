@@ -198,6 +198,23 @@ export function cellRunsToRects(
   }));
 }
 
+/**
+ * Boxes that are the value/control, not caption scraps joined into `boxIds` for the match crop.
+ * Checkboxes keep the squarish box; fields/dropdowns keep boxes as tall as the control.
+ */
+export function valueBoxesForOcr(fieldBoxes: Rect[], type = 'field'): Rect[] {
+  if (fieldBoxes.length <= 1) return fieldBoxes;
+  if (type === 'checkbox' || type === 'radio') {
+    return [fieldBoxes.slice().sort((a, b) => {
+      const square = (r: Rect) => Math.abs(r.width / (r.height || 1) - 1);
+      return square(a) - square(b) || a.width * a.height - b.width * b.height;
+    })[0]!];
+  }
+  const maxH = Math.max(...fieldBoxes.map((b) => b.height));
+  const controls = fieldBoxes.filter((b) => b.height >= maxH * 0.85);
+  return controls.length ? controls : fieldBoxes;
+}
+
 /** Value box relative to the match crop. Dropdowns drop the spinner on the right. */
 export function ocrRectFromBoxes(
   crop: Rect,
