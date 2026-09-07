@@ -167,10 +167,22 @@ export class ScreenElement {
   }
 
   /**
-   * Get the active variant (if element has variants)
+   * Last matched variant name, if this element has variants.
+   * Call `getVariant()` or `waitFor()` first so the live screenshot is current.
    */
   variant(): string | undefined {
     return this.result.variant;
+  }
+
+  /**
+   * Locate the element and return the matching variant name.
+   */
+  async getVariant(options?: { timeout?: number }): Promise<string | undefined> {
+    return ocrStep(`element('${this.label}').getVariant()`, async () => {
+      await this.ensureLocated(options?.timeout);
+      await this.withOverlay();
+      return this.result.variant;
+    });
   }
 
   /**

@@ -10,3 +10,5 @@ artifacts/
 *~
 .env
 .env.local
+packages/demo-tests/recordings/**
+!packages/demo-tests/recordings/.gitkeep

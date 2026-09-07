@@ -15,11 +15,16 @@
       display: block;
       cursor: default;
     }
+    canvas.clickable {
+      cursor: pointer;
+    }
+    canvas.text-input {
+      cursor: text;
+    }
   </style>
 </head>
 <body>
   <canvas id="desktopCanvas" width="1200" height="800" tabindex="0"></canvas>
-
   <script>
     const canvas = document.getElementById('desktopCanvas');
     const ctx = canvas.getContext('2d');
@@ -101,6 +106,134 @@
         doNotCall: false,
         contactMethod: 'phone',
       },
+      '3VWFE21C04M000001': {
+        customerNumber: 'CUST003',
+        firstName: 'Michael',
+        lastName: 'Johnson',
+        email: 'mjohnson@example.com',
+        phone: { area: '555', prefix: '345', line: '6789' },
+        address: '789 Pine Rd',
+        city: 'Austin',
+        state: 'TX',
+        zip: '78701',
+        vin: '3VWFE21C04M000001',
+        birthdate: { month: '11', day: '08', year: '1982' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'email',
+      },
+      '5FNRL5H40GB123456': {
+        customerNumber: 'CUST004',
+        firstName: 'Sarah',
+        lastName: 'Williams',
+        email: 'swilliams@example.com',
+        phone: { area: '555', prefix: '456', line: '7890' },
+        address: '321 Elm St',
+        city: 'Seattle',
+        state: 'WA',
+        zip: '98101',
+        vin: '5FNRL5H40GB123456',
+        birthdate: { month: '05', day: '12', year: '1988' },
+        activeCustomer: true,
+        doNotCall: true,
+        contactMethod: 'email',
+      },
+      '1FTFW1ET5BFC12345': {
+        customerNumber: 'CUST005',
+        firstName: 'David',
+        lastName: 'Brown',
+        email: 'dbrown@example.com',
+        phone: { area: '555', prefix: '567', line: '8901' },
+        address: '654 Maple Dr',
+        city: 'Denver',
+        state: 'CO',
+        zip: '80201',
+        vin: '1FTFW1ET5BFC12345',
+        birthdate: { month: '09', day: '25', year: '1975' },
+        activeCustomer: false,
+        doNotCall: false,
+        contactMethod: 'phone',
+      },
+      '2HGFC2F59FH123456': {
+        customerNumber: 'CUST006',
+        firstName: 'Emily',
+        lastName: 'Davis',
+        email: 'edavis@example.com',
+        phone: { area: '555', prefix: '678', line: '9012' },
+        address: '987 Cedar Ln',
+        city: 'Boston',
+        state: 'MA',
+        zip: '02101',
+        vin: '2HGFC2F59FH123456',
+        birthdate: { month: '02', day: '18', year: '1992' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'email',
+      },
+      '1G1ZD5ST8GF123456': {
+        customerNumber: 'CUST007',
+        firstName: 'Robert',
+        lastName: 'Miller',
+        email: 'rmiller@example.com',
+        phone: { area: '555', prefix: '789', line: '0123' },
+        address: '246 Birch Ave',
+        city: 'Phoenix',
+        state: 'AZ',
+        zip: '85001',
+        vin: '1G1ZD5ST8GF123456',
+        birthdate: { month: '12', day: '30', year: '1980' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'phone',
+      },
+      '5YFBURHE6HP123456': {
+        customerNumber: 'CUST008',
+        firstName: 'Lisa',
+        lastName: 'Wilson',
+        email: 'lwilson@example.com',
+        phone: { area: '555', prefix: '890', line: '1234' },
+        address: '135 Spruce St',
+        city: 'Miami',
+        state: 'FL',
+        zip: '33101',
+        vin: '5YFBURHE6HP123456',
+        birthdate: { month: '06', day: '14', year: '1987' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'email',
+      },
+      '3KPF24AD4ME123456': {
+        customerNumber: 'CUST009',
+        firstName: 'James',
+        lastName: 'Moore',
+        email: 'jmoore@example.com',
+        phone: { area: '555', prefix: '901', line: '2345' },
+        address: '864 Willow Way',
+        city: 'Atlanta',
+        state: 'GA',
+        zip: '30301',
+        vin: '3KPF24AD4ME123456',
+        birthdate: { month: '04', day: '03', year: '1983' },
+        activeCustomer: true,
+        doNotCall: true,
+        contactMethod: 'email',
+      },
+      '1C4RJFBG8FC123456': {
+        customerNumber: 'CUST010',
+        firstName: 'Jennifer',
+        lastName: 'Taylor',
+        email: 'jtaylor@example.com',
+        phone: { area: '555', prefix: '012', line: '3456' },
+        address: '753 Ash Blvd',
+        city: 'Nashville',
+        state: 'TN',
+        zip: '37201',
+        vin: '1C4RJFBG8FC123456',
+        birthdate: { month: '08', day: '19', year: '1991' },
+        activeCustomer: true,
+        doNotCall: false,
+        contactMethod: 'phone',
+      },
     };
     
     // Form state
@@ -119,14 +252,25 @@
       activeCustomer: false,
       doNotCall: false,
       contactMethod: 'email',
-      saveButtonEnabled: true
     };
+    
+    // Original form data for dirty checking
+    let originalFormData = null;
+    
+    // Form interaction state
+    let formIsDirty = false;
+    let isSaving = false;
     
     // Search state
     let searchValue = '';
     
+    // Hover state
+    let hoveredTableRow = -1;
+    let hoveredDropdownOption = -1;
+    
     let focusedField = null;
     let cursorVisible = true;
+    let openDropdown = null; // Track which dropdown is currently open
     
     // Field definitions with positions (relative to form content area)
     const fields = {
@@ -406,8 +550,8 @@
       ctx.fillText('Customer Management', contentX + 210, contentY + 30);
       
       // Search bar
-      ctx.strokeStyle = '#ccc';
-      ctx.lineWidth = 1;
+      ctx.strokeStyle = focusedField === 'crmSearch' ? '#007bff' : '#ccc';
+      ctx.lineWidth = focusedField === 'crmSearch' ? 2 : 1;
       ctx.strokeRect(contentX + 210, contentY + 50, 300, 30);
       
       // Search value or placeholder
@@ -440,8 +584,8 @@
       ctx.strokeStyle = '#ddd';
       ctx.lineWidth = 1;
       const tableY = contentY + 100;
-      const tableHeaders = ['ID', 'Name', 'Email', 'Phone', 'Status'];
-      const colWidths = [80, 150, 180, 120, 100];
+      const tableHeaders = ['Cust #', 'Name', 'VIN', 'Phone'];
+      const colWidths = [80, 150, 200, 120];
       let colX = contentX + 210;
       
       // Table header
@@ -456,27 +600,56 @@
         colX += colWidths[idx];
       });
       
-      // Table rows (sample data)
-      const customers = [
-        ['CUST001', 'John Smith', 'john@example.com', '555-123-4567', 'Active'],
-        ['CUST002', 'Jane Doe', 'jane@example.com', '555-234-5678', 'Active'],
-        ['CUST003', 'Bob Johnson', 'bob@example.com', '555-345-6789', 'Inactive'],
-      ];
+      // Get filtered customers
+      const filteredCustomers = getFilteredCustomers();
       
-      customers.forEach((customer, rowIdx) => {
+      filteredCustomers.forEach((customer, rowIdx) => {
         colX = contentX + 210;
         const rowY = tableY + 35 + (rowIdx * 40);
         
-        // Alternating row background
-        if (rowIdx % 2 === 0) {
+        // Row background with hover effect
+        if (hoveredTableRow === rowIdx) {
+          // Hover state - light blue with shadow
+          ctx.fillStyle = '#e3f2fd';
+          ctx.fillRect(colX, rowY, tableWidth, 40);
+          
+          // Add subtle shadow effect
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+          ctx.shadowBlur = 8;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 2;
+          ctx.fillStyle = '#e3f2fd';
+          ctx.fillRect(colX, rowY, tableWidth, 40);
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        } else if (rowIdx % 2 === 0) {
+          // Alternating row background
           ctx.fillStyle = '#fafafa';
           ctx.fillRect(colX, rowY, tableWidth, 40);
         }
         
         ctx.fillStyle = '#333';
         ctx.font = '13px Arial';
-        customer.forEach((cell, colIdx) => {
-          ctx.fillText(cell, colX + 10, rowY + 25);
+        const rowData = [
+          customer.customerNumber,
+          `${customer.firstName} ${customer.lastName}`,
+          customer.vin,
+          `${customer.phone.area}-${customer.phone.prefix}-${customer.phone.line}`,
+        ];
+        
+        rowData.forEach((cell, colIdx) => {
+          // Truncate text if too long
+          const maxWidth = colWidths[colIdx] - 20;
+          let displayText = cell;
+          if (ctx.measureText(displayText).width > maxWidth) {
+            while (ctx.measureText(displayText + '...').width > maxWidth && displayText.length > 0) {
+              displayText = displayText.slice(0, -1);
+            }
+            displayText += '...';
+          }
+          ctx.fillText(displayText, colX + 10, rowY + 25);
           colX += colWidths[colIdx];
         });
       });
@@ -502,12 +675,12 @@
       ctx.save();
       ctx.translate(formContentX, formContentY);
       
-      // Draw all form fields
+      // Draw all form fields (but not open dropdown contents yet)
       for (const [key, field] of Object.entries(fields)) {
         if (field.type === 'checkbox') {
           drawCheckbox(key, field);
         } else if (field.type === 'dropdown') {
-          drawDropdown(key, field);
+          drawDropdown(key, field, false); // false = don't draw options yet
         } else if (field.type === 'button') {
           drawButton(key, field);
         } else {
@@ -518,6 +691,14 @@
       // Draw cursor in focused field
       if (focusedField && cursorVisible) {
         drawCursor();
+      }
+      
+      // Draw open dropdown on top of everything else
+      if (openDropdown && fields[openDropdown]) {
+        const field = fields[openDropdown];
+        if (field.type === 'dropdown' && field.options) {
+          drawDropdownOptions(openDropdown, field);
+        }
       }
       
       ctx.restore();
@@ -645,7 +826,7 @@
       }
     }
     
-    function drawDropdown(key, field) {
+    function drawDropdown(key, field, drawOptions = true) {
       // Draw label
       ctx.fillStyle = '#333';
       ctx.font = '14px Arial';
@@ -653,8 +834,9 @@
       ctx.fillText(field.label, field.labelX, field.y + field.height / 2);
       
       // Draw dropdown box
-      ctx.strokeStyle = '#999';
-      ctx.lineWidth = 1;
+      const isOpen = openDropdown === key;
+      ctx.strokeStyle = isOpen ? '#007bff' : '#999';
+      ctx.lineWidth = isOpen ? 2 : 1;
       ctx.strokeRect(field.x, field.y, field.width, field.height);
       
       // Draw current value
@@ -664,31 +846,130 @@
       // Draw dropdown arrow
       ctx.fillStyle = '#666';
       ctx.beginPath();
-      ctx.moveTo(field.x + field.width - 20, field.y + 10);
-      ctx.lineTo(field.x + field.width - 10, field.y + 10);
-      ctx.lineTo(field.x + field.width - 15, field.y + 15);
+      if (isOpen) {
+        // Up arrow when open
+        ctx.moveTo(field.x + field.width - 20, field.y + 15);
+        ctx.lineTo(field.x + field.width - 10, field.y + 15);
+        ctx.lineTo(field.x + field.width - 15, field.y + 10);
+      } else {
+        // Down arrow when closed
+        ctx.moveTo(field.x + field.width - 20, field.y + 10);
+        ctx.lineTo(field.x + field.width - 10, field.y + 10);
+        ctx.lineTo(field.x + field.width - 15, field.y + 15);
+      }
       ctx.closePath();
       ctx.fill();
     }
     
+    function drawDropdownOptions(key, field) {
+      if (!field.options) return;
+      
+      const optionHeight = 30;
+      const dropdownY = field.y + field.height;
+      const inset = 2; // Padding inside border
+      
+      // Draw shadow for depth
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4;
+      
+      // Draw white background for options
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(field.x, dropdownY, field.width, field.options.length * optionHeight);
+      
+      // Reset shadow
+      ctx.shadowColor = 'transparent';
+      ctx.shadowBlur = 0;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 0;
+      
+      // Draw border
+      ctx.strokeStyle = '#007bff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(field.x, dropdownY, field.width, field.options.length * optionHeight);
+      
+      // Draw each option
+      field.options.forEach((option, idx) => {
+        const optY = dropdownY + (idx * optionHeight);
+        
+        // Hover effect (drawn first, below selection highlight)
+        if (hoveredDropdownOption === idx) {
+          ctx.fillStyle = '#f5f5f5';
+          ctx.fillRect(field.x + inset, optY + inset, field.width - (inset * 2), optionHeight - inset);
+        }
+        
+        // Highlight selected option (drawn on top of hover)
+        if (option === formData[key]) {
+          ctx.fillStyle = '#e3f2fd';
+          ctx.fillRect(field.x + inset, optY + inset, field.width - (inset * 2), optionHeight - inset);
+        }
+        
+        // Draw option text
+        ctx.fillStyle = '#333';
+        ctx.font = '14px Arial';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(option, field.x + 8, optY + optionHeight / 2);
+        
+        // Draw separator line between options
+        if (idx < field.options.length - 1) {
+          ctx.strokeStyle = '#ddd';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(field.x + inset, optY + optionHeight);
+          ctx.lineTo(field.x + field.width - inset, optY + optionHeight);
+          ctx.stroke();
+        }
+      });
+    }
+    
     function drawButton(key, field) {
-      const enabled = key === 'closeButton' || formData.saveButtonEnabled;
+      let enabled = key === 'closeButton';
+      let buttonText = field.label;
+      let bgColor, textColor, borderColor;
+      
+      if (key === 'saveButton') {
+        enabled = formIsDirty && !isSaving;
+        
+        if (isSaving) {
+          // Loading state
+          bgColor = '#1e7e34';
+          textColor = '#fff';
+          borderColor = '#1e7e34';
+          buttonText = 'Saving...';
+        } else if (!formIsDirty) {
+          // Disabled state
+          bgColor = '#ccc';
+          textColor = '#666';
+          borderColor = '#999';
+        } else {
+          // Enabled state
+          bgColor = '#28a745';
+          textColor = '#fff';
+          borderColor = '#28a745';
+        }
+      } else {
+        // Close button
+        bgColor = '#6c757d';
+        textColor = '#fff';
+        borderColor = '#6c757d';
+      }
       
       // Draw button
-      ctx.fillStyle = enabled ? (key === 'closeButton' ? '#6c757d' : '#28a745') : '#ccc';
+      ctx.fillStyle = bgColor;
       ctx.fillRect(field.x, field.y, field.width, field.height);
       
       // Draw button border
-      ctx.strokeStyle = enabled ? '#333' : '#999';
+      ctx.strokeStyle = borderColor;
       ctx.lineWidth = 1;
       ctx.strokeRect(field.x, field.y, field.width, field.height);
       
       // Draw button text
-      ctx.fillStyle = enabled ? '#fff' : '#666';
+      ctx.fillStyle = textColor;
       ctx.font = 'bold 14px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(field.label, field.x + field.width / 2, field.y + field.height / 2);
+      ctx.fillText(buttonText, field.x + field.width / 2, field.y + field.height / 2);
       ctx.textAlign = 'left';
     }
     
@@ -749,6 +1030,67 @@
       }
     });
     
+    // Handle mouse move for cursor changes and hover effects
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const cursorType = getCursorTypeForPoint(x, y);
+      canvas.classList.toggle('clickable', cursorType === 'pointer');
+      canvas.classList.toggle('text-input', cursorType === 'text');
+      
+      // Update hovered table row for CRM view
+      if (currentView === 'crm-app') {
+        const contentX = crmWindow.x + 10;
+        const contentY = crmWindow.y + 40;
+        const tableY = contentY + 135;
+        const tableWidth = 550;
+        const rowHeight = 40;
+        const filteredCustomers = getFilteredCustomers();
+        
+        let newHoveredRow = -1;
+        if (x >= contentX + 210 && x <= contentX + 210 + tableWidth &&
+            y >= tableY && y <= tableY + (filteredCustomers.length * rowHeight)) {
+          newHoveredRow = Math.floor((y - tableY) / rowHeight);
+        }
+        
+        if (newHoveredRow !== hoveredTableRow) {
+          hoveredTableRow = newHoveredRow;
+          render();
+        }
+      } else if (hoveredTableRow !== -1) {
+        hoveredTableRow = -1;
+        render();
+      }
+      
+      // Update hovered dropdown option for form view
+      if (currentView === 'customer-form' && openDropdown) {
+        const formContentX = formWindow.x + 20;
+        const formContentY = formWindow.y + 40;
+        const field = fields[openDropdown];
+        
+        if (field && field.type === 'dropdown' && field.options) {
+          const optionHeight = 30;
+          const dropdownY = field.y + field.height;
+          const dropdownX = field.x;
+          
+          let newHoveredOption = -1;
+          if (x >= formContentX + dropdownX && x <= formContentX + dropdownX + field.width &&
+              y >= formContentY + dropdownY && y <= formContentY + dropdownY + (field.options.length * optionHeight)) {
+            newHoveredOption = Math.floor((y - formContentY - dropdownY) / optionHeight);
+          }
+          
+          if (newHoveredOption !== hoveredDropdownOption) {
+            hoveredDropdownOption = newHoveredOption;
+            render();
+          }
+        }
+      } else if (hoveredDropdownOption !== -1) {
+        hoveredDropdownOption = -1;
+      }
+    });
+    
     function handleDesktopClick(x, y) {
       // Check if CRM icon was clicked
       const crmIcon = desktopIcons[0];
@@ -793,12 +1135,47 @@
       
       if (x >= newCustomerBtn.x && x <= newCustomerBtn.x + newCustomerBtn.width &&
           y >= newCustomerBtn.y && y <= newCustomerBtn.y + newCustomerBtn.height) {
-        // Randomize form window position
+        // Clear form and open new customer
+        Object.keys(formData).forEach(key => {
+          if (typeof formData[key] === 'object' && formData[key] !== null) {
+            if (key === 'phone') {
+              formData[key] = { area: '', prefix: '', line: '' };
+            } else if (key === 'birthdate') {
+              formData[key] = { month: '', day: '', year: '' };
+            }
+          } else if (typeof formData[key] === 'boolean') {
+            formData[key] = false;
+          } else if (key === 'contactMethod') {
+            formData[key] = 'email';
+          } else {
+            formData[key] = '';
+          }
+        });
+        originalFormData = null;
+        formIsDirty = false;
+        
         const pos = randomWindowPosition(formWindow.width, formWindow.height);
         formWindow.x = pos.x;
         formWindow.y = pos.y;
         currentView = 'customer-form';
         render();
+        return;
+      }
+      
+      // Check if a table row was clicked
+      const tableY = contentY + 135; // Header (35) + first row starts at 100+35
+      const tableWidth = 550; // Sum of column widths
+      const rowHeight = 40;
+      const filteredCustomers = getFilteredCustomers();
+      
+      if (x >= contentX + 210 && x <= contentX + 210 + tableWidth &&
+          y >= tableY && y <= tableY + (filteredCustomers.length * rowHeight)) {
+        const rowIndex = Math.floor((y - tableY) / rowHeight);
+        if (rowIndex >= 0 && rowIndex < filteredCustomers.length) {
+          const customer = filteredCustomers[rowIndex];
+          openCustomer(customer);
+          return;
+        }
       }
       
       // Check if close button was clicked
@@ -819,12 +1196,36 @@
       const relX = x - formContentX;
       const relY = y - formContentY;
       
+      // Check if clicking on open dropdown options (these are rendered in absolute coordinates)
+      if (openDropdown && fields[openDropdown]) {
+        const field = fields[openDropdown];
+        if (field.type === 'dropdown' && field.options) {
+          const optionHeight = 30;
+          const dropdownAbsX = formContentX + field.x;
+          const dropdownAbsY = formContentY + field.y + field.height;
+          
+          if (x >= dropdownAbsX && x <= dropdownAbsX + field.width &&
+              y >= dropdownAbsY && y <= dropdownAbsY + (field.options.length * optionHeight)) {
+            const optionIndex = Math.floor((y - dropdownAbsY) / optionHeight);
+            if (optionIndex >= 0 && optionIndex < field.options.length) {
+              formData[openDropdown] = field.options[optionIndex];
+              checkFormDirty();
+              openDropdown = null;
+              hoveredDropdownOption = -1;
+              render();
+              return;
+            }
+          }
+        }
+      }
+      
       // Check if close button on form window was clicked
       const closeX = formWindow.x + formWindow.width - 30;
       const closeY = formWindow.y + 5;
       if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
         currentView = 'crm-app';
         focusedField = null;
+        openDropdown = null;
         render();
         return;
       }
@@ -836,14 +1237,14 @@
           
           if (field.type === 'checkbox') {
             formData[key] = !formData[key];
+            checkFormDirty();
             render();
           } else if (field.type === 'button') {
             handleButtonClick(key);
           } else if (field.type === 'dropdown') {
-            // Cycle through options
-            const currentIndex = field.options.indexOf(formData[key]);
-            const nextIndex = (currentIndex + 1) % field.options.length;
-            formData[key] = field.options[nextIndex];
+            // Toggle dropdown open/closed when clicking the field itself
+            openDropdown = openDropdown === key ? null : key;
+            hoveredDropdownOption = -1;
             render();
           } else {
             focusedField = key;
@@ -854,8 +1255,9 @@
         }
       }
       
-      // Clicked outside any field
+      // Clicked outside any field - close dropdown and clear focus
       focusedField = null;
+      openDropdown = null;
       render();
     }
     
@@ -863,23 +1265,17 @@
     canvas.addEventListener('keydown', (e) => {
       // Handle CRM search field
       if (currentView === 'crm-app' && focusedField === 'crmSearch') {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          performSearch();
-          return;
-        }
-        
         if (e.key === 'Backspace') {
           e.preventDefault();
           searchValue = searchValue.slice(0, -1);
-          render();
+          render(); // Re-render will filter table
           return;
         }
         
         if (e.key.length === 1) {
           e.preventDefault();
           searchValue += e.key;
-          render();
+          render(); // Re-render will filter table
         }
         return;
       }
@@ -900,6 +1296,7 @@
         e.preventDefault();
         const currentValue = getFieldValue(focusedField);
         setFieldValue(focusedField, currentValue.slice(0, -1));
+        checkFormDirty();
         render();
         return;
       }
@@ -911,6 +1308,7 @@
         
         if (currentValue.length < maxLength) {
           setFieldValue(focusedField, currentValue + e.key);
+          checkFormDirty();
           render();
         }
       }
@@ -924,38 +1322,166 @@
       render();
     }
     
-    function performSearch() {
-      const vin = searchValue.trim().toUpperCase();
-      const customer = customerDatabase[vin];
+    function getFilteredCustomers() {
+      const customers = Object.values(customerDatabase);
       
-      if (customer) {
-        // Load customer data into form
-        Object.assign(formData, customer);
-        
-        // Open customer form at random position
-        const pos = randomWindowPosition(formWindow.width, formWindow.height);
-        formWindow.x = pos.x;
-        formWindow.y = pos.y;
-        currentView = 'customer-form';
-        focusedField = null;
-        render();
-      } else {
-        // Could show "not found" message, but for demo just do nothing
-        searchValue = '';
-        render();
+      if (!searchValue.trim()) {
+        return customers;
       }
+      
+      const search = searchValue.trim().toLowerCase();
+      return customers.filter(customer => {
+        return customer.vin.toLowerCase().includes(search) ||
+               customer.firstName.toLowerCase().includes(search) ||
+               customer.lastName.toLowerCase().includes(search) ||
+               customer.customerNumber.toLowerCase().includes(search);
+      });
+    }
+    
+    function openCustomer(customer) {
+      // Load customer data into form
+      Object.assign(formData, customer);
+      
+      // Save original data for dirty checking
+      originalFormData = JSON.parse(JSON.stringify(formData));
+      formIsDirty = false;
+      
+      // Open customer form at random position
+      const pos = randomWindowPosition(formWindow.width, formWindow.height);
+      formWindow.x = pos.x;
+      formWindow.y = pos.y;
+      currentView = 'customer-form';
+      focusedField = null;
+      render();
+    }
+    
+    function checkFormDirty() {
+      if (!originalFormData) {
+        formIsDirty = formData.firstName || formData.lastName || formData.email; // Any field filled
+        return;
+      }
+      
+      // Deep compare with original
+      formIsDirty = JSON.stringify(formData) !== JSON.stringify(originalFormData);
+    }
+    
+    function getCursorTypeForPoint(x, y) {
+      if (currentView === 'desktop') {
+        // Check desktop icons
+        const overIcon = desktopIcons.some(icon => 
+          x >= icon.x && x <= icon.x + icon.width &&
+          y >= icon.y && y <= icon.y + icon.height
+        );
+        return overIcon ? 'pointer' : 'default';
+      } else if (currentView === 'crm-app') {
+        const contentX = crmWindow.x + 10;
+        const contentY = crmWindow.y + 40;
+        
+        // Search box (text input)
+        if (x >= contentX + 210 && x <= contentX + 510 && y >= contentY + 50 && y <= contentY + 80) {
+          return 'text';
+        }
+        
+        // New Customer button
+        if (x >= contentX + 530 && x <= contentX + 680 && y >= contentY + 50 && y <= contentY + 80) {
+          return 'pointer';
+        }
+        
+        // Table rows
+        const tableY = contentY + 135;
+        const tableWidth = 550;
+        const rowHeight = 40;
+        const filteredCustomers = getFilteredCustomers();
+        
+        if (x >= contentX + 210 && x <= contentX + 210 + tableWidth &&
+            y >= tableY && y <= tableY + (filteredCustomers.length * rowHeight)) {
+          return 'pointer';
+        }
+        
+        // Close button
+        const closeX = crmWindow.x + crmWindow.width - 30;
+        const closeY = crmWindow.y + 5;
+        if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
+          return 'pointer';
+        }
+      } else if (currentView === 'customer-form') {
+        const formContentX = formWindow.x + 20;
+        const formContentY = formWindow.y + 40;
+        
+        // Check buttons (save is only clickable if dirty and not saving)
+        const saveBtn = fields.saveButton;
+        const closeBtn = fields.closeButton;
+        
+        const saveClickable = formIsDirty && !isSaving;
+        if (saveClickable && x >= formContentX + saveBtn.x && x <= formContentX + saveBtn.x + saveBtn.width &&
+            y >= formContentY + saveBtn.y && y <= formContentY + saveBtn.y + saveBtn.height) {
+          return 'pointer';
+        }
+        
+        if (x >= formContentX + closeBtn.x && x <= formContentX + closeBtn.x + closeBtn.width &&
+            y >= formContentY + closeBtn.y && y <= formContentY + closeBtn.y + closeBtn.height) {
+          return 'pointer';
+        }
+        
+        // Check text input fields
+        for (const [key, field] of Object.entries(fields)) {
+          if (field.type === 'button') continue;
+          if (x >= formContentX + field.x && x <= formContentX + field.x + field.width &&
+              y >= formContentY + field.y && y <= formContentY + field.y + field.height) {
+            // Text fields get text cursor, dropdowns and checkboxes get pointer
+            if (!field.type) {
+              return 'text';
+            }
+            return 'pointer'; // dropdowns and checkboxes
+          }
+          
+          // Check if hovering over open dropdown options
+          if (field.type === 'dropdown' && openDropdown === key && field.options) {
+            const optionHeight = 30;
+            const dropdownY = field.y + field.height;
+            if (x >= formContentX + field.x && x <= formContentX + field.x + field.width &&
+                y >= formContentY + dropdownY && y <= formContentY + dropdownY + (field.options.length * optionHeight)) {
+              return 'pointer';
+            }
+          }
+        }
+        
+        // Close button on window
+        const closeX = formWindow.x + formWindow.width - 30;
+        const closeY = formWindow.y + 5;
+        if (x >= closeX && x <= closeX + 25 && y >= closeY && y <= closeY + 25) {
+          return 'pointer';
+        }
+      }
+      
+      return 'default';
     }
     
     // ============================================================================
     // CONTROL FUNCTIONS
     // ============================================================================
     
-    function handleButtonClick(key) {
-      if (key === 'saveButton' && formData.saveButtonEnabled) {
-        alert('Form saved! (This is a demo)');
+    async function handleButtonClick(key) {
+      if (key === 'saveButton' && formIsDirty && !isSaving) {
+        // Start saving
+        isSaving = true;
+        render();
+        
+        // Mock backend save (1 second delay)
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Save complete - update original data and clear dirty flag
+        originalFormData = JSON.parse(JSON.stringify(formData));
+        formIsDirty = false;
+        isSaving = false;
+        render();
       } else if (key === 'closeButton') {
         currentView = 'crm-app';
         focusedField = null;
+        openDropdown = null;
+        originalFormData = null;
+        formIsDirty = false;
+        isSaving = false;
         render();
       }
     }
@@ -984,21 +1510,30 @@
       const key = partName ? elementToFieldMap[partName] : elementToFieldMap[elementName];
       if (key) {
         setFieldValue(key, value);
+        checkFormDirty();
         render();
         return true;
       }
       return false;
     };
     
-    // Helper for automated testing: search for customer by VIN
-    window.testSearchCustomer = (vin) => {
-      searchValue = vin;
-      performSearch();
+    // Helper for automated testing: open customer by VIN
+    window.testOpenCustomerByVIN = (vin) => {
+      const customer = customerDatabase[vin];
+      if (customer) {
+        openCustomer(customer);
+      }
     };
     
     // Helper to get available test VINs
     window.testGetSampleVINs = () => Object.keys(customerDatabase);
     
+    // Helper to get form state
+    window.testGetFormState = () => ({
+      isDirty: formIsDirty,
+      isSaving: isSaving,
+    });
+
     // Initial render
     render();
   </script>
