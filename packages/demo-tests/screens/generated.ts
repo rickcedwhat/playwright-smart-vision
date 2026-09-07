@@ -1,4 +1,4 @@
-// Generated 2026-09-06T04:19:11.258Z by Template Manager — do not edit, re-generated on every save.
+// Generated 2026-09-06T23:30:07.365Z by Template Manager — do not edit, re-generated on every save.
 /** @generated */
 import type { Strategies } from '@rickcedwhat/playwright-smart-vision';
 

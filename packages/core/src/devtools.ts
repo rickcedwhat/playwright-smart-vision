@@ -4,7 +4,7 @@ import path from 'node:path';
 import type { Page } from '@playwright/test';
 import { getGlobalConfig, loadScreen, writeScreenBuffer } from './configure.js';
 import { FieldExtractor } from './field-extractor.js';
-import { screenDir } from './author/storage.js';
+import { screenDir, storageRoot } from './author/storage.js';
 import { ensureCvReady } from './utils/vision.js';
 import { getOCRUtil } from './utils/ocr.js';
 
@@ -65,6 +65,12 @@ const DEVTOOLS_KEYS = `(function () {
     }
 
     if (e.key === 'Escape') {
+      if (window.__ocrIsRecording && window.__ocrIsRecording()) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        window.__ocrStopRecordUi && window.__ocrStopRecordUi();
+        return;
+      }
       if (document.getElementById('__ocr-inspect-overlay')) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -133,6 +139,11 @@ const FAB_SCRIPT = `(function () {
       #__ocr-fab-actions button:hover { filter: brightness(1.15); }
       #__ocr-fab-actions button:disabled { opacity: 0.35; cursor: not-allowed; filter: none; }
       #__ocr-fab-overlay.on { background: #3d6d3d; border-color: #5a9; }
+      #__ocr-fab-record.on, #__ocr-fab.recording #__ocr-fab-btn {
+        background: #7f1d1d;
+        border-color: #ef4444;
+      }
+      #__ocr-fab.recording #__ocr-fab-btn { transform: none; }
       #__ocr-fab-chip {
         position: absolute;
         right: 56px;
@@ -290,6 +301,7 @@ const FAB_SCRIPT = `(function () {
       <div id="__ocr-fab-actions">
         <button id="__ocr-fab-overlay" type="button" disabled title="Choose a screen first">&#9638;</button>
         <button id="__ocr-fab-library" type="button" title="Choose screen">&#9776;</button>
+        <button id="__ocr-fab-record" type="button" title="Record screen">&#9679;</button>
         <button id="__ocr-fab-capture" type="button" title="Capture screen">&#128065;</button>
       </div>
       <button id="__ocr-fab-btn" title="smart-vision" aria-expanded="false">+</button>
@@ -310,11 +322,16 @@ const FAB_SCRIPT = `(function () {
     const captureBtn = fab.querySelector('#__ocr-fab-capture');
     const libraryBtn = fab.querySelector('#__ocr-fab-library');
     const overlayBtn = fab.querySelector('#__ocr-fab-overlay');
+    const recordBtn = fab.querySelector('#__ocr-fab-record');
     const chip = fab.querySelector('#__ocr-fab-chip');
     let currentScreen = '';
     let currentHasIndex = false;
     let overlayOn = false;
     let hoverTimer = 0;
+    let recording = false;
+    let mediaRecorder = null;
+    let recordChunks = [];
+    let recordStream = null;
 
     let openedByHover = false;
 
@@ -326,6 +343,10 @@ const FAB_SCRIPT = `(function () {
 
     fabBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      if (recording) {
+        stopRecording();
+        return;
+      }
       if (openedByHover && fab.classList.contains('open')) {
         openedByHover = false;
         return;
@@ -409,6 +430,129 @@ const FAB_SCRIPT = `(function () {
         fab.style.visibility = '';
         syncOverlayBtn();
       }
+    });
+
+    function syncRecordUi() {
+      fab.classList.toggle('recording', recording);
+      recordBtn.classList.toggle('on', recording);
+      recordBtn.title = recording ? 'Stop recording' : 'Record screen';
+      fabBtn.title = recording ? 'Stop recording' : 'smart-vision';
+      if (recording) {
+        chip.hidden = false;
+        chip.textContent = currentScreen ? currentScreen + ' · REC' : 'REC';
+      } else {
+        chip.hidden = !currentScreen;
+        chip.textContent = currentScreen;
+      }
+    }
+
+    function largestCanvas() {
+      const list = Array.from(document.querySelectorAll('canvas'));
+      list.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+      return list[0] || null;
+    }
+
+    function pickRecorderMime() {
+      const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+      for (const type of types) {
+        if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(type)) return type;
+      }
+      return '';
+    }
+
+    async function blobToBase64(blob) {
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      return btoa(bin);
+    }
+
+    function stopMediaRecorder() {
+      return new Promise((resolve, reject) => {
+        if (!mediaRecorder || mediaRecorder.state === 'inactive') {
+          resolve(new Blob(recordChunks, { type: 'video/webm' }));
+          return;
+        }
+        mediaRecorder.onstop = () => {
+          resolve(new Blob(recordChunks, { type: mediaRecorder.mimeType || 'video/webm' }));
+        };
+        mediaRecorder.onerror = () => reject(new Error('MediaRecorder failed'));
+        mediaRecorder.stop();
+        if (recordStream) {
+          recordStream.getTracks().forEach((track) => track.stop());
+          recordStream = null;
+        }
+      });
+    }
+
+    async function startRecording() {
+      setOpen(false);
+      const canvas = largestCanvas();
+      if (!canvas) {
+        showToast('Record needs a canvas to capture as video', true);
+        return;
+      }
+      if (typeof MediaRecorder === 'undefined') {
+        showToast('MediaRecorder is not available in this browser', true);
+        return;
+      }
+
+      recordBtn.disabled = true;
+      try {
+        const mime = pickRecorderMime();
+        recordStream = canvas.captureStream(30);
+        recordChunks = [];
+        mediaRecorder = mime
+          ? new MediaRecorder(recordStream, { mimeType: mime })
+          : new MediaRecorder(recordStream);
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size) recordChunks.push(e.data);
+        };
+        mediaRecorder.start(250);
+        await window.__ocrRecordStart();
+      } catch (err) {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+        if (recordStream) recordStream.getTracks().forEach((track) => track.stop());
+        mediaRecorder = null;
+        recordStream = null;
+        recordBtn.disabled = false;
+        showToast('Record failed: ' + (err && err.message ? err.message : err), true);
+        return;
+      }
+      recording = true;
+      recordBtn.disabled = false;
+      syncRecordUi();
+      showToast('Recording… click + or Esc to stop');
+    }
+
+    async function stopRecording() {
+      if (!recording) return;
+      recording = false;
+      recordBtn.disabled = true;
+      try {
+        const blob = await stopMediaRecorder();
+        mediaRecorder = null;
+        if (!blob.size) throw new Error('Recording was empty');
+        const result = await window.__ocrRecordStop(await blobToBase64(blob));
+        showToast('Saved: ' + (result && result.path ? result.path : 'recording.webm'));
+      } catch (err) {
+        try { await window.__ocrRecordStop(); } catch (_) {}
+        showToast('Save failed: ' + (err && err.message ? err.message : err), true);
+      } finally {
+        recordBtn.disabled = false;
+        syncRecordUi();
+      }
+    }
+
+    window.__ocrIsRecording = () => recording;
+    window.__ocrStopRecordUi = stopRecording;
+
+    recordBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (recording) await stopRecording();
+      else await startRecording();
     });
 
     function showToast(msg, err) {
@@ -721,6 +865,65 @@ async function expose(page: Page, name: string, fn: (...args: never[]) => unknow
   }
 }
 
+type RecordSession = {
+  id: string;
+  dir: string;
+  startTime: number;
+};
+
+type RecordStartResult = { id: string; path: string };
+type RecordStopResult = { id: string; path: string; file?: string; bytes?: number };
+
+let recordSession: RecordSession | null = null;
+
+function recordingsRoot(): string {
+  return path.resolve(storageRoot(), '..', 'recordings');
+}
+
+function recordingRelPath(dir: string): string {
+  return path.relative(process.cwd(), dir).replace(/\\/g, '/');
+}
+
+function startRecordSession(): RecordStartResult {
+  const id = `recording-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+  const dir = path.join(recordingsRoot(), id);
+  fs.mkdirSync(dir, { recursive: true });
+  recordSession = { id, dir, startTime: Date.now() };
+  fs.writeFileSync(path.join(dir, 'metadata.json'), `${JSON.stringify({
+    id,
+    startedAt: new Date().toISOString(),
+  }, null, 2)}\n`);
+  return { id, path: recordingRelPath(dir) };
+}
+
+function stopRecordSession(videoB64?: string): RecordStopResult {
+  if (!recordSession) throw new Error('No active recording');
+  const file = videoB64 ? 'recording.webm' : undefined;
+  let bytes = 0;
+  if (videoB64 && file) {
+    const buffer = Buffer.from(videoB64, 'base64');
+    bytes = buffer.length;
+    fs.writeFileSync(path.join(recordSession.dir, file), buffer);
+  }
+  const metadata = {
+    id: recordSession.id,
+    completedAt: new Date().toISOString(),
+    duration: Date.now() - recordSession.startTime,
+    file,
+    mimeType: file ? 'video/webm' : undefined,
+    bytes,
+  };
+  fs.writeFileSync(path.join(recordSession.dir, 'metadata.json'), `${JSON.stringify(metadata, null, 2)}\n`);
+  const result: RecordStopResult = {
+    id: recordSession.id,
+    path: file ? `${recordingRelPath(recordSession.dir)}/${file}` : recordingRelPath(recordSession.dir),
+    bytes,
+  };
+  if (file) result.file = file;
+  recordSession = null;
+  return result;
+}
+
 export async function injectDevtools(page: Page): Promise<void> {
   await expose(page, '__ocrCapture', async (): Promise<string> => {
     const buffer = await page.screenshot({ timeout: 5_000 });
@@ -740,6 +943,11 @@ export async function injectDevtools(page: Page): Promise<void> {
   });
 
   await expose(page, '__ocrMatchOverlay', async (name: string): Promise<OverlayHit[]> => matchOverlay(page, name));
+
+  await expose(page, '__ocrRecordStart', async (): Promise<RecordStartResult> => startRecordSession());
+  await expose(page, '__ocrRecordStop', async (videoB64?: string): Promise<RecordStopResult> => {
+    return stopRecordSession(videoB64);
+  });
 
   await page.addInitScript(DEVTOOLS_KEYS);
   await page.addInitScript(FAB_SCRIPT);

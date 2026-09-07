@@ -413,7 +413,6 @@
     },
     {
       "name": "save",
-      "filename": "save.png",
       "type": "button",
       "x": 320,
       "y": 600,
@@ -427,6 +426,17 @@
         "y": 2,
         "width": 98,
         "height": 33
+      },
+      "variants": {
+        "enabled": {
+          "filename": "save/enabled.png"
+        },
+        "loading": {
+          "filename": "save/loading.png"
+        },
+        "disabled": {
+          "filename": "save/disabled.png"
+        }
       }
     },
     {

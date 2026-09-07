@@ -10,7 +10,7 @@ const server = createServer(async (req, res) => {
   try {
     const filePath = join(__dirname, 'index.html');
     const content = await readFile(filePath, 'utf8');
-    
+
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(content);
   } catch (error) {

@@ -5,10 +5,12 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { PNG } from 'pngjs';
 import { configure } from '@rickcedwhat/playwright-smart-vision/configure';
 import { applyScreen, detectScreen, writeBoxes, writeScreenCatalog, patchElementOptions, patchPartOptions } from '@rickcedwhat/playwright-smart-vision/author';
+import { VisionUtil, ensureCvReady, getCv } from '@rickcedwhat/playwright-smart-vision/utils/vision';
 
 export const TM_V2_BASE = '/template-manager';
 
@@ -37,6 +39,11 @@ function resolveScreensRoot() {
 }
 
 const CACHE_DIR = resolveScreensRoot();
+const RECORDINGS_DIR = path.join(path.dirname(CACHE_DIR), 'recordings');
+const WORKSPACE_ROOTS = {
+  screens: CACHE_DIR,
+  recordings: RECORDINGS_DIR,
+};
 
 function readDefaults() {
   try {
@@ -70,18 +77,39 @@ function screenDir(name) {
   return path.join(CACHE_DIR, assertScreenName(name));
 }
 
-function safeCachePath(rel) {
+function splitWorkspaceRel(rel) {
   const clean = String(rel || '')
     .replace(/\\/g, '/')
     .replace(/^\/+|\/+$/g, '');
+  if (!clean) return { root: '', parts: [] };
   const parts = clean.split('/');
-  if (!clean || parts.some((part) => !part || part === '.' || part === '..')) {
+  if (parts.some((part) => !part || part === '.' || part === '..')) {
     throw new Error('invalid path');
   }
   if (!parts.every((part) => /^[a-zA-Z0-9._-]+$/.test(part))) {
     throw new Error('invalid path');
   }
-  return path.join(CACHE_DIR, ...parts);
+  return { root: parts[0], parts: parts.slice(1) };
+}
+
+function resolveWorkspaceDir(rel) {
+  const { root, parts } = splitWorkspaceRel(rel);
+  if (!root) return null;
+  const base = WORKSPACE_ROOTS[root];
+  if (!base) throw new Error('invalid path');
+  return parts.length ? path.join(base, ...parts) : base;
+}
+
+function resolveWorkspaceFile(rel) {
+  const { root, parts } = splitWorkspaceRel(rel);
+  if (!root || !parts.length) throw new Error('invalid path');
+  const base = WORKSPACE_ROOTS[root];
+  if (!base) throw new Error('invalid path');
+  return path.join(base, ...parts);
+}
+
+function safeCachePath(rel) {
+  return resolveWorkspaceFile(rel);
 }
 
 function cropPng(pngBuffer, x, y, width, height) {
@@ -106,9 +134,8 @@ function kebab(name) {
     .toLowerCase();
 }
 
-function listLocalPrefix(relPath) {
-  const dir = relPath ? path.join(CACHE_DIR, ...relPath.split('/')) : CACHE_DIR;
-  if (!fs.existsSync(dir)) return { dirs: [], files: [] };
+function listDirEntries(dir) {
+  if (!dir || !fs.existsSync(dir)) return { dirs: [], files: [] };
   const dirs = [];
   const files = [];
   for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -117,6 +144,12 @@ function listLocalPrefix(relPath) {
     else files.push(ent.name);
   }
   return { dirs: dirs.sort(), files: files.sort() };
+}
+
+function listLocalPrefix(relPath) {
+  const { root } = splitWorkspaceRel(relPath);
+  if (!root) return { dirs: Object.keys(WORKSPACE_ROOTS), files: [] };
+  return listDirEntries(resolveWorkspaceDir(relPath));
 }
 
 function listLocalScreens() {
@@ -129,6 +162,38 @@ function listLocalScreens() {
 
 function isSafeFileName(name) {
   return /^[a-zA-Z0-9._-]+$/.test(name);
+}
+
+/** Find a template *inside* a frame, trying a few scales. */
+function matchTemplateInFrame(vision, frame, tmpl) {
+  const cv = getCv();
+  const scales = [0.55, 0.7, 0.85, 1, 1.15, 1.35, 1.6];
+  let best = { confidence: -1, x: 0, y: 0, width: tmpl.cols, height: tmpl.rows, scale: 1 };
+  for (const scale of scales) {
+    let needle = tmpl;
+    let allocated = false;
+    const width = Math.max(8, Math.round(tmpl.cols * scale));
+    const height = Math.max(8, Math.round(tmpl.rows * scale));
+    if (height > frame.rows || width > frame.cols) continue;
+    if (scale !== 1) {
+      needle = new cv.Mat();
+      cv.resize(tmpl, needle, new cv.Size(width, height), 0, 0, cv.INTER_CUBIC);
+      allocated = true;
+    }
+    const match = vision.matchTemplate(frame, needle);
+    if (allocated) needle.delete();
+    if (match.confidence > best.confidence) {
+      best = {
+        confidence: match.confidence,
+        x: match.rect.x,
+        y: match.rect.y,
+        width: match.rect.width,
+        height: match.rect.height,
+        scale,
+      };
+    }
+  }
+  return best;
 }
 
 let _configured = false;
@@ -205,7 +270,12 @@ async function handleInternal(req, res, url) {
   }
 
   if (req.method === 'GET' && url.pathname === '/api/settings') {
-    send(res, 200, { ...readSettings(), cacheDir: CACHE_DIR, localScreens: listLocalScreens() });
+    send(res, 200, {
+      ...readSettings(),
+      cacheDir: CACHE_DIR,
+      recordingsDir: RECORDINGS_DIR,
+      localScreens: listLocalScreens(),
+    });
     return;
   }
 
@@ -463,6 +533,8 @@ async function handleInternal(req, res, url) {
       '.jpeg': 'image/jpeg',
       '.gif': 'image/gif',
       '.webp': 'image/webp',
+      '.webm': 'video/webm',
+      '.mp4': 'video/mp4',
       '.json': 'application/json',
       '.txt': 'text/plain; charset=utf-8',
       '.ts': 'text/plain; charset=utf-8',
@@ -481,6 +553,159 @@ async function handleInternal(req, res, url) {
   }
   if (req.method === 'GET' && url.pathname === '/file/annotated' && name) {
     sendFile(res, path.join(screenDir(name), 'boxes-annotated.png'), 'image/png');
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/fs/rename') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    const fromRel = String(body.path || '');
+    const newName = String(body.name || '').trim();
+    if (!isSafeFileName(newName)) throw new Error('invalid name');
+    const from = resolveWorkspaceFile(fromRel);
+    if (!fs.existsSync(from)) {
+      send(res, 404, { error: 'not found' });
+      return;
+    }
+    const dest = path.join(path.dirname(from), newName);
+    if (from === dest) {
+      send(res, 200, { ok: true, path: fromRel });
+      return;
+    }
+    if (fs.existsSync(dest)) throw new Error('a file or folder with that name already exists');
+    fs.renameSync(from, dest);
+    const parent = fromRel.split('/').slice(0, -1).join('/');
+    const nextPath = parent ? `${parent}/${newName}` : newName;
+    const indexPath = path.join(dest, 'index.json');
+    if (fs.existsSync(indexPath) && fs.statSync(dest).isDirectory()) {
+      try {
+        const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+        if (index && typeof index === 'object') {
+          index.name = newName;
+          fs.writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+        }
+      } catch { /* leave index as-is */ }
+    }
+    send(res, 200, { ok: true, path: nextPath });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/fs/delete') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    const rel = String(body.path || '');
+    const target = resolveWorkspaceFile(rel);
+    if (!fs.existsSync(target)) {
+      send(res, 404, { error: 'not found' });
+      return;
+    }
+    fs.rmSync(target, { recursive: true, force: true });
+    send(res, 200, { ok: true, path: rel });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/locate-template') {
+    await ensureConfigured();
+    await ensureCvReady();
+    const body = JSON.parse(await readBody(req) || '{}');
+    const screen = assertScreenName(body.name || name);
+    const templateRel = String(body.template || '').replace(/\\/g, '/');
+    if (!templateRel || templateRel.includes('..')) throw new Error('invalid template');
+    const tmplPath = path.join(screenDir(screen), 'templates', ...templateRel.split('/'));
+    if (!fs.existsSync(tmplPath)) {
+      send(res, 404, { error: 'template not found' });
+      return;
+    }
+    const frames = Array.isArray(body.frames) ? body.frames : [body.frame];
+    const vision = new VisionUtil();
+    const tmplColor = vision.loadImage(fs.readFileSync(tmplPath));
+    const tmpl = vision.toGrayscale(tmplColor);
+    tmplColor.delete();
+    const results = [];
+    for (const raw of frames) {
+      const frameB64 = String(raw || '').replace(/^data:[^;]+;base64,/, '');
+      if (!frameB64) {
+        results.push({ found: false, reason: 'frame is required' });
+        continue;
+      }
+      const frameColor = vision.loadImage(Buffer.from(frameB64, 'base64'));
+      const frame = vision.toGrayscale(frameColor);
+      frameColor.delete();
+      const match = matchTemplateInFrame(vision, frame, tmpl);
+      frame.delete();
+      results.push({
+        found: match.confidence >= 0.5,
+        confidence: match.confidence,
+        scale: match.scale,
+        x: match.x,
+        y: match.y,
+        width: match.width,
+        height: match.height,
+      });
+    }
+    tmpl.delete();
+    send(res, 200, frames.length === 1 ? results[0] : { results });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/element-variants') {
+    await ensureConfigured();
+    const body = JSON.parse(await readBody(req) || '{}');
+    const screen = assertScreenName(body.name || name);
+    const elementName = String(body.element || '');
+    if (!elementName) throw new Error('element is required');
+    const indexPath = path.join(screenDir(screen), 'index.json');
+    if (!fs.existsSync(indexPath)) throw new Error('no index.json for this screen');
+    const index = JSON.parse(fs.readFileSync(indexPath, 'utf8'));
+    const el = (index.elements || []).find((item) => item.name === elementName);
+    if (!el) throw new Error('element not found: ' + elementName);
+    const incoming = [];
+    for (const item of body.variants || []) {
+      const variantName = String(item.name || '').trim();
+      if (!variantName || !isSafeFileName(variantName)) continue;
+      const b64 = String(item.b64 || '').replace(/^data:[^;]+;base64,/, '');
+      if (!b64) continue;
+      incoming.push({ name: variantName, b64 });
+    }
+    if (!incoming.length) throw new Error('no named variants to save');
+    const defaultName = String(body.default || incoming[0].name);
+    incoming.sort((a, b) => (a.name === defaultName ? -1 : b.name === defaultName ? 1 : 0));
+    const folder = kebab(elementName);
+    const tmplRoot = path.join(screenDir(screen), 'templates');
+    const leftover = el.filename && !String(el.filename).includes('/')
+      ? path.join(tmplRoot, el.filename)
+      : path.join(tmplRoot, `${folder}.png`);
+    fs.mkdirSync(path.join(tmplRoot, folder), { recursive: true });
+    const variants = {};
+    for (const item of incoming) {
+      const file = `${folder}/${kebab(item.name)}.png`;
+      fs.writeFileSync(path.join(tmplRoot, ...file.split('/')), Buffer.from(item.b64, 'base64'));
+      variants[item.name] = { filename: file };
+    }
+    delete el.filename;
+    el.variants = variants;
+    if (fs.existsSync(leftover) && leftover !== path.join(tmplRoot, folder)) {
+      fs.unlinkSync(leftover);
+    }
+    fs.writeFileSync(indexPath, `${JSON.stringify(index, null, 2)}\n`);
+    writeScreenCatalog(undefined, undefined, readDefaults());
+    send(res, 200, { saved: screen, element: elementName, variants: Object.keys(variants), folder });
+    return;
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/fs/write') {
+    const body = JSON.parse(await readBody(req) || '{}');
+    const rel = String(body.path || '');
+    const { root, parts } = splitWorkspaceRel(rel);
+    if (root !== 'recordings' || parts.length < 2) {
+      throw new Error('can only write files under recordings/<id>/');
+    }
+    if (!/\.(png|json)$/i.test(parts[parts.length - 1])) {
+      throw new Error('unsupported write type');
+    }
+    const dest = resolveWorkspaceFile(rel);
+    fs.mkdirSync(path.dirname(dest), { recursive: true });
+    const b64 = String(body.b64 || '').replace(/^data:[^;]+;base64,/, '');
+    fs.writeFileSync(dest, Buffer.from(b64, 'base64'));
+    send(res, 200, { ok: true, path: rel });
     return;
   }
 
@@ -504,6 +729,7 @@ async function handleInternal(req, res, url) {
 /** One-time startup (cache dir, default settings, catalog). */
 export function initTmV2() {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
+  fs.mkdirSync(RECORDINGS_DIR, { recursive: true });
   if (!fs.existsSync(SETTINGS_FILE)) writeSettings({});
   ensureConfigured().catch((err) => console.error(err));
 }
@@ -525,5 +751,6 @@ export function tmV2StartupLines(port) {
   return [
     `Template Manager: http://localhost:${port}${TM_V2_BASE}`,
     `Local screens: ${CACHE_DIR}`,
+    `Recordings: ${RECORDINGS_DIR}`,
   ];
 }

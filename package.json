@@ -15,6 +15,6 @@
     "demo:test": "pnpm --filter @playwright-smart-vision/demo-tests test:e2e",
     "demo:report": "pnpm --filter @playwright-smart-vision/demo-tests exec playwright show-report",
     "demo:capture": "pnpm --filter @playwright-smart-vision/demo-tests capture",
-    "capture": "pnpm --filter @rickcedwhat/playwright-smart-vision test:e2e --grep=CAPTURE_ONLY_NO_TESTS --pass-with-no-tests"
+    "capture": "pnpm --filter @playwright-smart-vision/demo-tests capture"
   }
 }

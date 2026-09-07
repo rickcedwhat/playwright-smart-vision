@@ -39,16 +39,56 @@
   .config-field input { background: #222; color: #eee; border: 1px solid #444; padding: 6px 8px; border-radius: 4px; font: 13px system-ui,sans-serif; }
   .config-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px; }
   #toast { position: fixed; right: 16px; bottom: 16px; max-width: 360px; background: #4a2020; color: #fcc; border: 1px solid #c66; padding: 10px 12px; border-radius: 6px; display: none; z-index: 20; }
-  .layout { display: grid; grid-template-columns: 280px 1fr min(320px, 25vw); min-height: 0; }
-  aside { overflow: hidden; padding: 10px 8px 12px; border-right: 1px solid #333; background: #181818; display: flex; flex-direction: column; min-height: 0; }
-  .tree { flex: 1; overflow: auto; min-height: 80px; margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+  .layout {
+    --aside-w: 240px;
+    --detail-w: 280px;
+    display: grid;
+    grid-template-columns: var(--aside-w) 5px 1fr 5px var(--detail-w);
+    min-height: 0;
+    min-width: 0;
+  }
+  aside {
+    overflow: hidden;
+    padding: 0;
+    background: #181818;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    min-width: 0;
+  }
+  .explorer-head {
+    flex-shrink: 0;
+    padding: 8px 10px 6px 12px;
+    font: 11px/1 system-ui, sans-serif;
+    color: #888;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .sash {
+    background: #1b1b1b;
+    cursor: col-resize;
+    z-index: 6;
+  }
+  .sash:hover, .sash.dragging { background: #3d6d3d; }
+  .tree {
+    flex: 1;
+    overflow: auto;
+    min-height: 80px;
+    margin: 0;
+    padding: 0 0 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    outline: none;
+  }
   .reset-wrap { position: relative; display: flex; gap: 0; }
   .reset-wrap > button:first-child { border-radius: 4px 0 0 4px; }
   .reset-wrap > button:last-of-type { border-radius: 0 4px 4px 0; border-left: none; padding: 6px 8px; }
   .reset-menu { position: absolute; right: 0; top: 100%; margin-top: 4px; background: #222; border: 1px solid #555; border-radius: 4px; min-width: 180px; display: none; z-index: 30; }
   .reset-menu.open { display: block; }
   .reset-menu button { display: block; width: 100%; text-align: left; background: none; border: none; border-radius: 0; }
-  #detail { border-left: 1px solid #333; background: #181818; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+  #detail { border-left: 1px solid #333; background: #181818; overflow-y: auto; display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  main { min-width: 0; }
   #detailPlaceholder { color: #555; font-size: 12px; text-align: center; margin-top: 48px; }
   #pop { padding: 10px; }
   #pop[hidden], [hidden] { display: none !important; }
@@ -56,14 +96,266 @@
   #popJson { margin: 8px 0 0; max-height: 140px; overflow: auto; padding: 8px; background: #111; border: 1px solid #2a2a2a; border-radius: 4px; font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; color: #ddd; }
   main { overflow: auto; background: #000; position: relative; }
   .row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-  .tree-kids { margin-left: 12px; padding-left: 12px; border-left: 1px solid #3a3a3a; }
-  .tree-row { display: flex; align-items: center; gap: 4px; padding: 3px 4px; border-radius: 3px; cursor: pointer; }
+  .tree-kids { margin: 0; padding-left: 16px; }
+  .tree-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 22px;
+    padding: 0 8px 0 4px;
+    border-radius: 0;
+    cursor: pointer;
+  }
   .tree-row:hover { background: #2a2a2a; }
+  .tree-row.cursor { outline: 1px solid #4a7aaa; outline-offset: -1px; }
   .tree-row .name { user-select: none; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tree-row .twist { width: 1.2em; padding: 0; margin: 0; background: none; border: none; color: #888; cursor: pointer; font: inherit; line-height: 1; flex-shrink: 0; }
-  .tree-row .twist-spacer { width: 1.2em; flex-shrink: 0; }
-  .tree .active { background: #243a24; color: #cfc; }
-  .tree .local .name { color: #8c8; }
+  .tree-row .twist {
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: none;
+    flex-shrink: 0;
+    pointer-events: none;
+  }
+  .tree-row .twist::before {
+    content: '';
+    display: block;
+    width: 0;
+    height: 0;
+    margin: 5px 0 0 5px;
+    border-style: solid;
+    border-width: 4px 0 4px 6px;
+    border-color: transparent transparent transparent #c5c5c5;
+  }
+  .tree-node.open > .tree-row .twist::before {
+    margin: 6px 0 0 4px;
+    border-width: 6px 4px 0 4px;
+    border-color: #c5c5c5 transparent transparent transparent;
+  }
+  .tree-row .twist-spacer { width: 16px; flex-shrink: 0; }
+  .tree-row .icon { width: 16px; height: 16px; flex-shrink: 0; color: #8a8a8a; }
+  .tree-row.dir .icon { color: #dcb67a; }
+  .tree-row.dir-screens .icon { color: #6aa8d8; }
+  .tree-row.dir-recordings .icon { color: #d07070; }
+  .tree-row.file-image .icon { color: #6a9; }
+  .tree-row.file-video .icon { color: #c66; }
+  .tree-row.file-json .icon { color: #cbb06a; }
+  .tree-rename {
+    flex: 1;
+    min-width: 0;
+    background: #111;
+    color: #eee;
+    border: 1px solid #4a7aaa;
+    padding: 0 4px;
+    font: inherit;
+    border-radius: 2px;
+    outline: none;
+  }
+  #treeMenu {
+    position: fixed;
+    z-index: 80;
+    min-width: 160px;
+    background: #252526;
+    border: 1px solid #3c3c3c;
+    box-shadow: 0 8px 24px rgba(0,0,0,.55);
+    padding: 4px 0;
+  }
+  #treeMenu[hidden] { display: none; }
+  #treeMenu button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    border-radius: 0;
+    color: #ddd;
+    padding: 5px 14px;
+    font: 12px/1.3 system-ui, sans-serif;
+  }
+  #treeMenu button:hover { background: #094771; }
+  #treeMenu button:disabled { color: #666; }
+  #recToolbar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: #141414;
+    border-top: 1px solid #2a2a2a;
+    z-index: 16;
+  }
+  #recToolbar[hidden] { display: none; }
+  #recToolbar button {
+    background: #222;
+    border: 1px solid #444;
+    color: #ddd;
+    font: 12px/1 system-ui, sans-serif;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  #recToolbar button:hover { background: #2a2a2a; color: #eee; }
+  #recToolbar.identify-mode #recDrawRegion,
+  #recToolbar.identify-mode #recScan { display: none; }
+  #identifyBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    background: #16202c;
+    border-bottom: 1px solid #2a4a6a;
+    position: sticky;
+    top: 0;
+    z-index: 16;
+  }
+  #identifyBar[hidden] { display: none; }
+  #identifyBar img {
+    width: 80px;
+    height: 52px;
+    object-fit: contain;
+    background: #000;
+    border: 1px solid #3a5a7a;
+    image-rendering: pixelated;
+    flex-shrink: 0;
+  }
+  #identifyBar .identify-kicker {
+    font: 10px/1 system-ui, sans-serif;
+    color: #8ab;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 3px;
+  }
+  #identifyBar .identify-el { font: 13px/1.2 system-ui, sans-serif; color: #eee; }
+  #identifyBar .identify-hint { font: 11px/1.35 system-ui, sans-serif; color: #8a9; margin-top: 3px; }
+  #identifyCancel { margin-left: auto; }
+  #recRegion {
+    position: absolute;
+    border: 2px dashed #6af;
+    background: rgba(80,160,255,.12);
+    pointer-events: none;
+    box-sizing: border-box;
+  }
+  #variantStrip {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 8px;
+    overflow: visible;
+    padding: 8px 10px 12px;
+    background: #141414;
+    border-top: 1px solid #2a2a2a;
+  }
+  #variantStrip[hidden] { display: none; }
+  .variant-hint {
+    flex: 1 0 100%;
+    color: #777;
+    font: 11px/1.35 system-ui, sans-serif;
+  }
+  .variant-card {
+    position: relative;
+    flex: 1 1 180px;
+    max-width: 240px;
+    background: #1c1c1c;
+    border: 1px solid #333;
+    border-radius: 4px;
+    padding: 6px;
+    cursor: pointer;
+  }
+  .variant-card:hover { border-color: #555; }
+  .variant-card.match { border-color: #4a8; }
+  .variant-card.default { box-shadow: inset 0 0 0 1px #5a9; }
+  .variant-badge {
+    position: absolute;
+    left: 8px;
+    bottom: 34px;
+    background: #1e4a2a;
+    color: #bde;
+    font: 10px/1 system-ui, sans-serif;
+    padding: 2px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .variant-star {
+    position: absolute;
+    top: 6px;
+    right: 26px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: rgba(0,0,0,.7);
+    color: #777;
+    font: 12px/18px system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .variant-card.default .variant-star { color: #eca; }
+  .variant-card img {
+    display: block;
+    width: 100%;
+    max-height: 110px;
+    object-fit: contain;
+    background: #000;
+    image-rendering: pixelated;
+  }
+  .variant-card .variant-time {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: rgba(0,0,0,.7);
+    color: #ddd;
+    font: 10px/1 system-ui, sans-serif;
+    padding: 2px 5px;
+    border-radius: 3px;
+    pointer-events: none;
+  }
+  .variant-card .variant-drop {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: none;
+    border-radius: 3px;
+    background: rgba(0,0,0,.7);
+    color: #ccc;
+    font: 12px/18px system-ui, sans-serif;
+    cursor: pointer;
+  }
+  .variant-card .variant-drop:hover { background: #722; color: #fff; }
+  .variant-card input {
+    width: 100%;
+    margin-top: 6px;
+    background: #111;
+    border: 1px solid #444;
+    color: #eee;
+    font: 11px/1.3 system-ui, sans-serif;
+    padding: 3px 5px;
+  }
+  #recPick {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    background: rgba(0,0,0,.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  #recPick[hidden] { display: none; }
+  #recPick .config-card { width: min(420px, 92vw); max-height: 70vh; }
+  #recPickList { overflow: auto; max-height: 40vh; display: flex; flex-direction: column; gap: 4px; }
+  #recPickList button {
+    text-align: left;
+    background: #222;
+    border: 1px solid #333;
+  }
+  .tree .active { background: #094771; color: #fff; }
+  .tree .active .icon { color: #ddd; }
+  .tree .active .twist::before { border-left-color: #ddd; }
+  .tree-node.open > .tree-row.active .twist::before { border-left-color: transparent; border-top-color: #ddd; }
   .stage { position: relative; display: inline-block; min-width: 100%; }
   .stage img { display: block; max-width: 100%; height: auto; }
   .stage img[hidden] { display: none; }
@@ -74,6 +366,13 @@
     white-space: pre; overflow: auto;
   }
   #fileText[hidden] { display: none; }
+  #fileVideo {
+    display: block;
+    max-width: 100%;
+    max-height: calc(100vh - 48px);
+    background: #000;
+  }
+  #fileVideo[hidden] { display: none; }
   #overlays { position: absolute; inset: 0; pointer-events: none; }
   .box, .el-box, .label-box, .section-box { position: absolute; }
   .box, .el-box { pointer-events: auto; cursor: pointer; }
@@ -144,6 +443,19 @@
   .cs-chars-input { background: transparent; border: none; border-bottom: 1px solid #333; color: #9cdcfe; font: 11px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; width: 100%; padding: 0; outline: none; box-sizing: border-box; }
   .cs-chars-input:focus { border-bottom-color: #4a7aaa; }
   .cs-entry .row-actions { display: flex; gap: 6px; }
+  @media (max-width: 860px) {
+    .layout {
+      grid-template-columns: var(--aside-w) 5px 1fr;
+      grid-template-rows: 1fr minmax(160px, 32vh);
+    }
+    #detailSash { display: none; }
+    #detail {
+      grid-column: 1 / -1;
+      grid-row: 2;
+      border-left: none;
+      border-top: 1px solid #2c2c2c;
+    }
+  }
 </style>
 </head>
 <body>
@@ -197,6 +509,20 @@
   <div id="resetMenu" hidden></div>
 </header>
 <div id="toast"></div>
+<div id="treeMenu" hidden>
+  <button type="button" data-act="identify">Identify variants</button>
+  <button type="button" data-act="rename">Rename</button>
+  <button type="button" data-act="delete">Delete</button>
+</div>
+<div id="recPick" hidden>
+  <div class="config-card">
+    <h3 id="recPickTitle">Choose a recording</h3>
+    <div id="recPickList"></div>
+    <div class="config-actions">
+      <button type="button" id="recPickCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div id="configModal" hidden>
   <div class="config-card">
     <h3>Configure Environment</h3>
@@ -212,22 +538,43 @@
     </div>
   </div>
 </div>
-<div class="layout">
-<aside>
-  <div id="tree" class="tree"></div>
+<div class="layout" id="layout">
+<aside id="aside">
+  <div class="explorer-head">Explorer</div>
+  <div id="tree" class="tree" tabindex="0"></div>
 </aside>
+<div class="sash" id="asideSash" role="separator" aria-orientation="vertical"></div>
 <main id="main">
+  <div id="identifyBar" hidden>
+    <img id="identifyRef" alt="saved template">
+    <div>
+      <div class="identify-kicker">Identifying variants</div>
+      <div class="identify-el" id="identifyEl"></div>
+      <div class="identify-hint" id="identifyHint">Extract frames with different looks. We’ll match the one that still looks like this saved template.</div>
+    </div>
+    <button type="button" id="identifyCancel">Cancel</button>
+  </div>
   <div class="stage" id="stage">
     <img id="blank" alt="screen">
     <pre id="fileText" hidden></pre>
+    <video id="fileVideo" controls hidden></video>
+    <div id="recRegion" hidden></div>
     <div id="overlays"></div>
   </div>
+  <div id="recToolbar" hidden>
+    <button type="button" id="recExtract">Extract frame</button>
+    <button type="button" id="recApply" class="primary" hidden>Apply</button>
+    <button type="button" id="recDrawRegion">Draw region</button>
+    <button type="button" id="recScan">Find variants</button>
+  </div>
+  <div id="variantStrip" hidden></div>
   <div id="boxesToolbar" hidden>
     <button type="button" id="toolbarSelect">Select</button>
     <button type="button" id="toolbarDraw">Draw</button>
     <button type="button" id="toolbarErase">Erase</button>
   </div>
 </main>
+<div class="sash" id="detailSash" role="separator" aria-orientation="vertical"></div>
 <div id="detail">
   <div id="projectDefaults">
     <div style="padding:10px 10px 0;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.05em">Project Defaults</div>
@@ -306,6 +653,7 @@
         </div>
         <div class="row-actions" style="margin-top:6px">
           <button type="button" id="popSaveOpts" class="primary">Save options</button>
+          <button type="button" id="popIdentifyVariants">Identify variants…</button>
         </div>
       </div>
       <details>
@@ -335,6 +683,13 @@ let view = 'source';
 let state = { name: '', elements: [], sections: [], boxes: [], labels: [], width: 0, height: 0, names: {}, firstPass: null };
 let selectedScreen = '';
 let selectedFile = '';
+let treeCursorPath = '';
+let variantTarget = { screen: '', element: '' };
+let identifySession = null;
+let draftVariants = [];
+let matchGen = 0;
+let recRegion = null;
+let recDrawing = null;
 let hoverKey = '';
 let pinnedKey = '';
 let selectedPartName = null;
@@ -373,28 +728,83 @@ function handleApiError(err) {
   setStatus(err.message, true);
 }
 
+function screenNameFromPath(p) {
+  const parts = String(p || '').split('/');
+  return parts[0] === 'screens' && parts[1] ? parts[1] : '';
+}
+
+function isRecordingPath(p) {
+  return String(p || '').split('/')[0] === 'recordings';
+}
+
+function fileKind(name) {
+  if (/\.(png|jpe?g|gif|webp)$/i.test(name)) return 'image';
+  if (/\.(webm|mp4|mov)$/i.test(name)) return 'video';
+  if (/\.json$/i.test(name)) return 'json';
+  return 'file';
+}
+
+function svgIcon(d) {
+  return '<svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="' + d + '"/></svg>';
+}
+
+function treeIcon(kind) {
+  if (kind === 'screens') return svgIcon('M1.5 3h8.5v6.5H1.5zm3 7.5h10V16H4.5zM4 8.2h9.2v1.2H4z');
+  if (kind === 'recordings') return svgIcon('M2 3h12v10H2zm3.8 2.2v5.6L10.8 8z');
+  if (kind === 'folder') return svgIcon('M1.5 3.5h5.2l.8 1.2H14.5v7.8H1.5z');
+  if (kind === 'image') return svgIcon('M2 3h12v10H2zm2 8 2.4-3 1.8 2.2L10 8l4 3H4z');
+  if (kind === 'video') return svgIcon('M2 3.5h8.5v9H2zm9.2 2.2 3.3-1.6v8.3l-3.3-1.6z');
+  if (kind === 'json') return svgIcon('M5 2.5c-1.4 0-2 .8-2 2v1.3c0 .7-.4 1.2-1.2 1.2v1c.8 0 1.2.5 1.2 1.2V11.5c0 1.2.6 2 2 2v-1c-.6 0-1-.3-1-1.1V9.2c0-1.1-.6-1.7-1.4-1.7.8 0 1.4-.6 1.4-1.7V4.6c0-.8.4-1.1 1-1.1zm6 0v1c.6 0 1 .3 1 1.1v1.8c0 1.1.6 1.7 1.4 1.7-.8 0-1.4.6-1.4 1.7v1.8c0 .8-.4 1.1-1 1.1v1c1.4 0 2-.8 2-2v-1.3c0-.7.4-1.2 1.2-1.2v-1c-.8 0-1.2-.5-1.2-1.2V4.5c0-1.2-.6-2-2-2z');
+  return svgIcon('M4 1.5h5.2L13 5.3V14.5H4zm5 0v4h4');
+}
+
+function folderKind(p) {
+  if (p === 'screens') return 'screens';
+  if (p === 'recordings') return 'recordings';
+  return 'folder';
+}
+
+function isWorkspaceRoot(p) {
+  return p === 'screens' || p === 'recordings';
+}
+
+function isTemplateImagePath(p) {
+  const parts = String(p || '').split('/');
+  return parts[0] === 'screens' && parts.includes('templates') && isImagePath(p);
+}
+
+function templateRelFromPath(p) {
+  const parts = String(p || '').split('/');
+  const i = parts.indexOf('templates');
+  if (i < 0) return '';
+  return parts.slice(i + 1).join('/');
+}
+
 function listingHtml(rel, listing) {
   let html = '';
   const dirs = listing.dirs || [];
   const files = listing.files || [];
   for (const dir of dirs) {
     const path = rel ? rel + '/' + dir : dir;
-    const screen = path.split('/')[0];
-    const isRoot = !rel;
-    const active = isRoot && path === selectedScreen ? ' active' : '';
+    const screen = screenNameFromPath(path);
+    const kind = folderKind(path);
+    const active = !selectedFile && screen && path === 'screens/' + selectedScreen ? ' active' : '';
     html += '<div class="tree-node" data-path="' + path + '">' +
-      '<div class="tree-row dir' + active + ' local" data-screen="' + screen + '">' +
-      '<button type="button" class="twist" aria-expanded="false" aria-label="expand">▸</button>' +
-      '<span class="name">' + dir + '/</span>' +
+      '<div class="tree-row dir dir-' + kind + active + '" data-screen="' + screen + '">' +
+      '<span class="twist" aria-hidden="true"></span>' +
+      treeIcon(kind) +
+      '<span class="name">' + dir + '</span>' +
       '</div>' +
       '<div class="tree-kids" hidden></div></div>';
   }
   for (const file of files) {
     const path = rel ? rel + '/' + file : file;
-    const screen = path.split('/')[0];
+    const screen = screenNameFromPath(path);
+    const kind = fileKind(file);
     const active = path === selectedFile ? ' active' : '';
-    html += '<div class="tree-row file' + active + ' local" data-path="' + path + '" data-screen="' + screen + '">' +
+    html += '<div class="tree-row file file-' + kind + active + '" data-path="' + path + '" data-screen="' + screen + '">' +
       '<span class="twist-spacer"></span>' +
+      treeIcon(kind) +
       '<span class="name">' + file + '</span></div>';
   }
   return html;
@@ -403,16 +813,35 @@ function listingHtml(rel, listing) {
 async function renderTree() {
   const root = await api('/api/ls?path=');
   treeEl.innerHTML = listingHtml('', root.local);
+  for (const node of treeEl.querySelectorAll(':scope > .tree-node')) {
+    try { await expandNode(node, true); } catch (_) {}
+  }
+  highlightTree();
+}
+
+async function revealTreePath(rel) {
+  const parts = String(rel || '').split('/').filter(Boolean);
+  let prefix = '';
+  for (const part of parts) {
+    prefix = prefix ? prefix + '/' + part : part;
+    const node = treeEl.querySelector('.tree-node[data-path="' + prefix + '"]');
+    if (node) await expandNode(node, true);
+  }
+  treeCursorPath = rel;
+  highlightTree();
 }
 
 function highlightTree() {
   treeEl.querySelectorAll('.tree-row').forEach((el) => {
+    const path = el.classList.contains('file')
+      ? el.dataset.path
+      : (el.parentElement && el.parentElement.dataset.path);
     if (el.classList.contains('file')) {
       el.classList.toggle('active', Boolean(selectedFile) && el.dataset.path === selectedFile);
-      return;
+    } else {
+      el.classList.toggle('active', Boolean(selectedScreen) && !selectedFile && path === 'screens/' + selectedScreen);
     }
-    const path = el.parentElement && el.parentElement.dataset.path;
-    el.classList.toggle('active', path === selectedScreen && !selectedFile);
+    el.classList.toggle('cursor', Boolean(treeCursorPath) && path === treeCursorPath);
   });
 }
 
@@ -460,11 +889,10 @@ async function expandNode(node, open) {
   }
   if (open !== undefined) {
     kids.hidden = !open;
-    if (twist) {
-      twist.textContent = kids.hidden ? '▸' : '▾';
-      twist.setAttribute('aria-expanded', String(!kids.hidden));
-    }
+    node.classList.toggle('open', !kids.hidden);
+    if (twist) twist.setAttribute('aria-expanded', String(!kids.hidden));
   }
+  highlightTree();
   return kids;
 }
 
@@ -1171,6 +1599,7 @@ async function loadScreen(name, opts = {}) {
   if (!name) return;
   selectedScreen = name;
   if (!opts.keepFile) selectedFile = '';
+  if (!opts.keepFile) treeCursorPath = 'screens/' + name;
   pinnedKey = '';
   hoverKey = '';
   stageZoom = 1;
@@ -1211,9 +1640,25 @@ function isImagePath(rel) {
   return /\.(png|jpe?g|gif|webp)$/i.test(rel || '');
 }
 
+function isVideoPath(rel) {
+  return /\.(webm|mp4|mov)$/i.test(rel || '');
+}
+
+function hideVideo() {
+  const videoEl = document.getElementById('fileVideo');
+  if (!videoEl) return;
+  videoEl.pause();
+  videoEl.removeAttribute('src');
+  videoEl.hidden = true;
+  document.getElementById('recToolbar').hidden = true;
+  document.getElementById('recRegion').hidden = true;
+  if (!identifySession) clearDraftVariants();
+}
+
 function showFileMessage(msg) {
   const textEl = document.getElementById('fileText');
   blank.hidden = true;
+  hideVideo();
   overlays.innerHTML = '';
   hidePop();
   textEl.hidden = false;
@@ -1245,6 +1690,21 @@ function highlightJson(json) {
 
 async function renderImage() {
   const textEl = document.getElementById('fileText');
+  const videoEl = document.getElementById('fileVideo');
+  if (selectedFile && isVideoPath(selectedFile)) {
+    blank.hidden = true;
+    textEl.hidden = true;
+    textEl.textContent = '';
+    overlays.innerHTML = '';
+    hidePop();
+    videoEl.hidden = false;
+    document.getElementById('recToolbar').hidden = false;
+    document.getElementById('recToolbar').classList.toggle('identify-mode', !!identifySession);
+    document.getElementById('recRegion').hidden = !recRegion;
+    videoEl.src = TM_BASE + '/file?path=' + encodeURIComponent(selectedFile) + '&t=' + Date.now();
+    return;
+  }
+  hideVideo();
   if (selectedFile && !isImagePath(selectedFile)) {
     blank.hidden = true;
     overlays.innerHTML = '';
@@ -1529,45 +1989,853 @@ stage.addEventListener('pointercancel', () => {
   paint();
 });
 
+async function activateTreeRow(row) {
+  if (!row) return;
+  if (row.classList.contains('file') && row.dataset.path) {
+    const filePath = row.dataset.path;
+    const screen = screenNameFromPath(filePath);
+    selectedFile = filePath;
+    treeCursorPath = filePath;
+    highlightTree();
+    if (screen) {
+      await loadScreen(screen, { keepFile: true, view: 'source', status: filePath });
+      return;
+    }
+    if (isVideoPath(filePath) || isRecordingPath(filePath)) {
+      view = 'source';
+      syncDetectTool();
+    }
+    setStatus(filePath);
+    renderImage();
+    return;
+  }
+  const node = row.closest('.tree-node');
+  const path = node && node.dataset.path;
+  if (!path) return;
+  treeCursorPath = path;
+  selectedFile = '';
+  const kids = node.querySelector(':scope > .tree-kids');
+  try {
+    await expandNode(node, Boolean(kids && kids.hidden));
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+  const screen = screenNameFromPath(path);
+  if (screen && path === 'screens/' + screen) {
+    await loadScreen(screen);
+    return;
+  }
+  highlightTree();
+  setStatus(path);
+}
+
 treeEl.addEventListener('click', async (e) => {
-  const twist = e.target.closest('.twist');
-  if (twist) {
-    const node = twist.closest('.tree-node');
-    if (!node) return;
-    const kids = node.querySelector(':scope > .tree-kids');
+  treeEl.focus({ preventScroll: true });
+  const row = e.target.closest('.tree-row');
+  if (!row) return;
+  try {
+    await activateTreeRow(row);
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
+function visibleTreeRows() {
+  return [...treeEl.querySelectorAll('.tree-row')].filter((el) => el.offsetParent);
+}
+
+function rowPath(row) {
+  if (!row) return '';
+  return row.classList.contains('file')
+    ? row.dataset.path
+    : (row.parentElement && row.parentElement.dataset.path) || '';
+}
+
+treeEl.addEventListener('keydown', async (e) => {
+  const rows = visibleTreeRows();
+  if (!rows.length) return;
+  let idx = rows.findIndex((row) => rowPath(row) === treeCursorPath);
+  if (idx < 0) idx = rows.findIndex((row) => row.classList.contains('active'));
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (idx < 0) idx = 0;
+    else idx = e.key === 'ArrowDown' ? Math.min(rows.length - 1, idx + 1) : Math.max(0, idx - 1);
+    treeCursorPath = rowPath(rows[idx]);
+    highlightTree();
+    rows[idx].scrollIntoView({ block: 'nearest' });
+    return;
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const row = rows[idx] || rows[0];
+    try { await activateTreeRow(row); } catch (err) { setStatus(err.message, true); }
+    return;
+  }
+  if (e.key === 'ArrowRight') {
+    e.preventDefault();
+    const row = rows[idx];
+    if (!row || row.classList.contains('file')) return;
+    const node = row.closest('.tree-node');
+    const kids = node && node.querySelector(':scope > .tree-kids');
+    if (kids && kids.hidden) {
+      try { await expandNode(node, true); } catch (err) { setStatus(err.message, true); }
+    } else if (idx < rows.length - 1) {
+      treeCursorPath = rowPath(rows[idx + 1]);
+      highlightTree();
+    }
+    return;
+  }
+  if (e.key === 'ArrowLeft') {
+    e.preventDefault();
+    const row = rows[idx];
+    if (!row || row.classList.contains('file')) {
+      const parent = row && row.closest('.tree-node');
+      if (parent) {
+        treeCursorPath = parent.dataset.path;
+        highlightTree();
+      }
+      return;
+    }
+    const node = row.closest('.tree-node');
+    const kids = node && node.querySelector(':scope > .tree-kids');
+    if (kids && !kids.hidden) {
+      try { await expandNode(node, false); } catch (err) { setStatus(err.message, true); }
+    } else {
+      const parent = node && node.parentElement && node.parentElement.closest('.tree-node');
+      if (parent) {
+        treeCursorPath = parent.dataset.path;
+        highlightTree();
+      }
+    }
+  }
+  if (e.key === 'F2') {
+    e.preventDefault();
+    const row = rows[idx];
+    const path = rowPath(row);
+    if (path && !isWorkspaceRoot(path)) startRename(row, path);
+    return;
+  }
+  if (e.key === 'Delete') {
+    e.preventDefault();
+    const row = rows[idx];
+    const path = rowPath(row);
+    if (path && !isWorkspaceRoot(path)) deleteTreePath(path);
+  }
+});
+
+const treeMenu = document.getElementById('treeMenu');
+let treeMenuPath = '';
+
+function hideTreeMenu() {
+  treeMenu.hidden = true;
+  treeMenuPath = '';
+}
+
+function showTreeMenu(x, y, path) {
+  treeMenuPath = path;
+  const locked = isWorkspaceRoot(path);
+  const identify = isTemplateImagePath(path);
+  treeMenu.querySelectorAll('button').forEach((btn) => {
+    if (btn.dataset.act === 'identify') {
+      btn.hidden = !identify;
+      btn.disabled = !identify;
+      return;
+    }
+    btn.disabled = locked;
+  });
+  treeMenu.hidden = false;
+  const w = treeMenu.offsetWidth;
+  const h = treeMenu.offsetHeight;
+  treeMenu.style.left = Math.min(x, window.innerWidth - w - 8) + 'px';
+  treeMenu.style.top = Math.min(y, window.innerHeight - h - 8) + 'px';
+}
+
+treeEl.addEventListener('contextmenu', (e) => {
+  const row = e.target.closest('.tree-row');
+  if (!row) return;
+  e.preventDefault();
+  const path = rowPath(row);
+  if (!path) return;
+  treeCursorPath = path;
+  highlightTree();
+  showTreeMenu(e.clientX, e.clientY, path);
+});
+
+document.addEventListener('mousedown', (e) => {
+  if (!treeMenu.hidden && !treeMenu.contains(e.target)) hideTreeMenu();
+});
+
+treeMenu.addEventListener('click', async (e) => {
+  const act = e.target.closest('button')?.dataset.act;
+  const path = treeMenuPath;
+  hideTreeMenu();
+  if (!path || !act) return;
+  const row = visibleTreeRows().find((r) => rowPath(r) === path);
+  if (act === 'rename' && row) startRename(row, path);
+  if (act === 'delete') await deleteTreePath(path);
+  if (act === 'identify') await startIdentifyFromTemplate(path);
+});
+
+function startRename(row, path) {
+  if (!row || isWorkspaceRoot(path)) return;
+  const nameEl = row.querySelector('.name');
+  if (!nameEl || row.querySelector('.tree-rename')) return;
+  const current = path.split('/').pop();
+  const input = document.createElement('input');
+  input.className = 'tree-rename';
+  input.value = current;
+  nameEl.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = async (ok) => {
+    if (done) return;
+    done = true;
+    const next = input.value.trim();
+    if (!ok || !next || next === current) {
+      input.replaceWith(nameEl);
+      return;
+    }
     try {
-      await expandNode(node, Boolean(kids && kids.hidden));
+      const out = await api('/api/fs/rename', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path, name: next }),
+      });
+      if (selectedFile === path) selectedFile = out.path;
+      if (selectedScreen && path === 'screens/' + selectedScreen) selectedScreen = next;
+      if (treeCursorPath === path) treeCursorPath = out.path;
+      setStatus('renamed to ' + next);
+      await renderTree();
+    } catch (err) {
+      input.replaceWith(nameEl);
+      setStatus(err.message, true);
+    }
+  };
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+}
+
+async function deleteTreePath(path) {
+  if (!path || isWorkspaceRoot(path)) return;
+  const label = path.split('/').pop();
+  if (!confirm('Delete "' + label + '"? This cannot be undone.')) return;
+  try {
+    await api('/api/fs/delete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    if (selectedFile === path || selectedFile.startsWith(path + '/')) selectedFile = '';
+    if (selectedScreen && path === 'screens/' + selectedScreen) {
+      selectedScreen = '';
+      state.name = '';
+    }
+    if (treeCursorPath === path || treeCursorPath.startsWith(path + '/')) treeCursorPath = '';
+    setStatus('deleted ' + path);
+    await renderTree();
+    renderImage();
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+}
+
+function recordingDirFromFile(filePath) {
+  const parts = String(filePath || '').split('/');
+  if (parts[0] !== 'recordings' || parts.length < 2) return '';
+  return parts[0] + '/' + parts[1];
+}
+
+function videoFrameToPng(video) {
+  return captureVideoFrame(video).dataUrl;
+}
+
+function captureVideoFrame(video) {
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/png');
+  return {
+    t: video.currentTime || 0,
+    dataUrl,
+    hash: pixelHash(ctx.getImageData(0, 0, canvas.width, canvas.height)),
+  };
+}
+
+function formatVideoTime(t) {
+  const s = Math.max(0, Number(t) || 0);
+  const m = Math.floor(s / 60);
+  const rest = (s % 60).toFixed(1);
+  return m ? m + ':' + String(Math.floor(s % 60)).padStart(2, '0') + (s % 1 ? rest.slice(rest.indexOf('.')) : '') : rest + 's';
+}
+
+function clearDraftVariants() {
+  draftVariants = [];
+  const strip = document.getElementById('variantStrip');
+  strip.hidden = true;
+  strip.innerHTML = '';
+  strip._items = [];
+  syncIdentifyActions();
+}
+
+function readDraftNames() {
+  const strip = document.getElementById('variantStrip');
+  [...strip.querySelectorAll('input[data-idx]')].forEach((input) => {
+    const i = Number(input.dataset.idx);
+    if (draftVariants[i]) draftVariants[i].name = input.value;
+  });
+}
+
+function addDraftVariants(items) {
+  readDraftNames();
+  let added = 0;
+  for (const item of items) {
+    if (!item || !item.dataUrl) continue;
+    if (draftVariants.some((existing) => existing.hash === item.hash)) continue;
+    draftVariants.push(item);
+    added += 1;
+  }
+  renderVariantStrip(draftVariants);
+  return added;
+}
+
+function waitVideoSeek(video) {
+  return new Promise((resolve) => {
+    video.addEventListener('seeked', resolve, { once: true });
+  });
+}
+
+function pixelHash(img) {
+  let h = 0;
+  const step = Math.max(1, Math.floor(img.data.length / 4000) * 4);
+  for (let i = 0; i < img.data.length; i += step) {
+    h = (h * 33 + img.data[i] + img.data[i + 1] * 3 + img.data[i + 2] * 7) >>> 0;
+  }
+  return h;
+}
+
+function captureVideoRegion(video, region) {
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(region.w));
+  canvas.height = Math.max(1, Math.round(region.h));
+  canvas.getContext('2d').drawImage(
+    video,
+    region.x, region.y, region.w, region.h,
+    0, 0, canvas.width, canvas.height,
+  );
+  return { dataUrl: canvas.toDataURL('image/png'), hash: pixelHash(canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height)) };
+}
+
+function videoNativeRegion(video, displayBox) {
+  const rect = video.getBoundingClientRect();
+  const scaleX = video.videoWidth / rect.width;
+  const scaleY = video.videoHeight / rect.height;
+  return {
+    x: displayBox.x * scaleX,
+    y: displayBox.y * scaleY,
+    w: displayBox.w * scaleX,
+    h: displayBox.h * scaleY,
+  };
+}
+
+function layoutRecRegion() {
+  const box = document.getElementById('recRegion');
+  const video = document.getElementById('fileVideo');
+  if (!recRegion || video.hidden) {
+    box.hidden = true;
+    return;
+  }
+  const rect = video.getBoundingClientRect();
+  const stageRect = document.getElementById('stage').getBoundingClientRect();
+  box.hidden = false;
+  box.style.left = (rect.left - stageRect.left + recRegion.display.x) + 'px';
+  box.style.top = (rect.top - stageRect.top + recRegion.display.y) + 'px';
+  box.style.width = recRegion.display.w + 'px';
+  box.style.height = recRegion.display.h + 'px';
+}
+
+document.getElementById('recApply').onclick = saveVariantFrames;
+
+document.getElementById('recExtract').onclick = async () => {
+  const video = document.getElementById('fileVideo');
+  if (video.hidden || !video.videoWidth) {
+    setStatus('open a recording first', true);
+    return;
+  }
+  const shot = captureVideoFrame(video);
+  shot.frameUrl = shot.dataUrl;
+  const added = addDraftVariants([shot]);
+  if (!added) {
+    setStatus('already have that look in the strip');
+    return;
+  }
+  setStatus(identifySession
+    ? 'frame parked — looking for the saved template inside it…'
+    : 'frame parked in the strip — not saved yet');
+  if (identifySession) {
+    try {
+      await matchDraftsToSavedTemplate();
     } catch (err) {
       setStatus(err.message, true);
     }
-    return;
   }
-  const fileRow = e.target.closest('.tree-row.file');
-  if (fileRow && fileRow.dataset.path) {
-    const filePath = fileRow.dataset.path;
-    const screen = fileRow.dataset.screen;
-    const isRootFile = !filePath.includes('/');
-    const isLocal = fileRow.classList.contains('local');
-    selectedFile = filePath;
-    if (!isLocal) {
-      setStatus(filePath + ' — not available locally', true);
-      showFileMessage('Not available locally.');
-      return;
-    }
-    if (isRootFile) {
-      setStatus(filePath);
-      renderImage();
-      return;
-    }
-    if (screen) {
-      loadScreen(screen, { keepFile: true, view: 'source', status: filePath }).catch((err) => setStatus(err.message, true));
-    }
-    return;
-  }
-  const dirRow = e.target.closest('.tree-row.dir');
-  const name = dirRow && dirRow.dataset.screen;
-  if (name) loadScreen(name).catch((err) => setStatus(err.message, true));
+};
+
+document.getElementById('recDrawRegion').onclick = () => {
+  recDrawing = { x0: 0, y0: 0, active: false };
+  document.getElementById('fileVideo').style.cursor = 'crosshair';
+  setStatus('drag on the video to mark the button');
+};
+
+document.getElementById('fileVideo').addEventListener('pointerdown', (e) => {
+  if (!recDrawing) return;
+  const video = e.currentTarget;
+  const rect = video.getBoundingClientRect();
+  recDrawing = {
+    active: true,
+    x0: e.clientX - rect.left,
+    y0: e.clientY - rect.top,
+  };
+  video.setPointerCapture(e.pointerId);
 });
+
+document.getElementById('fileVideo').addEventListener('pointermove', (e) => {
+  if (!recDrawing || !recDrawing.active) return;
+  const video = e.currentTarget;
+  const rect = video.getBoundingClientRect();
+  const x1 = e.clientX - rect.left;
+  const y1 = e.clientY - rect.top;
+  recRegion = {
+    display: {
+      x: Math.min(recDrawing.x0, x1),
+      y: Math.min(recDrawing.y0, y1),
+      w: Math.abs(x1 - recDrawing.x0),
+      h: Math.abs(y1 - recDrawing.y0),
+    },
+  };
+  layoutRecRegion();
+});
+
+document.getElementById('fileVideo').addEventListener('pointerup', (e) => {
+  if (!recDrawing || !recDrawing.active) return;
+  const video = e.currentTarget;
+  const rect = video.getBoundingClientRect();
+  const x1 = e.clientX - rect.left;
+  const y1 = e.clientY - rect.top;
+  const display = {
+    x: Math.min(recDrawing.x0, x1),
+    y: Math.min(recDrawing.y0, y1),
+    w: Math.abs(x1 - recDrawing.x0),
+    h: Math.abs(y1 - recDrawing.y0),
+  };
+  recDrawing = null;
+  video.style.cursor = '';
+  if (display.w < 8 || display.h < 8) {
+    recRegion = null;
+    document.getElementById('recRegion').hidden = true;
+    return;
+  }
+  recRegion = { display, native: videoNativeRegion(video, display) };
+  layoutRecRegion();
+  setStatus('region set — Find variants will crop that area');
+});
+
+document.getElementById('recScan').onclick = async () => {
+  const video = document.getElementById('fileVideo');
+  if (video.hidden) {
+    setStatus('open a recording first', true);
+    return;
+  }
+  const wasPaused = video.paused;
+  video.pause();
+  const duration = video.duration || 0;
+  if (!duration) {
+    setStatus('video is not ready yet', true);
+    return;
+  }
+  const crop = recRegion && recRegion.native;
+  setStatus(crop ? 'scanning cropped region…' : 'sampling unique frames…');
+  const step = Math.max(0.08, duration / 60);
+  const found = [];
+  const start = video.currentTime;
+  for (let t = 0; t <= duration + 0.001; t += step) {
+    video.currentTime = t;
+    await waitVideoSeek(video);
+    const shot = crop
+      ? captureVideoRegion(video, crop)
+      : captureVideoFrame(video);
+    if (!found.some((item) => item.hash === shot.hash)) {
+      found.push({ t, hash: shot.hash, dataUrl: shot.dataUrl });
+    }
+  }
+  video.currentTime = start;
+  if (!wasPaused) video.play().catch(() => {});
+  const added = addDraftVariants(found);
+  setStatus((added ? 'parked ' + added + ' unique frame' + (added === 1 ? '' : 's') : 'no new looks') + ' — not saved yet');
+};
+
+function renderVariantStrip(items) {
+  const strip = document.getElementById('variantStrip');
+  draftVariants = items.slice();
+  const identifying = !!identifySession;
+  if (!items.length && !identifying) {
+    strip.hidden = true;
+    strip.innerHTML = '';
+    strip._items = [];
+    return;
+  }
+  const defaultIdx = identifying && identifySession.defaultIdx != null ? identifySession.defaultIdx : 0;
+  const hint = identifying
+    ? (items.length
+      ? (identifySession.match
+        ? 'Matched the saved template inside a frame. Name the looks and mark the default.'
+        : 'Extract a frame that contains the saved button — it does not have to be an exact full-frame match.')
+      : 'Scrub and extract the different looks.')
+    : 'Not saved yet. Name them, then Apply.';
+  strip.hidden = false;
+  strip.innerHTML = '<div class="variant-hint">' + hint + '</div>' + items.map((item, idx) => {
+    const cls = ['variant-card'];
+    if (item.matched) cls.push('match');
+    if (idx === defaultIdx) cls.push('default');
+    const src = item.cropUrl || item.dataUrl;
+    const badge = item.matched ? '<span class="variant-badge">matches saved</span>' : '';
+    const name = item.name != null && item.name !== '' ? item.name : '';
+    return '<div class="' + cls.join(' ') + '" data-t="' + item.t + '">' +
+      '<img alt="variant" src="' + src + '">' +
+      '<span class="variant-time">' + formatVideoTime(item.t) + '</span>' +
+      '<button type="button" class="variant-star" data-default="' + idx + '" title="Mark default" aria-label="Mark default">★</button>' +
+      '<button type="button" class="variant-drop" data-drop="' + idx + '" aria-label="Remove">×</button>' +
+      badge +
+      '<input type="text" data-idx="' + idx + '" placeholder="name (e.g. loading)" value="' + escHtml(name) + '">' +
+    '</div>';
+  }).join('');
+  strip._items = items;
+  syncIdentifyActions();
+}
+
+function syncIdentifyActions() {
+  const apply = document.getElementById('recApply');
+  if (!apply) return;
+  if (identifySession && draftVariants.length) {
+    apply.hidden = false;
+    apply.textContent = 'Apply to ' + identifySession.element;
+  } else {
+    apply.hidden = true;
+    apply.textContent = 'Apply';
+  }
+}
+
+document.getElementById('variantStrip').addEventListener('click', (e) => {
+  const star = e.target.closest('[data-default]');
+  if (star && identifySession) {
+    e.stopPropagation();
+    readDraftNames();
+    identifySession.defaultIdx = Number(star.dataset.default);
+    renderVariantStrip(draftVariants);
+    return;
+  }
+  const drop = e.target.closest('[data-drop]');
+  if (drop) {
+    e.stopPropagation();
+    readDraftNames();
+    const idx = Number(drop.dataset.drop);
+    draftVariants.splice(idx, 1);
+    if (identifySession) {
+      if (identifySession.match && identifySession.match.idx === idx) identifySession.match = null;
+      else if (identifySession.match && identifySession.match.idx > idx) identifySession.match.idx -= 1;
+      if (identifySession.defaultIdx === idx) identifySession.defaultIdx = draftVariants.findIndex((item) => item.matched);
+      else if (identifySession.defaultIdx > idx) identifySession.defaultIdx -= 1;
+    }
+    renderVariantStrip(draftVariants);
+    return;
+  }
+  if (e.target.closest('input, button')) return;
+  const card = e.target.closest('.variant-card[data-t]');
+  if (!card) return;
+  const video = document.getElementById('fileVideo');
+  if (video.hidden) return;
+  video.currentTime = Number(card.dataset.t) || 0;
+});
+
+async function saveVariantFrames() {
+  const strip = document.getElementById('variantStrip');
+  if (!strip._items) return;
+  readDraftNames();
+  const names = [...strip.querySelectorAll('input[data-idx]')].map((input) => input.value.trim());
+  const missing = names.findIndex((name) => !name);
+  if (missing !== -1) {
+    setStatus('name every look before applying', true);
+    return;
+  }
+  if (identifySession && !identifySession.match) {
+    setStatus('extract a frame that matches the saved template first', true);
+    return;
+  }
+  const variants = strip._items.map((item, i) => ({
+    name: names[i] || ('state-' + (i + 1)),
+    b64: item.cropUrl || item.dataUrl,
+  }));
+  const defaultName = identifySession && variants[identifySession.defaultIdx]
+    ? variants[identifySession.defaultIdx].name
+    : variants[0].name;
+  try {
+    if (identifySession && identifySession.screen && identifySession.element) {
+      const out = await api('/api/element-variants', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: identifySession.screen,
+          element: identifySession.element,
+          default: defaultName,
+          variants,
+        }),
+      });
+      const folder = 'screens/' + identifySession.screen + '/templates/' + (out.folder || kebabClient(identifySession.element));
+      setStatus('saved variants for ' + identifySession.element + ': ' + (out.variants || []).join(', '));
+      endIdentifySession();
+      await renderTree();
+      await revealTreePath(folder);
+      return;
+    }
+    const dir = recordingDirFromFile(selectedFile);
+    if (!dir) {
+      setStatus('nothing to apply to — start from a template first', true);
+      return;
+    }
+    for (const item of variants) {
+      const rel = dir + '/variant-' + item.name.replace(/[^a-zA-Z0-9._-]+/g, '-') + '.png';
+      await api('/api/fs/write', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ path: rel, b64: item.b64 }),
+      });
+    }
+    setStatus('saved ' + variants.length + ' variant frames in ' + dir);
+    clearDraftVariants();
+    await renderTree();
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+}
+
+function templateFileUrl(screen, rel) {
+  return TM_BASE + '/file?path=' + encodeURIComponent('screens/' + screen + '/templates/' + rel) + '&t=' + Date.now();
+}
+
+function cropDataUrl(dataUrl, rect) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const x = Math.max(0, Math.round(rect.x));
+      const y = Math.max(0, Math.round(rect.y));
+      const w = Math.min(img.width - x, Math.round(rect.w));
+      const h = Math.min(img.height - y, Math.round(rect.h));
+      if (w < 2 || h < 2) {
+        resolve(dataUrl);
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext('2d').drawImage(img, x, y, w, h, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => reject(new Error('could not crop frame'));
+    img.src = dataUrl;
+  });
+}
+
+function beginIdentifySession({ screen, element, templateRel }) {
+  draftVariants = [];
+  identifySession = { screen, element, templateRel, match: null, defaultIdx: 0 };
+  variantTarget = identifySession;
+  document.getElementById('identifyEl').textContent = element;
+  document.getElementById('identifyRef').src = templateFileUrl(screen, templateRel);
+  document.getElementById('identifyHint').textContent =
+    'Extract frames with different looks. We’ll match the one that still looks like this saved template.';
+  document.getElementById('identifyBar').hidden = false;
+  document.getElementById('recToolbar').classList.add('identify-mode');
+  document.getElementById('recPickTitle').textContent = 'Identify variants for ' + element;
+  renderVariantStrip(draftVariants);
+}
+
+function endIdentifySession() {
+  identifySession = null;
+  variantTarget = { screen: '', element: '' };
+  matchGen += 1;
+  document.getElementById('identifyBar').hidden = true;
+  document.getElementById('recToolbar').classList.remove('identify-mode');
+  document.getElementById('recPickTitle').textContent = 'Choose a recording';
+  clearDraftVariants();
+}
+
+async function cropDraftsToMatch() {
+  const rect = identifySession && identifySession.match && identifySession.match.rect;
+  if (!rect) return;
+  for (const item of draftVariants) {
+    if (!item.frameUrl) item.frameUrl = item.dataUrl;
+    item.cropUrl = await cropDataUrl(item.frameUrl, rect);
+  }
+}
+
+async function matchDraftsToSavedTemplate() {
+  if (!identifySession || !identifySession.templateRel || !draftVariants.length) return;
+  const gen = ++matchGen;
+  const out = await api('/api/locate-template', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      name: identifySession.screen,
+      template: identifySession.templateRel,
+      frames: draftVariants.map((item) => item.frameUrl || item.dataUrl),
+    }),
+  });
+  if (gen !== matchGen) return;
+  const results = Array.isArray(out.results) ? out.results : [out];
+  let best = null;
+  for (let i = 0; i < draftVariants.length; i++) {
+    const item = draftVariants[i];
+    const hit = results[i] || {};
+    item.confidence = hit.confidence || 0;
+    item.matched = false;
+    if ((hit.confidence || 0) < 0.45) continue;
+    if (!best || hit.confidence > best.confidence) {
+      best = { i, confidence: hit.confidence, x: hit.x, y: hit.y, width: hit.width, height: hit.height };
+    }
+  }
+  if (!best) {
+    identifySession.match = null;
+    renderVariantStrip(draftVariants);
+    const top = Math.max(0, ...draftVariants.map((item) => item.confidence || 0));
+    setStatus('saved template not found inside these frames' + (top ? ' (best ' + Math.round(top * 100) + '%)' : ''));
+    return;
+  }
+  draftVariants[best.i].matched = true;
+  identifySession.match = {
+    idx: best.i,
+    confidence: best.confidence,
+    rect: { x: best.x, y: best.y, w: best.width, h: best.height },
+  };
+  if (identifySession.defaultIdx == null || !draftVariants[identifySession.defaultIdx]) {
+    identifySession.defaultIdx = best.i;
+  }
+  await cropDraftsToMatch();
+  if (gen !== matchGen) return;
+  renderVariantStrip(draftVariants);
+  setStatus('found saved ' + identifySession.element + ' in the ' + formatVideoTime(draftVariants[best.i].t) +
+    ' frame (' + Math.round(best.confidence * 100) + '%) — cropped the others');
+}
+
+async function startIdentifyFromTemplate(filePath) {
+  const screen = screenNameFromPath(filePath);
+  if (!screen) {
+    setStatus('identify variants needs a template under screens/', true);
+    return;
+  }
+  if (state.name !== screen) {
+    await loadScreen(screen, { keepFile: true, view: 'source', status: filePath });
+  }
+  const rel = templateRelFromPath(filePath);
+  const el = (state.elements || []).find((item) => {
+    if (item.filename === rel) return true;
+    if (item.variants && Object.values(item.variants).some((v) => v.filename === rel)) return true;
+    const base = String(item.filename || item.name || '').replace(/\.png$/i, '');
+    return base && (rel === base + '.png' || rel.startsWith(base + '/') || rel.startsWith(kebabClient(item.name) + '/'));
+  });
+  if (!el) {
+    setStatus('could not match that PNG to an element in index.json', true);
+    return;
+  }
+  beginIdentifySession({ screen, element: el.name, templateRel: rel || el.filename || '' });
+  openIdentifyVariants();
+}
+
+function kebabClient(name) {
+  return String(name || '')
+    .replace(/([a-z])([A-Z])/g, '$1-$2')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase();
+}
+
+async function openIdentifyVariants() {
+  const list = document.getElementById('recPickList');
+  const modal = document.getElementById('recPick');
+  list.innerHTML = '<div class="muted">Loading…</div>';
+  modal.hidden = false;
+  try {
+    const data = await api('/api/ls?path=recordings');
+    const dirs = (data.local && data.local.dirs) || [];
+    if (!dirs.length) {
+      list.innerHTML = '<div class="muted">No recordings yet. Use the FAB Record button first.</div>';
+      return;
+    }
+    list.innerHTML = dirs.map((dir) => '<button type="button" data-rec="' + dir + '">' + dir + '</button>').join('');
+  } catch (err) {
+    list.innerHTML = '<div class="muted">' + escHtml(err.message) + '</div>';
+  }
+}
+
+document.getElementById('identifyCancel').onclick = () => {
+  endIdentifySession();
+  setStatus('identify cancelled');
+};
+
+document.getElementById('recPickCancel').onclick = () => {
+  document.getElementById('recPick').hidden = true;
+  if (identifySession && !draftVariants.length) {
+    const video = document.getElementById('fileVideo');
+    if (video.hidden) endIdentifySession();
+  }
+};
+
+document.getElementById('recPickList').addEventListener('click', async (e) => {
+  const btn = e.target.closest('button[data-rec]');
+  if (!btn) return;
+  document.getElementById('recPick').hidden = true;
+  const rec = btn.dataset.rec;
+  try {
+    const listing = await api('/api/ls?path=' + encodeURIComponent('recordings/' + rec));
+    const video = ((listing.local && listing.local.files) || []).find((name) => isVideoPath(name));
+    if (!video) throw new Error('that recording has no video file');
+    selectedFile = 'recordings/' + rec + '/' + video;
+    treeCursorPath = selectedFile;
+    await renderTree();
+    renderImage();
+    renderVariantStrip(draftVariants);
+    setStatus(identifySession
+      ? 'identifying ' + identifySession.element + ' — extract the different looks'
+      : 'extract frames as you scrub — nothing is saved until Apply');
+  } catch (err) {
+    setStatus(err.message, true);
+  }
+});
+
+document.getElementById('popIdentifyVariants').onclick = () => {
+  const name = currentScreen();
+  const element = document.getElementById('popName').textContent;
+  if (!name || !element) {
+    setStatus('select an element first', true);
+    return;
+  }
+  const el = (state.elements || []).find((item) => item.name === element);
+  beginIdentifySession({
+    screen: name,
+    element,
+    templateRel: (el && (el.filename || (el.variants && Object.values(el.variants)[0] && Object.values(el.variants)[0].filename))) || '',
+  });
+  openIdentifyVariants();
+};
+
+document.getElementById('fileVideo').addEventListener('loadeddata', () => {
+  layoutRecRegion();
+});
+window.addEventListener('resize', layoutRecRegion);
 
 document.getElementById('saveSettings').onclick = async () => {
   try {
@@ -1843,6 +3111,43 @@ document.getElementById('configEnvName').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('configSave').click();
   if (e.key === 'Escape') closeConfigure();
 });
+
+function bindSash(sash, cssVar, opts) {
+  if (!sash) return;
+  sash.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    sash.classList.add('dragging');
+    sash.setPointerCapture(e.pointerId);
+    const layout = document.getElementById('layout');
+    const startX = e.clientX;
+    const start = parseFloat(getComputedStyle(layout).getPropertyValue(cssVar)) || opts.min;
+    const move = (ev) => {
+      const dx = opts.invert ? startX - ev.clientX : ev.clientX - startX;
+      const next = Math.min(opts.max, Math.max(opts.min, start + dx));
+      layout.style.setProperty(cssVar, next + 'px');
+    };
+    const up = () => {
+      sash.classList.remove('dragging');
+      sash.removeEventListener('pointermove', move);
+      sash.removeEventListener('pointerup', up);
+      try { localStorage.setItem('tm' + cssVar, layout.style.getPropertyValue(cssVar)); } catch (_) {}
+    };
+    sash.addEventListener('pointermove', move);
+    sash.addEventListener('pointerup', up);
+  });
+}
+
+(function restorePanes() {
+  const layout = document.getElementById('layout');
+  try {
+    const asideW = localStorage.getItem('tm--aside-w');
+    const detailW = localStorage.getItem('tm--detail-w');
+    if (asideW) layout.style.setProperty('--aside-w', asideW);
+    if (detailW) layout.style.setProperty('--detail-w', detailW);
+  } catch (_) {}
+  bindSash(document.getElementById('asideSash'), '--aside-w', { min: 160, max: 480, invert: false });
+  bindSash(document.getElementById('detailSash'), '--detail-w', { min: 200, max: 520, invert: true });
+})();
 
 updateEnvDisplay();
 </script>
